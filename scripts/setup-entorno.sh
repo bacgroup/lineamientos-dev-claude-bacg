@@ -8,6 +8,9 @@ set -euo pipefail
 
 REPO="https://github.com/bacgroup/lineamientos-dev-claude-bacg"
 DEST="${BACG_LINEAMIENTOS_DIR:-$HOME/lineamientos-bacg}"
+# En la nube, el entorno ya clona este repo junto a los del proyecto: esa es la copia que se commitea y pushea, y el
+# plugin la usa primero. La de $DEST queda de respaldo (sesiones locales o un entorno sin el repo).
+ENTORNO="${BACG_LINEAMIENTOS_ENTORNO:-/home/user/lineamientos-dev-claude-bacg}"
 
 if [ -d "$DEST/.git" ]; then
   git -C "$DEST" pull --ff-only --quiet || echo "aviso: no pude actualizar $DEST"
@@ -18,7 +21,7 @@ fi
 node --version | grep -qE '^v(2[2-9]|[3-9][0-9])' || echo "aviso: el plugin necesita Node 22 o más"
 
 mkdir -p "$HOME/.claude"
-DEST="$DEST" node -e '
+DEST="$DEST" ENTORNO="$ENTORNO" node -e '
 const fs = require("fs"), path = require("path"), os = require("os");
 const dir = path.join(os.homedir(), ".claude");
 const leer = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return {}; } };
@@ -30,6 +33,6 @@ s.extraKnownMarketplaces = { ...(s.extraKnownMarketplaces || {}),
 s.enabledPlugins = { ...(s.enabledPlugins || {}),
   "bacg-dev@lineamientos-bacg": true, "superpowers@superpowers-marketplace": true };
 fs.writeFileSync(f, JSON.stringify(s, null, 2) + "\n");
-fs.writeFileSync(path.join(dir, "bacg-dev.json"), JSON.stringify({ lineamientosDir: process.env.DEST }, null, 2) + "\n");
+fs.writeFileSync(path.join(dir, "bacg-dev.json"), JSON.stringify({ lineamientosDir: [process.env.ENTORNO, process.env.DEST] }, null, 2) + "\n");
 '
-echo "lineamientos-bacg listo en $DEST; plugin bacg-dev habilitado en ~/.claude/settings.json"
+echo "bacg-dev habilitado; lineamientos: $ENTORNO (si existe) o $DEST"

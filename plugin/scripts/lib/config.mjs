@@ -5,12 +5,20 @@ import { spawnSync } from 'node:child_process';
 import yaml from '../vendor/js-yaml.mjs';
 
 // Ruta de la copia de trabajo de lineamientos:
-// BACG_LINEAMIENTOS_DIR > ~/.claude/bacg-dev.json (lineamientosDir) > default por plataforma.
+// BACG_LINEAMIENTOS_DIR > ~/.claude/bacg-dev.json (lineamientosDir: una ruta o una lista; vale la primera que existe)
+// > default por plataforma. La lista sirve en la nube: primero el repo que el entorno clona junto a los del proyecto
+// (el que se commitea y pushea), y como respaldo la copia del setup.
 export function dirLineamientos({ env = process.env, home = os.homedir(), platform = process.platform } = {}) {
   if (env.BACG_LINEAMIENTOS_DIR) return env.BACG_LINEAMIENTOS_DIR;
   try {
     const cfg = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'bacg-dev.json'), 'utf8'));
-    if (cfg && typeof cfg.lineamientosDir === 'string' && cfg.lineamientosDir) return cfg.lineamientosDir;
+    const v = cfg?.lineamientosDir;
+    if (typeof v === 'string' && v) return v;
+    if (Array.isArray(v)) {
+      const rutas = v.filter((x) => typeof x === 'string' && x);
+      const existe = rutas.find((x) => fs.existsSync(path.join(x, 'proyectos')));
+      if (existe ?? rutas[0]) return existe ?? rutas[0];
+    }
   } catch {
     // archivo ausente o inválido: se sigue con el default
   }

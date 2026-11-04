@@ -105,3 +105,14 @@ test('rutaBacklog: con configuración en el repo es docs/backlog.md', () => {
   assert.equal(rutaBacklog('/lin', 'remoto', repo), path.join(repo, 'docs', 'backlog.md'));
   assert.equal(rutaBacklog('/lin', 'remoto', null), path.join('/lin', 'proyectos', 'remoto', 'backlog.md'));
 });
+
+test('dirLineamientos: lineamientosDir como lista toma la primera copia que existe', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-lista-'));
+  const real = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-real-'));
+  fs.mkdirSync(path.join(real, 'proyectos'));
+  fs.mkdirSync(path.join(home, '.claude'));
+  fs.writeFileSync(path.join(home, '.claude', 'bacg-dev.json'), JSON.stringify({ lineamientosDir: ['/no/existe', real] }));
+  assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), real);
+  fs.writeFileSync(path.join(home, '.claude', 'bacg-dev.json'), JSON.stringify({ lineamientosDir: ['/no/existe', '/tampoco'] }));
+  assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), '/no/existe');
+});

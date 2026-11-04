@@ -23,6 +23,14 @@ el plugin los reconoce por su dirección en GitHub, declarada en `proyectos/<id>
 2. Compartir el entorno con el equipo. Cada sesión arranca con las reglas, el backlog y las compuertas del proyecto.
 3. Mejoras de lineamientos o del plugin: PR a este repo; la próxima sesión las toma sola.
 
+## Entorno y sesiones
+
+- El **entorno** es la plantilla (repos, setup, red): uno por proyecto, se configura una vez.
+- Cada **sesión** es una máquina nueva creada desde el entorno: una por tarea o RQ. Es descartable; sólo queda lo que se
+  pushea a GitHub (código en los repos del producto; backlog, ADR y reglas en este repo).
+- En la sesión, los lineamientos que usa el plugin son los de `/home/user/lineamientos-dev-claude-bacg` (el repo del
+  entorno): lo que el ciclo de RQ escribe ahí se commitea y pushea desde ese repo al cerrar.
+
 ## PC local
 
 Correr una vez `scripts/setup-entorno.sh` (Git Bash en Windows) con `gh auth login` hecho con una cuenta que vea

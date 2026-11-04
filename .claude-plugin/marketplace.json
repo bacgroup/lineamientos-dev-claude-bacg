@@ -8,7 +8,7 @@
       "name": "bacg-dev",
       "description": "Núcleo de cómo trabajamos: ciclo de RQ, compuertas y lineamientos por proyecto.",
       "source": "./plugin",
-      "version": "2.1.0"
+      "version": "2.1.1"
     }
   ]
 }

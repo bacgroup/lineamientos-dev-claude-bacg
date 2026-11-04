@@ -1,6 +1,6 @@
 {
   "name": "bacg-dev",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Núcleo de cómo trabajamos: ciclo de RQ, compuertas y lineamientos por proyecto.",
   "author": { "name": "BACG" },
   "license": "UNLICENSED"
