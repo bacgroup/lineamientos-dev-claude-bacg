@@ -105,7 +105,8 @@ export function conArchivos(comando, archivos) {
 
 /** Pista cuando el proyecto todavía no declara tests. */
 export const PISTA_SIN_TESTS =
-  'Si este proyecto todavía no tiene tests, pedile al usuario que autorice `rq.mjs saltar commit "<sus palabras>" "sin tests todavía"`.';
+  'Los tests corren en la PC de cada dev: declaralos en ~/.claude/bacg-dev.json ({"proyectos": {"<id>": {"tests": {"unit": "<comando> {archivos}", "e2e": "<comando> {specs}"}}}}). ' +
+  'Si el proyecto todavía no tiene tests, pedile al usuario que autorice `rq.mjs saltar commit "<sus palabras>" "sin tests todavía"`.';
 
 /** Últimas `n` líneas de la salida de un comando, sin códigos ANSI (lo que se muestra cuando algo falla). */
 export function cola(salida, n = 60) {

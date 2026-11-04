@@ -39,7 +39,7 @@ import { norm } from './contexto.mjs';
 import { rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad, migracionesEnSync } from './circuito.mjs';
 import { faltaParaEtapa } from './requisitos.mjs';
-import { ramasProd } from './stack.mjs';
+import { ramasProd, ramasSoloPr } from './stack.mjs';
 
 // Opciones de `git push` que consumen el siguiente argumento.
 const CON_VALOR_PUSH = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
@@ -1014,11 +1014,19 @@ function destino(op, dirLin, ctx) {
   );
   // Falla cerrada: un repo que no figura en proyecto.repos, o sin push_prod explícito en false, es PROD; con
   // ramas_prod, sólo si la rama destino es una de ellas o no se puede resolver.
+  // Ramas sólo por PR: un push directo cuya rama destino se resuelve y es una de ellas.
+  let soloPr = null;
+  const conPr = op.op === 'push' ? ramasSoloPr(proyecto, entrada) : [];
+  if (conPr.length) {
+    const ds = ramasDestino(op, repo.raiz, ctx) ?? [];
+    soloPr = ds.find((d) => conPr.includes(d)) ?? null;
+  }
   return {
     raiz: repo.raiz,
     proyecto,
     nombre: entrada ? entrada.nombre : nombre,
     prod: publicaEnProd(op, repo.raiz, proyecto, entrada, ctx),
+    soloPr,
   };
 }
 
@@ -1159,7 +1167,9 @@ export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
       if (destinos[i]?.inesperado) throw destinos[i].inesperado;
       if (op.op === 'escritura') r = deny(op.motivo);
       else if (op.op === 'frase') r = evaluarFrase(op, ctx);
-      else r = op.op === 'commit' ? evaluarCommit(op, ctx, dirLin) : evaluarPublicacion(op, destinos[i], ctx);
+      else if (op.op === 'push' && destinos[i]?.soloPr) {
+        r = deny(`${destinos[i].nombre}: ${destinos[i].soloPr} sólo recibe cambios por PR. Pusheá tu rama (git push -u origin <rama>) y abrí un PR a ${destinos[i].soloPr} (gh pr create --base ${destinos[i].soloPr}).`);
+      } else r = op.op === 'commit' ? evaluarCommit(op, ctx, dirLin) : evaluarPublicacion(op, destinos[i], ctx);
     } catch (e) {
       r = deny(`No se pudo evaluar ${op.op} (${resumirError(e)})`);
     }

@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { evaluarBash, ramasDestino, publicaEnProd } from '../plugin/scripts/lib/compuerta-bash.mjs';
-import { motorDatos, globsMigraciones, esMigracion, basesProd, autoresExternos, ramasProd, baseDelRepo, lineaStack, AUTORES_LOVABLE } from '../plugin/scripts/lib/stack.mjs';
+import { ramasSoloPr, motorDatos, globsMigraciones, esMigracion, basesProd, autoresExternos, ramasProd, baseDelRepo, lineaStack, AUTORES_LOVABLE } from '../plugin/scripts/lib/stack.mjs';
 import { corresponde } from '../plugin/scripts/lib/circuito.mjs';
 import { rutaQueImpide } from '../plugin/scripts/lib/no-aplica.mjs';
 import { seccionAgents } from '../plugin/scripts/lib/agents.mjs';
@@ -286,4 +286,25 @@ test('rq.mjs saltar acepta la compuerta ui', () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /Salto de la compuerta ui registrado/);
   assert.equal(cargarEstado(raiz, 'R-U1').saltos.at(-1).compuerta, 'ui');
+});
+
+test('ramas_solo_pr: push directo a 18.0-dev se niega y pide PR; push de la rama propia y merge del PR siguen', () => {
+  const dirLin = fs.mkdtempSync(path.join(os.tmpdir(), 'lin '));
+  fs.mkdirSync(path.join(dirLin, 'proyectos', 'erp'), { recursive: true });
+  fs.writeFileSync(path.join(dirLin, 'proyectos', 'erp', 'proyecto.yml'), PROY('ramas_solo_pr: ["18.0-dev"]\n'));
+  const raiz = repoConUpstream('erp-app', '18.0-dev');
+  const estado = {
+    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 4, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
+    tests: { ok: true, arbol: 'x' }, revision: { ok: true },
+  };
+  guardarEstado(raiz, estado);
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-1\n');
+  const ev = (comando, ctx = {}) => evaluarBash({ comando, cwd: raiz, ctx: { textosUsuario: [], ...ctx }, dirLin });
+  const r = ev('git push');
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /18\.0-dev sólo recibe cambios por PR.*gh pr create --base 18\.0-dev/);
+  assert.equal(ev('git push origin HEAD:18.0-dev').decision, 'deny');
+  assert.deepEqual(ev('git push -u origin HEAD:rq/R-1'), { decision: 'allow', critica: false }, 'rama propia del RQ');
+  assert.equal(ev('gh pr merge 12 --merge', { basePr: () => '18.0-dev' }).decision, 'allow', 'el merge del PR a DEV sigue la etapa 4');
+  assert.deepEqual(ramasSoloPr({ ramas_solo_pr: ['18.0-dev'] }, { nombre: 'x', ramas_solo_pr: [] }), [], 'el repo manda');
 });

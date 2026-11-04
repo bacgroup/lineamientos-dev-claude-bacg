@@ -1,8 +1,11 @@
 # Changelog
 
-## Sin publicar: trabajo local como camino principal (2026-11-04)
+## 2.2.0: trabajo local y convergencia por PR (2026-11-04)
 
-- `docs/ENTORNOS.md`: cada dev trabaja en local y el equipo converge en la rama de DEV de cada proyecto; la nube queda como opcional (sus límites: repos por sesión y plugins sólo desde la biblioteca de la organización). No cambia el código del plugin.
+- Tests por PC: `~/.claude/bacg-dev.json` → `proyectos.<id>.tests` manda sobre `proyecto.yml` (cada dev corre los tests con su entorno local). La pista sin tests dice dónde declararlos y el arranque de sesión dice qué tests usa.
+- `ramas_solo_pr` (por proyecto o repo): un push directo a esas ramas se niega y se pide un PR; el merge del PR sigue sus compuertas. PowerFy: `18.0-dev`.
+- PowerFy: rama propia por RQ y PR obligatorio a `18.0-dev`; sus comandos de tests salen de `proyecto.yml` (van a la PC de cada dev).
+- `docs/ENTORNOS.md`: trabajo local como camino principal; la nube queda opcional.
 
 ## 2.1.1: una sola copia de lineamientos en la nube (2026-11-04)
 

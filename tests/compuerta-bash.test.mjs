@@ -782,10 +782,9 @@ test('M8: proyecto sin comandos de tests -> el deny del commit sugiere el salto 
   activar(raiz, base());
   const r = evaluarBash({ comando: 'git commit -m x', cwd: raiz, ctx: { textosUsuario: [] }, dirLin });
   assert.equal(r.decision, 'deny');
-  assert.equal(
-    r.motivo,
-    `${MSG_TESTS} Si este proyecto todavía no tiene tests, pedile al usuario que autorice \`rq.mjs saltar commit "<sus palabras>" "sin tests todavía"\`.`,
-  );
+  assert.ok(r.motivo.startsWith(MSG_TESTS), r.motivo);
+  assert.match(r.motivo, /~\/\.claude\/bacg-dev\.json/, 'dice dónde declarar los tests de la PC');
+  assert.ok(r.motivo.endsWith('Si el proyecto todavía no tiene tests, pedile al usuario que autorice `rq.mjs saltar commit "<sus palabras>" "sin tests todavía"`.'), r.motivo);
   // con tests declarados, el motivo no cambia
   const r2 = (() => {
     const otro = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });

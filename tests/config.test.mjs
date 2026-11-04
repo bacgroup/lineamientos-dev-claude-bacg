@@ -116,3 +116,17 @@ test('dirLineamientos: lineamientosDir como lista toma la primera copia que exis
   fs.writeFileSync(path.join(home, '.claude', 'bacg-dev.json'), JSON.stringify({ lineamientosDir: ['/no/existe', '/tampoco'] }));
   assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), '/no/existe');
 });
+
+test('cargarProyecto: los tests de ~/.claude/bacg-dev.json mandan sobre los de proyecto.yml (cada dev en su PC)', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-tests-'));
+  const lin = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-tests-'));
+  fs.mkdirSync(path.join(lin, 'proyectos', 'pf'), { recursive: true });
+  fs.writeFileSync(path.join(lin, 'proyectos', 'pf', 'proyecto.yml'), 'id: pf\ntests:\n  unit: "compartido"\n  e2e: "e2e-compartido"\n');
+  assert.equal(cargarProyecto('pf', lin, null, { home }).tests.unit, 'compartido', 'sin ajustes locales');
+  fs.mkdirSync(path.join(home, '.claude'));
+  fs.writeFileSync(path.join(home, '.claude', 'bacg-dev.json'), JSON.stringify({ proyectos: { pf: { tests: { unit: 'mi-unit {archivos}' } } } }));
+  const py = cargarProyecto('pf', lin, null, { home });
+  assert.equal(py.tests.unit, 'mi-unit {archivos}');
+  assert.equal(py.tests.e2e, 'e2e-compartido', 'lo que la PC no declara queda');
+  assert.deepEqual(py.tests_locales, ['unit']);
+});

@@ -75,7 +75,8 @@ for (const p of registrados) {
     );
 
     assert.equal(py.tests.cobertura_cambios_min, 80);
-    assert.ok(typeof py.tests.unit === 'string' && py.tests.unit.length > 0, 'tests.unit debe ser un string no vacío');
+    // Los comandos los declara cada PC (~/.claude/bacg-dev.json); en proyecto.yml pueden quedar vacíos.
+    assert.ok(typeof py.tests.unit === 'string', 'tests.unit debe ser un string');
   });
 
   test(`${p}: resumen.md ≤ 2000 y backlog.md con encabezado`, () => {

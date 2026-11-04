@@ -227,7 +227,7 @@ test('registrar-tests: sin comandos definidos sale 1 con mensaje', async () => {
   assert.match(r.err, /El proyecto no declara comandos de tests en proyecto\.yml\./);
   // M8: sugiere el salto de commit con las palabras del usuario
   assert.ok(
-    r.err.includes('Si este proyecto todavía no tiene tests, pedile al usuario que autorice `rq.mjs saltar commit "<sus palabras>" "sin tests todavía"`.'),
+    r.err.includes('Si el proyecto todavía no tiene tests, pedile al usuario que autorice `rq.mjs saltar commit "<sus palabras>" "sin tests todavía"`.'),
     r.err,
   );
   assert.equal(cargarEstado(raiz, 'R-1').tests, null);

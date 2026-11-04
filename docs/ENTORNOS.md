@@ -19,14 +19,33 @@ proyecto. Los lineamientos, reglas y backlog viven en un solo repo central (`bac
    `~/lineamientos-bacg` (o `C:\MiCarpeta\lineamientos-bacg`) y habilita `bacg-dev` y `superpowers` en
    `~/.claude/settings.json`.
 4. Clonar los repos del proyecto **uno junto al otro**, en la misma carpeta (así el plugin vincula los RQ que tocan
-   varios repos). Para PowerFy, además, levantar el entorno local de Odoo del proyecto.
+   varios repos). Para PowerFy, además, levantar tu entorno local de Odoo.
+5. **Declarar cómo corrés los tests en tu PC**, en `~/.claude/bacg-dev.json` (mandan sobre `proyecto.yml`):
+
+   ```json
+   {
+     "lineamientosDir": "C:/MiCarpeta/lineamientos-bacg",
+     "proyectos": {
+       "powerfy": {
+         "tests": {
+           "unit": "node \"C:/ruta/a/tu/qa/odoo-test.mjs\" {archivos}",
+           "e2e": "node \"C:/ruta/a/tu/qa/e2e.mjs\" {specs}",
+           "e2e_url": "http://localhost:8070"
+         }
+       }
+     }
+   }
+   ```
+
+   `{archivos}` = lo que está en stage; `{specs}` = los E2E del RQ. El arranque de sesión dice qué tests usa.
 
 ## Flujo diario
 
 1. Abrir Claude Code en el repo del proyecto: el arranque muestra el proyecto, el RQ activo y el stack.
 2. `/bacg-rq <código>` o pedir el cambio: el ciclo de RQ guía diseño, desarrollo con tests y revisión.
-3. Converger: push a una rama propia y PR a la rama de DEV (o push a la rama de DEV, según `reglas.md` del proyecto).
-   El plugin exige tests y revisión antes; PROD pide además el OK explícito.
+3. Tests en tu PC, con tu entorno local. Después, converger: push de tu rama (`rq/<código>`) y **PR a la rama de
+   DEV** (PowerFy: `18.0-dev`). El push directo a esa rama está bloqueado (`ramas_solo_pr`); el merge del PR exige tests
+   y revisión. El deploy a DEV junta los cambios de todos; PROD pide además el OK explícito.
 4. Al cerrar el RQ, el backlog se actualiza en la copia local de este repo: **commitear y pushear este repo** para
    que el resto del equipo lo vea (`git pull --rebase` antes, por si otro cerró un RQ al mismo tiempo).
 

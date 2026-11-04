@@ -77,6 +77,18 @@ export function ramasProd(proyecto, entradaRepo) {
   return null;
 }
 
+/**
+ * Ramas que sólo reciben cambios por PR (`ramas_solo_pr`, por repo o por proyecto): un `git push` directo a ellas se
+ * niega y se pide abrir un PR; el merge del PR (gh pr merge) sigue sus compuertas normales. [] si no se declaró.
+ */
+export function ramasSoloPr(proyecto, entradaRepo) {
+  for (const x of [entradaRepo?.ramas_solo_pr, proyecto?.ramas_solo_pr]) {
+    if (Array.isArray(x)) return lista(x).map((s) => s.trim());
+    if (typeof x === 'string' && x.trim()) return [x.trim()];
+  }
+  return [];
+}
+
 /** Base de PROD de un repo (una sede con su propia base): `base` o, en la grafía de Supabase, `supabase_ref`. */
 export function baseDelRepo(entradaRepo) {
   const b = entradaRepo?.base ?? entradaRepo?.supabase_ref;
@@ -102,6 +114,8 @@ export function lineaStack(proyecto) {
     `PROD ${ramas ? `= push o merge a ${ramas.join(', ')}` : conRamas ? '= las ramas_prod de cada repo' : '= todo push a un repo con push_prod'}`,
     `DEV ${devTxt || 'sin declarar'}`,
     `MCP de PROD: ${Array.isArray(proyecto.mcp_prod) && proyecto.mcp_prod.length ? proyecto.mcp_prod.map((m) => `${m?.servidor} (${m?.tipo ?? 'generico'})`).join(', ') : 'ninguno declarado'}`,
+    `tests: ${Array.isArray(proyecto.tests_locales) && proyecto.tests_locales.length ? `los de esta PC (${proyecto.tests_locales.join(', ')})` : proyecto.tests?.unit ? 'los de proyecto.yml' : 'sin declarar en esta PC (~/.claude/bacg-dev.json)'}`,
+    `PR obligatorio a: ${ramasSoloPr(proyecto, null).join(', ') || 'ninguna rama'}`,
     `agentes sin el plugin: ${externos ? (lovable ? 'Lovable' : 'los de agentes_externos') : 'ninguno declarado'}.`,
   ].join(' · ');
 }

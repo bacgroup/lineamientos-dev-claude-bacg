@@ -1,12 +1,13 @@
-# Contrato de Powerfy ERP (Odoo 18 CE). Esquema viejo: vive acá hasta que nlopez-bacg tenga escritura en bacgroup;
-# entonces se mueve a .bacg-dev/ de powerfy-docker (ver resumen.md). Infra: powerfy-docker/docs/AMBIENTES.md.
+# Contrato de Powerfy ERP (Odoo 18 CE). Vive en el repo central de lineamientos; los repos de PowerFy no llevan archivos
+# del plugin (se reconocen por su remoto bacgroup/<nombre>). Infra: powerfy-docker/docs/AMBIENTES.md.
 
 id: powerfy
 nombre: Powerfy ERP
 cuenta_github: bacgroup                # se opera con la cuenta gh nlopez-bacg (nkick25: invitar como colaborador si opera Powerfy)
 
-# Todo cambio entra por 18.0-dev (sin feature branches) y despliega a DEV; PROD es el fast-forward 18.0-dev → 18.0.
-# ruta_local: clones del workspace levantado con powerfy-local/setup-powerfy-local.ps1.
+# Cada dev trabaja en una rama propia (rq/<código>) y entra a 18.0-dev sólo por PR (ramas_solo_pr): ahí convergen los
+# cambios de todos y despliega a DEV. PROD es el fast-forward 18.0-dev → 18.0.
+# ruta_local: los de la PC de Nico; en otra PC no hace falta si los repos están clonados uno junto al otro.
 repos:
   - { nombre: powerfy-docker, rol: padre, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-docker" }   # build, CI y deploy
   - { nombre: powerfy-addons, rol: addons, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-addons" }
@@ -21,6 +22,7 @@ datos:
   aplicar: "Las aplica Odoo al actualizar el módulo (-u) en el deploy de la imagen 18.0"
 
 ramas_prod: ["18.0"]
+ramas_solo_pr: ["18.0-dev"]           # push directo a 18.0-dev: no; PR a 18.0-dev: sí
 
 # Conectores MCP de PROD (PLG-MCP): completar con el segmento real de mcp__<servidor>__ de cada conector.
 # mcp_prod:
@@ -67,13 +69,13 @@ sensible:
   rutas: ["**/security/**", "**/ir.model.access.csv", "**/powerfy_security/**", "**/powerfy_roles/**",
           ".github/workflows/**", "Dockerfile*", "docker-compose*.yml", "config/**", "nginx/**", "**/migrations/**"]
 
-# PLG-NUBE: cuando qa/ esté en powerfy-docker, cambiar unit/e2e a "node \"{repo:powerfy-docker}/qa/odoo-test.mjs\" {archivos}" (corre en la nube y en cualquier PC).
-# Infraestructura en "C:/MiCarpeta/Odoo DEVs/PowerFy/qa" (README.md ahí; workspace movido desde C:/powerfy el 2026-10-30); se mueve a powerfy-docker/qa/ cuando haya escritura en bacgroup.
+# Los tests los corre cada dev en su PC, con su entorno local de Odoo: cada uno declara sus comandos en
+# ~/.claude/bacg-dev.json (proyectos.powerfy.tests), que mandan sobre estos. Acá queda lo común a todos.
 tests:
-  unit: "node \"C:/MiCarpeta/Odoo DEVs/PowerFy/qa/odoo-test.mjs\" {archivos}"   # tests de Odoo de los módulos en stage, base powerfy_test; --completo = CI
+  unit: ""                             # en tu PC: tests de Odoo de los módulos en stage ({archivos}); --completo = CI
   rojos_conocidos: []
   componentes: ""                      # tests JS/tours de Odoo: la imagen no trae Chrome; lo cubre el E2E
   sql: ""                              # no aplica: los modelos se prueban en unit
-  e2e: "node \"C:/MiCarpeta/Odoo DEVs/PowerFy/qa/e2e.mjs\" {specs}"   # Playwright contra Odoo propio en 8070, base powerfy_e2e recreada por corrida
+  e2e: ""                              # en tu PC: Playwright contra tu Odoo local ({specs} = los del RQ)
   e2e_url: "http://localhost:8070"
   cobertura_cambios_min: 80            # todavía sin medición (coverage.py no está en la imagen)

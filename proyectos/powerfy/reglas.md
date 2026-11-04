@@ -16,7 +16,8 @@ Reglas propias de Powerfy. Lo general vive en `general/`; acá va sólo lo que c
 
 ## Reglas de negocio
 
-- Todo cambio de código entra por `18.0-dev` y se verifica en DEV antes de promover: DEV es el único lugar donde se prueba con la imagen real.
+- Cada dev trabaja en local en una rama propia (`rq/<código>`), con sus tests corriendo en su PC.
+- **A `18.0-dev` se entra sólo por PR** (el plugin niega el push directo): ahí convergen los cambios de todos y se verifica en DEV, el único lugar con la imagen real. Un merge que sólo toca repos de addons no dispara `deploy-dev.yml`: correrlo a mano.
 - Módulo nuevo → `TEST_MODULES` (sin `/`) y `TEST_TAGS` (con `/`) en `deploy.yml` y `deploy-dev.yml`: si falta, el CI no lo prueba.
 - Traducciones de `arch_db` por SQL (`jsonb_build_object`), no por ORM con `lang`: el ORM pisa los otros idiomas.
 - No inicializar una DB con el servicio `odoo` corriendo: la concurrencia rompe con `UniqueViolation`.

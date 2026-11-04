@@ -124,10 +124,33 @@ export function carpetaProyecto(id, dirLin, raiz) {
   return configEnRepo(raiz) ? path.join(raiz, CARPETA_REPO) : path.join(dirLin, 'proyectos', id);
 }
 
-export function cargarProyecto(id, dir, raiz) {
+export function cargarProyecto(id, dir, raiz, { home = os.homedir() } = {}) {
   const archivo = path.join(carpetaProyecto(id, dir, raiz), 'proyecto.yml');
   if (!fs.existsSync(archivo)) throw new Error(`Proyecto ${id} no registrado en ${dir}/proyectos`);
-  return yaml.load(fs.readFileSync(archivo, 'utf8'));
+  return conLocal(yaml.load(fs.readFileSync(archivo, 'utf8')), id, home);
+}
+
+/**
+ * Ajustes de esta PC sobre el proyecto compartido: los tests los corre cada dev en su máquina, con su entorno local.
+ * ~/.claude/bacg-dev.json:
+ *   { "proyectos": { "powerfy": { "tests": { "unit": "node \"C:/mi/qa/odoo-test.mjs\" {archivos}", "e2e": "...", "e2e_url": "..." } } } }
+ * Las claves de `tests` que declara la PC mandan sobre las de proyecto.yml; el resto queda como está.
+ */
+export function ajustesLocales(id, home = os.homedir()) {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'bacg-dev.json'), 'utf8'));
+    const p = cfg?.proyectos?.[id];
+    return p && typeof p === 'object' && !Array.isArray(p) ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+function conLocal(proyecto, id, home) {
+  const local = ajustesLocales(id, home);
+  if (!local || !proyecto || typeof proyecto !== 'object') return proyecto;
+  const tests = local.tests && typeof local.tests === 'object' && !Array.isArray(local.tests) ? local.tests : null;
+  return tests ? { ...proyecto, tests: { ...(proyecto.tests ?? {}), ...tests }, tests_locales: Object.keys(tests) } : proyecto;
 }
 
 /**
