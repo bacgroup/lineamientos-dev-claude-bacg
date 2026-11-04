@@ -14,6 +14,14 @@ repos:
   - { nombre: powerfy-bi,     rol: addons, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-bi" }
   - { nombre: powerfy-l10n,   rol: addons, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-l10n" }
 
+# Stack (handoff 2026-10-29, P1): Odoo, migraciones de módulos; PROD es sólo la rama 18.0 (18.0-dev es DEV).
+datos:
+  motor: odoo
+  migraciones: ["**/migrations/**"]
+  aplicar: "Las aplica Odoo al actualizar el módulo (-u) en el deploy de la imagen 18.0"
+
+ramas_prod: ["18.0"]
+
 entornos:
   local:
     app: "http://localhost:8069"       # docker compose -f "C:/MiCarpeta/Odoo DEVs/PowerFy/docker-compose.local.yml", base `powerfy`

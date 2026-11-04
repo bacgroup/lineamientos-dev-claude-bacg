@@ -3,6 +3,7 @@
 Fecha: 2026-10-29 · Versión instalada: **0.7.0** · Origen: alta de Powerfy (`proyectos/powerfy/`, esquema viejo)
 
 > **Estado (2026-10-30, plugin 0.8.0):** P1, P2, P3, P4 y P5.1 implementados de forma genérica: el plugin no toma la arquitectura de Powerfy, sino que suma opciones de stack en `proyecto.yml` (`datos`, `ramas_prod`, `entornos.prod.bases`, `agentes_externos`, `tests.shell`), con Supabase + Lovable como valor por defecto. Ver CHANGELOG 0.8.0.
+> **Actualización (2026-11-04):** aplicados en `proyectos/powerfy/` el stack (`datos` odoo, `ramas_prod: ["18.0"]`) y el canon P6 en `reglas.md`.
 > Pendiente: **P5.2** (RQ multi-repo con estado compartido), en otra versión. **P6** (canon de UI) es de `proyectos/powerfy/reglas.md` y se documenta desde la cuenta de BACG. Para aprovechar P1 en Powerfy, su `proyecto.yml` necesita `ramas_prod: ["18.0"]` y `datos: { motor: odoo, migraciones: ["**/migrations/**"] }`.
 
 ## Contexto

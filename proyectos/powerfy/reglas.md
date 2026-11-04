@@ -9,6 +9,10 @@ Reglas propias de Powerfy. Lo general vive en `general/`; acá va sólo lo que c
 - Overrides Owl del POS en `powerfy_theme` (bundle `point_of_sale._assets_pos`); plantillas server-side del POS en `powerfy_theme_pos`.
 - Website: editar la vista COW con `website_id=1`, no la genérica. QWeb: `{{...}}`, nunca `#{...}`. Formularios con `data-model_name="crm.lead"`.
 - Sitio y producto bilingües es_419 / en_US; español primario.
+- Color semántico de acciones: **verde = guardar o confirmar, rojo = descartar o borrar**. El coral de marca no se usa para acciones destructivas, ni el rojo para confirmar.
+- Íconos de interfaz: sólo Lucide. Ícono sin texto sólo en móvil o en acciones universales (engranaje, paginador), siempre con `aria-label` y tooltip.
+- Íconos de apps: la imagen que trae cada módulo (`web_icon`), sin modificar el archivo, dentro de un marco con estilo Powerfy.
+- Toda pantalla se revisa en escritorio y en móvil (Odoo usa plantillas distintas, p. ej. el menú de apps), con captura y alineada con los componentes vecinos de la misma barra.
 
 ## Reglas de negocio
 
