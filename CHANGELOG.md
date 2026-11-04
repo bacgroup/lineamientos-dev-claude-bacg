@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0: el plugin se llama como el repositorio (2026-11-04)
+
+Incompatible con 2.x: hay que reinstalar.
+- Plugin y marketplace: `lineamientos-dev-claude-bacg` (antes `bacg-dev` y `lineamientos-bacg`). Instalación: `lineamientos-dev-claude-bacg@lineamientos-dev-claude-bacg`; skills: `lineamientos-dev-claude-bacg:<skill>`.
+- Copia de lineamientos por defecto: `~/lineamientos-dev-claude-bacg` o `C:\MiCarpeta\lineamientos-dev-claude-bacg` (la carpeta que crea `gh repo clone`).
+- Sin cambios: comandos `/bacg-rq` y `/bacg-estado`, `~/.claude/bacg-dev.json`, `BACG_LINEAMIENTOS_DIR`, `.bacg-lineamientos` y `.bacg-dev/`.
+
 ## 2.2.0: trabajo local y convergencia por PR (2026-11-04)
 
 - Tests por PC: `~/.claude/bacg-dev.json` → `proyectos.<id>.tests` manda sobre `proyecto.yml` (cada dev corre los tests con su entorno local). La pista sin tests dice dónde declararlos y el arranque de sesión dice qué tests usa.

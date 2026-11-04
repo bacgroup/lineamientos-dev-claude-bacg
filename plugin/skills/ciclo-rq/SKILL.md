@@ -97,21 +97,21 @@ En orden, cada una sólo si aporta:
 4. La skill de la base del stack (`datos.motor`), si toca base de datos: `supabase-postgres-best-practices` en Supabase o Postgres; en otro motor, su documentación vía `context7` y las reglas del proyecto.
 5. Skill "claude-security:claude-security": si toca seguridad o rutas de `sensible`.
 6. `feature-dev:code-architect`: si atraviesa varios módulos.
-7. `bacg-dev:decision-arq`: si sale una decisión duradera (ADR).
+7. `lineamientos-dev-claude-bacg:decision-arq`: si sale una decisión duradera (ADR).
 
 Resultado: `docs/rq/<código>/arq.md` de una página (contexto, opciones y trade-offs, decisión, atributos de calidad afectados, riesgos, ADR). Entra a `brainstorming` como dato.
 
 ## 4. Refuerzos obligatorios
 
 **UI** (archivos de `ui.patrones`), en todo RQ y BUG, también los bounded: "bounded" no habilita un diseño exprés. La compuerta de edición pide:
-- `bacg-dev:diseno-frontend` siempre, y seguí su orden (canon primero);
-- `bacg-dev:redesign-existing-projects` si el archivo ya existe (pantalla existente: se audita antes de cambiarla);
+- `lineamientos-dev-claude-bacg:diseno-frontend` siempre, y seguí su orden (canon primero);
+- `lineamientos-dev-claude-bacg:redesign-existing-projects` si el archivo ya existe (pantalla existente: se audita antes de cambiarla);
 - además, las de `ui.skills` / `ui.reglas` de `proyecto.yml`, que se suman a estas;
 - la sección `## Diseño` en `docs/rq/<código>/spec.md` con el entregable de `diseno-frontend`: canon que aplica, dirección, auditoría, estados, revisión en móvil y alineación con los componentes vecinos.
 
 **Cambio menor** (un texto, un ícono, un tooltip o un espaciado puntual; sin componentes nuevos, sin cambiar el layout ni lo que se ve en móvil, sin tocar un estilo compartido): antes de cargar nada, preguntale al usuario en el chat, con texto, si omite el refuerzo. No uses botones: la compuerta sólo acepta sus palabras. Si acepta: `$RQ saltar ui "<su frase>" "<motivo>"`, y se sigue pidiendo sólo el canon del proyecto. Ante la duda, no lo propongas.
 
-`bacg-dev:design-taste-frontend` (~22 k tokens) va sólo donde el proyecto lo declara (landing, marca). La base de todo cambio de UI que no sea menor es `emil-design-eng` (componentes e interacción), `mobile-native` (móvil) y, si hay pantalla o componente nuevo o más de una dirección, proponerle al usuario `/prototype` (el agente no puede invocarla). El detalle y las skills de apoyo por caso (`break-ui`, `pick-ui-library`) están en `diseno-frontend`. Una skill cargada queda en el RQ y vale para subagentes y otras sesiones. Lo que el usuario pide explícitamente sobre la UI (por ejemplo, "color acorde al sentido de la acción") es criterio de aceptación: anotalo en el spec y verificalo en la captura.
+`lineamientos-dev-claude-bacg:design-taste-frontend` (~22 k tokens) va sólo donde el proyecto lo declara (landing, marca). La base de todo cambio de UI que no sea menor es `emil-design-eng` (componentes e interacción), `mobile-native` (móvil) y, si hay pantalla o componente nuevo o más de una dirección, proponerle al usuario `/prototype` (el agente no puede invocarla). El detalle y las skills de apoyo por caso (`break-ui`, `pick-ui-library`) están en `diseno-frontend`. Una skill cargada queda en el RQ y vale para subagentes y otras sesiones. Lo que el usuario pide explícitamente sobre la UI (por ejemplo, "color acorde al sentido de la acción") es criterio de aceptación: anotalo en el spec y verificalo en la captura.
 
 **E2E live** (todo RQ y BUG): al menos un flujo de Playwright Test que recorre el cambio en la app levantada (`entornos.local` o la preview de `entornos.dev`), no en jsdom. En un BUG, el flujo reproduce el síntoma: rojo antes del arreglo, verde después. Traza y capturas a `docs/rq/<código>/qa/`. `$RQ verificar` corre `tests.e2e` de `proyecto.yml` (con `E2E_URL`/`BASE_URL` = `tests.e2e_url`) y lo registra. Si el comando trae `{specs}`, corre sólo los specs del RQ (o los que le pases) mientras desarrollás; antes de PROD, `$RQ verificar --completo`; sin E2E en verde la compuerta no deja publicar código. Sólo se omite si el usuario lo dice con sus palabras y el cambio no tiene superficie de app: `$RQ saltar e2e "<frase>" "<motivo>"`.
 

@@ -8,17 +8,17 @@ import yaml from '../plugin/scripts/vendor/js-yaml.mjs';
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leerJson = (ruta) => JSON.parse(readFileSync(join(raiz, ruta), 'utf8'));
 
-test('marketplace.json declara el plugin bacg-dev', () => {
+test('marketplace.json declara el plugin lineamientos-dev-claude-bacg', () => {
   const m = leerJson('.claude-plugin/marketplace.json');
-  assert.equal(m.name, 'lineamientos-bacg');
-  const p = m.plugins.find((x) => x.name === 'bacg-dev');
-  assert.ok(p, 'falta el plugin bacg-dev');
+  assert.equal(m.name, 'lineamientos-dev-claude-bacg');
+  const p = m.plugins.find((x) => x.name === 'lineamientos-dev-claude-bacg');
+  assert.ok(p, 'falta el plugin lineamientos-dev-claude-bacg');
   assert.equal(p.source, './plugin');
 });
 
 test('plugin.json tiene nombre y versión semver', () => {
   const p = leerJson('plugin/.claude-plugin/plugin.json');
-  assert.equal(p.name, 'bacg-dev');
+  assert.equal(p.name, 'lineamientos-dev-claude-bacg');
   assert.match(p.version, /^\d+\.\d+\.\d+$/);
 });
 

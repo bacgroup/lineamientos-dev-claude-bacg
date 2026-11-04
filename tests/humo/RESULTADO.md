@@ -1,15 +1,15 @@
-# Prueba de humo — bacg-dev 0.1.0
+# Prueba de humo — lineamientos-dev-claude-bacg 0.1.0
 
 Fecha: 2026-10-23. Claude Code 2.1.236, Windows 11, Node 24.
 
 ## Qué se probó y cómo
 
-- El plugin **no** se instaló en la configuración global. Se cargó por sesión con `--plugin-dir C:\MiCarpeta\lineamientos-bacg\plugin`.
-- Repo demo en el scratchpad de la sesión: `...\scratchpad\humo\demo-app` (git, rama `main`, sin remoto), con `.bacg-lineamientos` = `proyecto: demo`, `src/lib/x.ts` y un commit inicial. `BACG_LINEAMIENTOS_DIR=C:\MiCarpeta\lineamientos-bacg\tests\fixtures\lineamientos` (proyecto `demo` del fixture).
+- El plugin **no** se instaló en la configuración global. Se cargó por sesión con `--plugin-dir C:\MiCarpeta\lineamientos-dev-claude-bacg\plugin`.
+- Repo demo en el scratchpad de la sesión: `...\scratchpad\humo\demo-app` (git, rama `main`, sin remoto), con `.bacg-lineamientos` = `proyecto: demo`, `src/lib/x.ts` y un commit inicial. `BACG_LINEAMIENTOS_DIR=C:\MiCarpeta\lineamientos-dev-claude-bacg\tests\fixtures\lineamientos` (proyecto `demo` del fixture).
 - Comando base de cada sesión:
 
   ```
-  claude -p "<prompt>" --plugin-dir "C:\MiCarpeta\lineamientos-bacg\plugin" --model haiku --output-format json --permission-mode acceptEdits --allowedTools "Edit,Write,Read"
+  claude -p "<prompt>" --plugin-dir "C:\MiCarpeta\lineamientos-dev-claude-bacg\plugin" --model haiku --output-format json --permission-mode acceptEdits --allowedTools "Edit,Write,Read"
   ```
 
 ### Limitación: el modelo no llegó a correr
@@ -27,11 +27,11 @@ Para las compuertas se corrió el hook `PreToolUse` **con el mismo comando de `h
 ## Paso 1 — validación de manifiestos
 
 ```
-claude plugin validate C:\MiCarpeta\lineamientos-bacg\plugin
+claude plugin validate C:\MiCarpeta\lineamientos-dev-claude-bacg\plugin
   Validating plugin manifest: ...\plugin\.claude-plugin\plugin.json
   ✔ Validation passed
 
-claude plugin validate C:\MiCarpeta\lineamientos-bacg
+claude plugin validate C:\MiCarpeta\lineamientos-dev-claude-bacg
   Validating marketplace manifest: ...\.claude-plugin\marketplace.json
   ✔ Validation passed
 ```
@@ -43,9 +43,9 @@ Veredicto: **OK**, sin errores ni avisos.
 Sesión `938f5a2f-…` (la del caso a). Adjunto `hook_additional_context` de `SessionStart` en el transcript:
 
 ```
-# Lineamientos (bacg-dev): proyecto demo
+# Lineamientos (lineamientos-dev-claude-bacg): proyecto demo
 
-CLI del RQ: node "C:\MiCarpeta\lineamientos-bacg\plugin\scripts\rq.mjs" (usá esta ruta exacta donde la skill ciclo-rq dice $RQ).
+CLI del RQ: node "C:\MiCarpeta\lineamientos-dev-claude-bacg\plugin\scripts\rq.mjs" (usá esta ruta exacta donde la skill ciclo-rq dice $RQ).
 ...
 RQ activo: ninguno.
 
@@ -57,7 +57,7 @@ Faltan plugins requeridos. Pedile al usuario que corra:
 Y el de `UserPromptSubmit`:
 
 ```
-Proyecto demo. RQ activo: ninguno. Antes de cambiar código o base: skill bacg-dev:ciclo-rq (...). Registrá cada aprobación con rq.mjs aprobar.
+Proyecto demo. RQ activo: ninguno. Antes de cambiar código o base: skill lineamientos-dev-claude-bacg:ciclo-rq (...). Registrá cada aprobación con rq.mjs aprobar.
 ```
 
 Veredicto: **OK**. La ruta inyectada es absoluta y existe. No se pudo hacer la pregunta al modelo ("¿Qué dice el contexto de arranque sobre el CLI del RQ?") por la autenticación; la verificación es sobre el contexto que Claude Code registró como inyectado.
@@ -130,7 +130,7 @@ Veredicto: **permitida, como se esperaba**. El lector del transcript reconoce el
 | Caso | Esperado | Resultado |
 |---|---|---|
 | validate plugin + marketplace | sin errores | OK |
-| ruta del CLI en el arranque | absoluta | OK (`C:\MiCarpeta\lineamientos-bacg\plugin\scripts\rq.mjs`) |
+| ruta del CLI en el arranque | absoluta | OK (`C:\MiCarpeta\lineamientos-dev-claude-bacg\plugin\scripts\rq.mjs`) |
 | (a) edición sin RQ | deny | deny |
 | (b) aprobación inventada | deny | deny |
 | (c) push sin etapa 4 | deny | deny |

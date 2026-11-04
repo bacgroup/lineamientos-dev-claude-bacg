@@ -23,7 +23,7 @@ export function seccionAgents(proyecto) {
   const pasos = (Array.isArray(p.circuito_prod) ? p.circuito_prod : []).map((c) => c?.paso).filter(Boolean);
   const l = [
     INICIO,
-    '## Cómo trabajamos (bacg-dev): vale para cualquier agente, Lovable incluido',
+    '## Cómo trabajamos (lineamientos-dev-claude-bacg): vale para cualquier agente, Lovable incluido',
     '',
     `Proyecto ${p.nombre ?? p.id ?? ''} (${codigo(p.id ?? '?')}). Antes de cambiar código leé ${codigo('.bacg-dev/reglas.md')}${canon ? ` y, si tocás pantallas, el canon de UI ${codigo(canon)}` : ''}. Si una regla de abajo choca con una del proyecto, manda la del proyecto.`,
     '',

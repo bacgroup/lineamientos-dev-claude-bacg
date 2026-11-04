@@ -498,10 +498,10 @@ test('session-start avisa si la copia de trabajo del plugin es más nueva que la
   const lin = tmp('lin como-');
   fs.cpSync(DIR_LIN, lin, { recursive: true });
   fs.mkdirSync(path.join(lin, 'plugin', '.claude-plugin'), { recursive: true });
-  fs.writeFileSync(path.join(lin, 'plugin', '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'bacg-dev', version: '0.10.0' }));
+  fs.writeFileSync(path.join(lin, 'plugin', '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'lineamientos-dev-claude-bacg', version: '0.10.0' }));
   const instalado = tmp('instalado como-');
   fs.mkdirSync(path.join(instalado, '.claude-plugin'));
-  fs.writeFileSync(path.join(instalado, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'bacg-dev', version: '0.9.3' }));
+  fs.writeFileSync(path.join(instalado, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'lineamientos-dev-claude-bacg', version: '0.9.3' }));
   const out = sessionStart(raiz, { ...ENV, BACG_LINEAMIENTOS_DIR: lin, CLAUDE_PLUGIN_ROOT: instalado });
   assert.match(out.hookSpecificOutput.additionalContext, /0\.10\.0.*0\.9\.3/);
   const igual = sessionStart(raiz, { ...ENV, BACG_LINEAMIENTOS_DIR: lin, CLAUDE_PLUGIN_ROOT: path.join(lin, 'plugin') });
@@ -572,7 +572,7 @@ test('user-prompt: sin RQ activo recuerda una sola vez por sesión; con RQ activ
   assert.equal(sin.hookEventName, 'UserPromptSubmit');
   assert.equal(
     sin.additionalContext,
-    'Proyecto demo, sin RQ activo. Para cambiar código o base: skill bacg-dev:ciclo-rq. Docs, tests y consultas no necesitan RQ.',
+    'Proyecto demo, sin RQ activo. Para cambiar código o base: skill lineamientos-dev-claude-bacg:ciclo-rq. Docs, tests y consultas no necesitan RQ.',
   );
   assert.equal(userPrompt(raiz, sesion), null, 'segunda vez en la misma sesión');
   abrirRq(raiz, { etapa: 3 });

@@ -634,7 +634,7 @@ function registrarCierre(repo, codigo, estado, proyecto, { resumen, alcance, sin
 function agents(repo, env, io) {
   const proyecto = exigirProyecto(repo, env);
   const r = escribirAgents(repo.raiz, seccionAgents(proyecto));
-  io.stdout.write(`AGENTS.md: sección de bacg-dev ${r}. Es documentación: se commitea sin RQ.\n`);
+  io.stdout.write(`AGENTS.md: sección de lineamientos-dev-claude-bacg ${r}. Es documentación: se commitea sin RQ.\n`);
 }
 
 /** Lista los commits de Lovable sin revisar; con --cerrar mueve la marca y anota la revisión en el log. */

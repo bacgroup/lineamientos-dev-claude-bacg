@@ -1,12 +1,12 @@
 # Cómo trabaja el equipo de BACG
 
-Principio: **cada desarrollador trabaja en local** con el plugin `bacg-dev`, y el equipo **converge en Git**: ramas y
+Principio: **cada desarrollador trabaja en local** con el plugin `lineamientos-dev-claude-bacg`, y el equipo **converge en Git**: ramas y
 PR hacia la rama de DEV de cada proyecto, que despliega al entorno de DEV; de ahí, a PROD según el circuito del
 proyecto. Los lineamientos, reglas y backlog viven en un solo repo central (`bacgroup/lineamientos-dev-claude-bacg`).
 
 | Pieza | Dónde vive | ¿Toca el repo del producto? |
 |---|---|---|
-| Plugin `bacg-dev` (compuertas, ciclo de RQ, skills) | `plugin/` de este repo | No |
+| Plugin `lineamientos-dev-claude-bacg` (compuertas, ciclo de RQ, skills) | `plugin/` de este repo | No |
 | Contrato, reglas y backlog de cada proyecto | `proyectos/<id>/` | No |
 | Qué repos son de cada proyecto | `cuenta_github` + `repos[].nombre` en `proyecto.yml` (el plugin los reconoce por su remoto) | No |
 | Dónde convergen los cambios | La rama de DEV del proyecto (PowerFy: `18.0-dev` → dev.powerfy.cloud) | Es el flujo normal de Git |
@@ -16,7 +16,7 @@ proyecto. Los lineamientos, reglas y backlog viven en un solo repo central (`bac
 1. `gh auth login` con una cuenta que vea la org `bacgroup`.
 2. Claude Code y Node 22 o más.
 3. Correr `scripts/setup-entorno.sh` de este repo (en Windows, con Git Bash). Clona los lineamientos en
-   `~/lineamientos-bacg` (o `C:\MiCarpeta\lineamientos-bacg`) y habilita `bacg-dev` y `superpowers` en
+   `~/lineamientos-dev-claude-bacg` (o `C:\MiCarpeta\lineamientos-dev-claude-bacg`) y habilita `lineamientos-dev-claude-bacg` y `superpowers` en
    `~/.claude/settings.json`.
 4. Clonar los repos del proyecto **uno junto al otro**, en la misma carpeta (así el plugin vincula los RQ que tocan
    varios repos). Para PowerFy, además, levantar tu entorno local de Odoo.
@@ -24,7 +24,7 @@ proyecto. Los lineamientos, reglas y backlog viven en un solo repo central (`bac
 
    ```json
    {
-     "lineamientosDir": "C:/MiCarpeta/lineamientos-bacg",
+     "lineamientosDir": "C:/MiCarpeta/lineamientos-dev-claude-bacg",
      "proyectos": {
        "powerfy": {
          "tests": {
@@ -58,7 +58,7 @@ proyecto. Los lineamientos, reglas y backlog viven en un solo repo central (`bac
 ## Cambios a lineamientos o al plugin
 
 - Rama + PR a `main` de este repo, con `npm test` en verde. Mejoras del plugin: `proyectos/plugin/backlog.md`.
-- Al subir la versión del plugin, el arranque de sesión avisa a cada uno: `/plugin marketplace update lineamientos-bacg`.
+- Al subir la versión del plugin, el arranque de sesión avisa a cada uno: `/plugin marketplace update lineamientos-dev-claude-bacg`.
 
 ## Sesiones en la nube (opcional, no es el camino principal)
 

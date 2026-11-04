@@ -1,10 +1,10 @@
-# lineamientos-bacg
+# lineamientos-dev-claude-bacg
 
 Cómo trabajamos en BACG, hecho plugin de Claude Code. Repo central de lineamientos y backlog de todos los proyectos; cada proyecto tiene su entorno y siempre carga este plugin (ver [docs/ENTORNOS.md](docs/ENTORNOS.md)).
 
 Este repo es dos cosas a la vez:
 
-- **El marketplace `lineamientos-bacg`** con el plugin **`bacg-dev`** (carpeta `plugin/`): skills del ciclo de RQ y hooks que funcionan como compuertas. Sin RQ abierto y aprobado no se edita código de producto; sin tests en verde y revisión no hay push ni merge; sin el OK del usuario en la sesión no se toca PROD (push o merge a las ramas de PROD, escrituras por conectores MCP de PROD como n8n u Odoo, y el stack heredado Supabase/Lovable si un proyecto lo declara).
+- **El marketplace `lineamientos-dev-claude-bacg`** con el plugin **`lineamientos-dev-claude-bacg`** (carpeta `plugin/`): skills del ciclo de RQ y hooks que funcionan como compuertas. Sin RQ abierto y aprobado no se edita código de producto; sin tests en verde y revisión no hay push ni merge; sin el OK del usuario en la sesión no se toca PROD (push o merge a las ramas de PROD, escrituras por conectores MCP de PROD como n8n u Odoo, y el stack heredado Supabase/Lovable si un proyecto lo declara).
 - **La copia de trabajo de los lineamientos** (`plugin/general/` viaja con el plugin; `proyectos/<id>/` o `.bacg-dev/` del repo), que los hooks leen en cada sesión para inyectar el contexto del proyecto.
 
 ## Instalación en otra cuenta
@@ -14,7 +14,7 @@ Este repo es dos cosas a la vez:
 
    ```
    /plugin marketplace add bacgroup/lineamientos-dev-claude-bacg
-   /plugin install bacg-dev@lineamientos-bacg
+   /plugin install lineamientos-dev-claude-bacg@lineamientos-dev-claude-bacg
    ```
 
 3. Clonar la copia de trabajo de los lineamientos:
@@ -24,8 +24,8 @@ Este repo es dos cosas a la vez:
    ```
 
    Lo más simple es clonarla en la ruta por defecto de tu sistema:
-   - Windows: `C:\MiCarpeta\lineamientos-bacg`;
-   - macOS y Linux: `~/lineamientos-bacg`.
+   - Windows: `C:\MiCarpeta\lineamientos-dev-claude-bacg`;
+   - macOS y Linux: `~/lineamientos-dev-claude-bacg`.
 
    Si la clonás en otro lado, el plugin la busca en este orden:
    1. la variable de entorno `BACG_LINEAMIENTOS_DIR`;
@@ -56,12 +56,12 @@ Este plugin es independiente de `como-trabajo` (`nkick25/lineamientos-dev`) y pu
 
 | | BACG | Origen |
 |---|---|---|
-| Plugin y marketplace | `bacg-dev@lineamientos-bacg` | `como-trabajo@lineamientos-dev` |
+| Plugin y marketplace | `lineamientos-dev-claude-bacg@lineamientos-dev-claude-bacg` | `como-trabajo@lineamientos-dev` |
 | Comandos | `/bacg-rq`, `/bacg-estado` | `/rq`, `/estado` |
-| Skills | `bacg-dev:<skill>` | `como-trabajo:<skill>` |
+| Skills | `lineamientos-dev-claude-bacg:<skill>` | `como-trabajo:<skill>` |
 | Marcador del repo | `.bacg-lineamientos` | `.lineamientos` |
 | Configuración en el repo | `.bacg-dev/` | `.como-trabajo/` |
-| Copia de lineamientos | `BACG_LINEAMIENTOS_DIR`, `~/.claude/bacg-dev.json`, `~/lineamientos-bacg` | `LINEAMIENTOS_DIR`, `~/.claude/como-trabajo.json`, `~/lineamientos-dev` |
+| Copia de lineamientos | `BACG_LINEAMIENTOS_DIR`, `~/.claude/bacg-dev.json`, `~/lineamientos-dev-claude-bacg` | `LINEAMIENTOS_DIR`, `~/.claude/como-trabajo.json`, `~/lineamientos-dev` |
 
 Un repo se activa con uno solo de los marcadores: no pongas los dos en el mismo repo.
 

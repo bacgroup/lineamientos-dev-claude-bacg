@@ -175,23 +175,23 @@ test('P4: un RQ bounded que edita un .scss de ui.patrones sin diseno-frontend qu
   const r = editar(raiz, 'web/static/nuevo.scss');
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /diseno-frontend/);
-  assert.deepEqual(editar(raiz, 'web/static/nuevo.scss', ['bacg-dev:diseno-frontend']), { decision: 'allow' }, 'archivo nuevo: sólo diseno-frontend');
+  assert.deepEqual(editar(raiz, 'web/static/nuevo.scss', ['lineamientos-dev-claude-bacg:diseno-frontend']), { decision: 'allow' }, 'archivo nuevo: sólo diseno-frontend');
 });
 
 test('P4: pantalla existente pide además redesign-existing-projects', () => {
   const raiz = repoUi({ archivos: { 'web/static/botones.scss': '.a{}\n' } });
-  const r = editar(raiz, 'web/static/botones.scss', ['bacg-dev:diseno-frontend']);
+  const r = editar(raiz, 'web/static/botones.scss', ['lineamientos-dev-claude-bacg:diseno-frontend']);
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /pantalla existente: cargá antes la skill redesign-existing-projects/);
   assert.deepEqual(
-    editar(raiz, 'web/static/botones.scss', ['bacg-dev:diseno-frontend', 'bacg-dev:redesign-existing-projects']),
+    editar(raiz, 'web/static/botones.scss', ['lineamientos-dev-claude-bacg:diseno-frontend', 'lineamientos-dev-claude-bacg:redesign-existing-projects']),
     { decision: 'allow' },
   );
 });
 
 test('P4: sin la sección de diseño en spec.md, la edición de UI queda bloqueada', () => {
   const raiz = repoUi({ spec: '# R-U1\n## Qué\nBotonera.\n' });
-  const r = editar(raiz, 'web/static/nuevo.scss', ['bacg-dev:diseno-frontend']);
+  const r = editar(raiz, 'web/static/nuevo.scss', ['lineamientos-dev-claude-bacg:diseno-frontend']);
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /falta la sección de diseño en docs\/rq\/R-U1\/spec\.md/);
   assert.deepEqual(editar(raiz, 'web/models/x.py'), { decision: 'allow' }, 'lo que no es UI no lo pide');
@@ -236,9 +236,9 @@ test('P5: un RQ que abarca dos repos registra la skill en los dos (cd y git -C d
     ['Bash', { command: 'cd erp-addons && git status' }, padre],
     ['Bash', { command: `git -C "${b}" log -1` }, padre],
   ]);
-  await postTool({ tool_name: 'Skill', tool_input: { skill: 'bacg-dev:diseno-frontend' }, cwd: padre, transcript_path: t });
-  assert.deepEqual(skillsEn(a, 'PF-UI'), ['bacg-dev:diseno-frontend']);
-  assert.deepEqual(skillsEn(b, 'PF-UI'), ['bacg-dev:diseno-frontend']);
+  await postTool({ tool_name: 'Skill', tool_input: { skill: 'lineamientos-dev-claude-bacg:diseno-frontend' }, cwd: padre, transcript_path: t });
+  assert.deepEqual(skillsEn(a, 'PF-UI'), ['lineamientos-dev-claude-bacg:diseno-frontend']);
+  assert.deepEqual(skillsEn(b, 'PF-UI'), ['lineamientos-dev-claude-bacg:diseno-frontend']);
 });
 
 test('P5: sin rutas en el transcript, las subcarpetas del cwd que son repos con RQ activo', async () => {

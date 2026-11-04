@@ -1,6 +1,6 @@
 # Cómo trabajamos (resumen general)
 
-Esto se inyecta al arrancar cada sesión en un repo con `.bacg-lineamientos` o `.bacg-dev/`. El detalle está en `general/*.md` (dentro del plugin) y en la skill `bacg-dev:ciclo-rq`.
+Esto se inyecta al arrancar cada sesión en un repo con `.bacg-lineamientos` o `.bacg-dev/`. El detalle está en `general/*.md` (dentro del plugin) y en la skill `lineamientos-dev-claude-bacg:ciclo-rq`.
 
 **Principio:** el plugin pone el marco de entrada y de salida; Superpowers hace el trabajo del medio; nada se duplica. Un artefacto por fase, una pasada por artefacto. Al usuario se le pide lo mínimo.
 

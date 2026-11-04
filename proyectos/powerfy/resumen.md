@@ -27,5 +27,5 @@ ERP sobre Odoo 18 CE para PyMEs de Centroamérica (y RD): localización, migraci
 
 ## Dónde mirar
 
-- Backlog: `lineamientos-bacg/proyectos/powerfy/backlog.md`, escrito por `rq.mjs`. Origen: `powerfy-docker/ROADMAP.md`.
-- Reglas: `lineamientos-bacg/proyectos/powerfy/reglas.md`
+- Backlog: `lineamientos-dev-claude-bacg/proyectos/powerfy/backlog.md`, escrito por `rq.mjs`. Origen: `powerfy-docker/ROADMAP.md`.
+- Reglas: `lineamientos-dev-claude-bacg/proyectos/powerfy/reglas.md`

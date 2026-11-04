@@ -20,5 +20,5 @@ Se inyecta al arrancar cada sesión del proyecto. Máximo 2000 caracteres.
 
 ## Dónde mirar
 
-- Backlog: `lineamientos-bacg/proyectos/<id>/backlog.md` (copia en `docs/backlog.md`), escrito por `rq.mjs`
-- Reglas: `lineamientos-bacg/proyectos/<id>/reglas.md`
+- Backlog: `lineamientos-dev-claude-bacg/proyectos/<id>/backlog.md` (copia en `docs/backlog.md`), escrito por `rq.mjs`
+- Reglas: `lineamientos-dev-claude-bacg/proyectos/<id>/reglas.md`

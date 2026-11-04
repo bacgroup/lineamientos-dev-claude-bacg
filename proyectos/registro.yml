@@ -1,4 +1,4 @@
-# Proyectos de BACG que usan el plugin bacg-dev. La configuración de cada uno (proyecto.yml, reglas, resumen,
+# Proyectos de BACG que usan el plugin lineamientos-dev-claude-bacg. La configuración de cada uno (proyecto.yml, reglas, resumen,
 # backlog) vive en proyectos/<id>/ de este repo o en .bacg-dev/ de su repo principal; acá queda el índice.
 # Alta de un proyecto nuevo: ver docs/ENTORNOS.md (sección "Proyecto nuevo").
 

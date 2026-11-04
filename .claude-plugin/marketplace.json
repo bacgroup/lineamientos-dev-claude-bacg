@@ -1,14 +1,14 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "lineamientos-bacg",
+  "name": "lineamientos-dev-claude-bacg",
   "description": "Lineamientos de desarrollo de BACG: cómo trabajamos, hecho plugin de Claude Code.",
   "owner": { "name": "BACG - Equipo técnico", "email": "nlopez@bacgroup.net" },
   "plugins": [
     {
-      "name": "bacg-dev",
+      "name": "lineamientos-dev-claude-bacg",
       "description": "Núcleo de cómo trabajamos: ciclo de RQ, compuertas y lineamientos por proyecto.",
       "source": "./plugin",
-      "version": "2.2.0"
+      "version": "3.0.0"
     }
   ]
 }

@@ -1,4 +1,4 @@
-# Backlog del plugin bacg-dev
+# Backlog del plugin lineamientos-dev-claude-bacg
 
 Mejoras del plugin para la arquitectura de BACG (Odoo + n8n + AWS). Vale para todos los proyectos de BACG; las
 necesidades que surjan en un proyecto se anotan acá, no en el backlog del proyecto. Independiente del plugin de
@@ -15,6 +15,6 @@ origen (`nkick25/lineamientos-dev`): lo que aplique a ambos se lleva a mano.
 | PLG-REQ | Plugin — plugins requeridos configurables por proyecto: hoy son fijos (incluye `typescript-lsp` y `frontend-design`); PowerFy es Python/Odoo y pide herramientas que no usa. | Baja | Pendiente | Tokens · DX | plugin/scripts/lib/hooks/session-start.mjs |
 | PLG-GH | Plugin — el aviso de cuenta de gh no considera `GH_TOKEN` (entornos en la nube): el test falla ahí y el aviso no salta. Aislar el test y definir el comportamiento en la nube. | Baja | Pendiente | Tests · Nube | tests/hooks.test.mjs |
 
-| PLG-ID | Plugin — identidad propia para convivir con el plugin de origen en la misma PC: plugin bacg-dev, comandos /bacg-rq y /bacg-estado, marcador .bacg-lineamientos, carpeta .bacg-dev/, BACG_LINEAMIENTOS_DIR y ~/.claude/bacg-dev.json. | Alta | Hecho 04/11/2026 | DX · Seguridad | README.md#convive-con-el-plugin-de-origen |
+| PLG-ID | Plugin — identidad propia para convivir con el plugin de origen en la misma PC: plugin lineamientos-dev-claude-bacg, comandos /bacg-rq y /bacg-estado, marcador .bacg-lineamientos, carpeta .bacg-dev/, BACG_LINEAMIENTOS_DIR y ~/.claude/bacg-dev.json. | Alta | Hecho 04/11/2026 | DX · Seguridad | README.md#convive-con-el-plugin-de-origen |
 
 | PLG-PR | Plugin — ramas_solo_pr: push directo a la rama de DEV bloqueado; se converge por PR (PowerFy: 18.0-dev). | Alta | Hecho 04/11/2026 | Colaboración · Proceso | proyectos/powerfy/reglas.md |

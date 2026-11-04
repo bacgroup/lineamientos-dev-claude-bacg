@@ -35,14 +35,14 @@ test('dirLineamientos lee bacg-dev.json', () => {
 
 test('dirLineamientos ignora JSON inválido y cae al default', () => {
   const home = homeTemporal('{no es json');
-  assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), path.join(home, 'lineamientos-bacg'));
+  assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), path.join(home, 'lineamientos-dev-claude-bacg'));
 });
 
 test('dirLineamientos default por plataforma', () => {
   const home = homeTemporal();
-  assert.equal(dirLineamientos({ env: {}, home, platform: 'win32' }), ['C:', 'MiCarpeta', 'lineamientos-bacg'].join(String.fromCharCode(92)));
+  assert.equal(dirLineamientos({ env: {}, home, platform: 'win32' }), ['C:', 'MiCarpeta', 'lineamientos-dev-claude-bacg'].join(String.fromCharCode(92)));
   assert.ok(dirLineamientos({ env: {}, home, platform: 'win32' }).includes(String.fromCharCode(92) + 'MiCarpeta' + String.fromCharCode(92)));
-  assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), path.join(home, 'lineamientos-bacg'));
+  assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), path.join(home, 'lineamientos-dev-claude-bacg'));
 });
 
 test('buscarRepo sube hasta .bacg-lineamientos', () => {

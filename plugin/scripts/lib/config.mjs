@@ -22,7 +22,7 @@ export function dirLineamientos({ env = process.env, home = os.homedir(), platfo
   } catch {
     // archivo ausente o inválido: se sigue con el default
   }
-  return platform === 'win32' ? path.win32.join('C:', 'MiCarpeta', 'lineamientos-bacg') : path.join(home, 'lineamientos-bacg');
+  return platform === 'win32' ? path.win32.join('C:', 'MiCarpeta', 'lineamientos-dev-claude-bacg') : path.join(home, 'lineamientos-dev-claude-bacg');
 }
 
 // Carpeta del repo con la configuración del proyecto (proyecto.yml, reglas, resumen, canon, adr). Viaja con el

@@ -1,5 +1,5 @@
 {
-  "description": "bacg-dev: contexto de lineamientos, compuertas de edición/shell/MCP de PROD (n8n, Odoo, Supabase, Lovable) y circuito de PROD.",
+  "description": "lineamientos-dev-claude-bacg: contexto de lineamientos, compuertas de edición/shell/MCP de PROD (n8n, Odoo, Supabase, Lovable) y circuito de PROD.",
   "hooks": {
     "SessionStart": [
       {

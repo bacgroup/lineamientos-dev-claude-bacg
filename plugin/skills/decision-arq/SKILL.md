@@ -1,6 +1,6 @@
 ---
 name: decision-arq
-description: Usar cuando un RQ toma o revisa una decisión de arquitectura, datos, seguridad o despliegue en un proyecto con .bacg-lineamientos (etapa 1 de diseño y etapa 7 de cierre del ciclo-rq). Decide si corresponde un ADR, lo redacta con contexto, opciones, decisión, consecuencias y estado, lo guarda en proyectos/<id>/adr/ de lineamientos-bacg y lo registra en el grafo con manage_adr.
+description: Usar cuando un RQ toma o revisa una decisión de arquitectura, datos, seguridad o despliegue en un proyecto con .bacg-lineamientos (etapa 1 de diseño y etapa 7 de cierre del ciclo-rq). Decide si corresponde un ADR, lo redacta con contexto, opciones, decisión, consecuencias y estado, lo guarda en proyectos/<id>/adr/ de lineamientos-dev-claude-bacg y lo registra en el grafo con manage_adr.
 ---
 
 # Decisiones de arquitectura (ADR)
@@ -25,7 +25,7 @@ Si dudás, preguntale al usuario en una línea: "¿Esto merece ADR? Cambia <qué
 
 ## Formato
 
-Archivo `.bacg-dev/adr/NNNN-<slug>.md` del repo si el proyecto tiene `.bacg-dev/`; si no, `proyectos/<id>/adr/NNNN-<slug>.md` en la copia de trabajo de lineamientos-bacg (variable `BACG_LINEAMIENTOS_DIR` o `~/.claude/bacg-dev.json`; por defecto `C:\MiCarpeta\lineamientos-bacg`). `<id>` es el proyecto de `.bacg-lineamientos`, `NNNN` es el número siguiente con cuatro dígitos y `<slug>` va en minúsculas con guiones.
+Archivo `.bacg-dev/adr/NNNN-<slug>.md` del repo si el proyecto tiene `.bacg-dev/`; si no, `proyectos/<id>/adr/NNNN-<slug>.md` en la copia de trabajo de lineamientos-dev-claude-bacg (variable `BACG_LINEAMIENTOS_DIR` o `~/.claude/bacg-dev.json`; por defecto `C:\MiCarpeta\lineamientos-dev-claude-bacg`). `<id>` es el proyecto de `.bacg-lineamientos`, `NNNN` es el número siguiente con cuatro dígitos y `<slug>` va en minúsculas con guiones.
 
 ```markdown
 # NNNN. <Título corto en forma de decisión>
@@ -53,7 +53,7 @@ Qué se vuelve más fácil, qué se vuelve más difícil, qué hay que mantener 
 1. En la etapa 1, si el diseño trae una decisión de este tipo, redactá el ADR en estado `propuesta` y presentalo junto con el spec. La aprobación del spec por el usuario la pasa a `aceptada`.
 2. Guardalo en `proyectos/<id>/adr/` y registralo en el grafo: `manage_adr` de `codebase-memory-mcp`, con el mismo título, estado y resumen de la decisión. Si el MCP no está disponible, avisalo y seguí; el archivo es la fuente.
 3. En la etapa 7, revisá si lo implementado cambió algo del ADR y actualizalo (consecuencias reales, estado).
-4. En `.bacg-dev/adr/` el ADR va en un commit del RQ (`.bacg-dev/` no es libre). En `proyectos/<id>/adr/` es un doc de lineamientos-bacg: commitealo ahí, separado de los commits del repo del proyecto.
+4. En `.bacg-dev/adr/` el ADR va en un commit del RQ (`.bacg-dev/` no es libre). En `proyectos/<id>/adr/` es un doc de lineamientos-dev-claude-bacg: commitealo ahí, separado de los commits del repo del proyecto.
 
 ## No reabrir sin el usuario
 

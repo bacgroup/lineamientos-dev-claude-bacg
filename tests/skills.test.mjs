@@ -88,10 +88,10 @@ test('ciclo-rq: nombra las skills obligatorias de cada etapa', () => {
     'pr-review-toolkit',
     'claude-security',
     'claude-md-management',
-    'bacg-dev:diseno-frontend',
-    'bacg-dev:design-taste-frontend',
-    'bacg-dev:redesign-existing-projects',
-    'bacg-dev:decision-arq',
+    'lineamientos-dev-claude-bacg:diseno-frontend',
+    'lineamientos-dev-claude-bacg:design-taste-frontend',
+    'lineamientos-dev-claude-bacg:redesign-existing-projects',
+    'lineamientos-dev-claude-bacg:decision-arq',
     'superpowers:systematic-debugging',
     'pr-review-toolkit:silent-failure-hunter',
     'supabase-postgres-best-practices',
@@ -161,7 +161,7 @@ test('comandos /bacg-rq y /bacg-estado: description, invocan ciclo-rq y usan sub
     const texto = leer(join(dirComandos, `${c}.md`));
     const { datos, cuerpo } = frontmatter(texto);
     assert.equal(typeof datos?.description, 'string', `description de /${c}`);
-    assert.ok(cuerpo.includes('bacg-dev:ciclo-rq'), `/${c} no invoca ciclo-rq`);
+    assert.ok(cuerpo.includes('lineamientos-dev-claude-bacg:ciclo-rq'), `/${c} no invoca ciclo-rq`);
     assert.ok(usados(cuerpo).has('estado'), `/${c} no corre rq.mjs estado`);
     for (const s of usados(cuerpo)) assert.ok(reales.has(s), `/${c} usa "rq.mjs ${s}", que no existe`);
   }

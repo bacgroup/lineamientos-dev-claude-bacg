@@ -1,10 +1,10 @@
 {
   "extraKnownMarketplaces": {
-    "lineamientos-bacg": { "source": { "source": "github", "repo": "bacgroup/lineamientos-dev-claude-bacg" } },
+    "lineamientos-dev-claude-bacg": { "source": { "source": "github", "repo": "bacgroup/lineamientos-dev-claude-bacg" } },
     "superpowers-marketplace": { "source": { "source": "github", "repo": "obra/superpowers-marketplace" } }
   },
   "enabledPlugins": {
-    "bacg-dev@lineamientos-bacg": true,
+    "lineamientos-dev-claude-bacg@lineamientos-dev-claude-bacg": true,
     "superpowers@superpowers-marketplace": true
   }
 }

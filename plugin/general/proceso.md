@@ -1,6 +1,6 @@
 # Proceso: ciclo de un RQ o BUG
 
-Versión para personas. Las instrucciones paso a paso para el agente (comandos de la CLI, qué skill conviene en cada etapa) están en la skill `bacg-dev:ciclo-rq`; acá va el porqué y lo que hace el usuario.
+Versión para personas. Las instrucciones paso a paso para el agente (comandos de la CLI, qué skill conviene en cada etapa) están en la skill `lineamientos-dev-claude-bacg:ciclo-rq`; acá va el porqué y lo que hace el usuario.
 
 El principio: **el agente decide, deja anotado y sigue**. Al usuario se le pide lo mínimo: el OK de PROD siempre, y el del diseño y el plan sólo en los cambios arquitectónicos.
 

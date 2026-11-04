@@ -11,9 +11,9 @@ Las de diseño libre (`design-taste-frontend` y `frontend-design:frontend-design
 
 ## Orden
 
-1. **Canon del proyecto.** Leé el canon de UI que declare el proyecto (`ui.canon`: en `.bacg-dev/` del repo, `docs/lineamientos/` o `proyectos/<id>/` de lineamientos-bacg) y las memorias de estilo que nombre. Anotá las reglas que aplican a esta pantalla: tokens, color semántico de las acciones, tipografía, componentes, espaciado, íconos, estados.
+1. **Canon del proyecto.** Leé el canon de UI que declare el proyecto (`ui.canon`: en `.bacg-dev/` del repo, `docs/lineamientos/` o `proyectos/<id>/` de lineamientos-dev-claude-bacg) y las memorias de estilo que nombre. Anotá las reglas que aplican a esta pantalla: tokens, color semántico de las acciones, tipografía, componentes, espaciado, íconos, estados.
 2. **Pedido del usuario.** Lo que pidió explícitamente sobre la UI ("color acorde al sentido de la acción", "que entre en una línea") es criterio de aceptación. Va al spec y se verifica en la captura.
-3. **`redesign-existing-projects`**, si la pantalla ya existe (la compuerta lo exige). Viene vendorizada como `bacg-dev:redesign-existing-projects`. Auditá lo que hay antes de cambiarlo: mejorá sobre el stack existente, sin reescribir de cero ni romper funcionalidad.
+3. **`redesign-existing-projects`**, si la pantalla ya existe (la compuerta lo exige). Viene vendorizada como `lineamientos-dev-claude-bacg:redesign-existing-projects`. Auditá lo que hay antes de cambiarlo: mejorá sobre el stack existente, sin reescribir de cero ni romper funcionalidad.
 4. **Base del proceso.** Estas tres van en todo cambio de UI que no sea menor, salvo la excepción que dice cada una:
    - **`emil-design-eng`** (~7 k tokens): el pulido de componentes e interacción. Cubre estados de botones y campos, foco, feedback, jerarquía de acciones y los detalles que el canon no dice. Se omite sólo si el cambio no toca componentes ni interacción, por ejemplo un texto.
    - **`mobile-native`** (~4 k tokens): la revisión a ≤ 400 px del entregable. Cubre viewport y `100vh`, zoom en inputs, hover pegado, áreas táctiles, notch y teclado. Se omite sólo si `reglas.md` del proyecto dice que la app es únicamente de escritorio.

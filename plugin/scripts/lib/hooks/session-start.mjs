@@ -150,7 +150,7 @@ function avisoVersion(dirLin, pluginRoot) {
   if (!trabajo || !instalada) return null;
   for (let i = 0; i < 3; i++) {
     if (trabajo.partes[i] > instalada.partes[i]) {
-      return `La copia de trabajo de bacg-dev (${trabajo.texto}) es más nueva que la instalada (${instalada.texto}): actualizá el plugin (/plugin marketplace update lineamientos-bacg y reinstalá bacg-dev).`;
+      return `La copia de trabajo de lineamientos-dev-claude-bacg (${trabajo.texto}) es más nueva que la instalada (${instalada.texto}): actualizá el plugin (/plugin marketplace update lineamientos-dev-claude-bacg y reinstalá lineamientos-dev-claude-bacg).`;
     }
     if (trabajo.partes[i] < instalada.partes[i]) return null;
   }
@@ -167,14 +167,14 @@ export async function handler(
     const debajo = reposDebajo(cwd, 2, dirLin);
     if (debajo.length === 0) return null;
     const lineas = [
-      '# Lineamientos (bacg-dev): repos registrados debajo de esta carpeta',
+      '# Lineamientos (lineamientos-dev-claude-bacg): repos registrados debajo de esta carpeta',
       debajo.map((d) => `- ${path.relative(cwd, d)}`).join('\n'),
       `CLI del RQ: node "${rutaCli(pluginRoot)}" (corrélo desde la raíz del repo; es el $RQ de la skill ciclo-rq).`,
     ];
     return contexto('SessionStart', lineas.join('\n\n'));
   }
 
-  const partes = [`# Lineamientos (bacg-dev): proyecto ${repo.proyectoId}`];
+  const partes = [`# Lineamientos (lineamientos-dev-claude-bacg): proyecto ${repo.proyectoId}`];
   if (!fs.existsSync(path.join(carpetaProyecto(repo.proyectoId, dirLin, repo.raiz), 'proyecto.yml'))) {
     partes.push(`Aviso: el proyecto ${repo.proyectoId} no tiene .bacg-dev/proyecto.yml en el repo ni está registrado en ${path.join(dirLin, 'proyectos')}.`);
   }

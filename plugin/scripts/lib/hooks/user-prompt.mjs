@@ -29,7 +29,7 @@ export async function handler(entrada) {
   if (cargarRqDe(repo.raiz)) return null;
   if (!primeraVez(entrada?.session_id)) return null;
   const texto =
-    `Proyecto ${repo.proyectoId}, sin RQ activo. Para cambiar código o base: skill bacg-dev:ciclo-rq. ` +
+    `Proyecto ${repo.proyectoId}, sin RQ activo. Para cambiar código o base: skill lineamientos-dev-claude-bacg:ciclo-rq. ` +
     'Docs, tests y consultas no necesitan RQ.';
   return contexto('UserPromptSubmit', texto.slice(0, MAX));
 }

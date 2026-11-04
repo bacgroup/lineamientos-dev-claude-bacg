@@ -2,7 +2,7 @@
 description: Muestra el estado del RQ activo y el próximo paso del ciclo
 ---
 
-Invocá la skill `bacg-dev:ciclo-rq` con la herramienta Skill. Después, desde la raíz del repo del proyecto, corré:
+Invocá la skill `lineamientos-dev-claude-bacg:ciclo-rq` con la herramienta Skill. Después, desde la raíz del repo del proyecto, corré:
 
 `node "…/rq.mjs" estado`
 
