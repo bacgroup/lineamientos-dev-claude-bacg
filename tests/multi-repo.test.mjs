@@ -41,7 +41,7 @@ async function rq(cwd, dirLin, args) {
   let err = '';
   const code = await main(args, {
     cwd,
-    env: { ...process.env, BACG_LINEAMIENTOS_DIR: dirLin, BACG_DEV_SIN_GH: '1' },
+    env: { ...process.env, BACG_LINEAMIENTOS_DIR: dirLin, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' },
     stdout: { write: (s) => { out += s; } },
     stderr: { write: (s) => { err += s; } },
   });

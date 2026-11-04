@@ -7,6 +7,26 @@ Este repo es dos cosas a la vez:
 - **El marketplace `lineamientos-dev-claude-bacg`** con el plugin **`lineamientos-dev-claude-bacg`** (carpeta `plugin/`): skills del ciclo de RQ y hooks que funcionan como compuertas. Sin RQ abierto y aprobado no se edita código de producto; sin tests en verde y revisión no hay push ni merge; sin el OK del usuario en la sesión no se toca PROD (push o merge a las ramas de PROD, escrituras por conectores MCP de PROD como n8n u Odoo, y el stack heredado Supabase/Lovable si un proyecto lo declara).
 - **La copia de trabajo de los lineamientos** (`plugin/general/` viaja con el plugin; `proyectos/<id>/` o `.bacg-dev/` del repo), que los hooks leen en cada sesión para inyectar el contexto del proyecto.
 
+## Primer uso: `/bacg-alta`
+
+Después de instalar el plugin, abrí Claude Code en un repo del proyecto y corré **`/bacg-alta`**. Es un paso a paso que verifica y te guía, en orden:
+
+| # | Paso | ¿Obligatorio? |
+|---|---|---|
+| 1 | Node 22 o más | Sí |
+| 2 | GitHub CLI autenticado (`gh auth login`) | Sí |
+| 3 | Copia de los lineamientos en esta PC | Sí |
+| 4 | Lineamientos al día | Recomendado |
+| 5 | Plugins complementarios | Recomendado |
+| 6 | Sesión abierta en un repo de un proyecto registrado | Sí |
+| 7 | Repos del proyecto clonados uno junto al otro | Recomendado |
+| 8 | Tests del proyecto en esta PC (`~/.claude/bacg-dev.json`) | Sí |
+| 9 | El comando de tests encuentra su script | Sí |
+| 10 | E2E en esta PC | Recomendado |
+| 11 | Ajustes de esta PC | Recomendado |
+
+Mientras falte un paso obligatorio, el arranque de sesión lo avisa y `rq.mjs abrir` no abre RQ. El agente te guía de a un paso hasta "Todo listo".
+
 ## Instalación en otra cuenta
 
 1. Acceso al repo privado: la cuenta tiene que poder leer `bacgroup/lineamientos-dev-claude-bacg` en GitHub, con `gh auth login` hecho en esa máquina.

@@ -18,3 +18,4 @@ origen (`nkick25/lineamientos-dev`): lo que aplique a ambos se lleva a mano.
 | PLG-ID | Plugin — identidad propia para convivir con el plugin de origen en la misma PC: plugin lineamientos-dev-claude-bacg, comandos /bacg-rq y /bacg-estado, marcador .bacg-lineamientos, carpeta .bacg-dev/, BACG_LINEAMIENTOS_DIR y ~/.claude/bacg-dev.json. | Alta | Hecho 04/11/2026 | DX · Seguridad | README.md#convive-con-el-plugin-de-origen |
 
 | PLG-PR | Plugin — ramas_solo_pr: push directo a la rama de DEV bloqueado; se converge por PR (PowerFy: 18.0-dev). | Alta | Hecho 04/11/2026 | Colaboración · Proceso | proyectos/powerfy/reglas.md |
+| PLG-ALTA | Plugin — stepper de alta (/bacg-alta, rq.mjs alta): verifica en orden Node, gh, lineamientos, repo, tests de la PC y su script; el arranque avisa y abrir no abre RQ mientras falte un paso obligatorio. | Alta | Hecho 04/11/2026 | Onboarding | README.md#primer-uso-bacg-alta |

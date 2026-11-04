@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { dirLineamientos, buscarRepo, carpetaProyecto } from '../config.mjs';
+import { pasosAlta, lineaAlta } from '../alta.mjs';
 import { cargarRqsDe, proyectoRegistrado } from '../contexto.mjs';
 import { contexto } from '../salida.mjs';
 import { rutaCli } from '../cli.mjs';
@@ -165,7 +166,11 @@ export async function handler(
   const repo = buscarRepo(cwd, { dirLin });
   if (!repo) {
     const debajo = reposDebajo(cwd, 2, dirLin);
-    if (debajo.length === 0) return null;
+    if (debajo.length === 0) {
+      // Recién instalado: sin copia de lineamientos, el alta todavía no empezó.
+      if (fs.existsSync(path.join(dirLin, 'proyectos'))) return null;
+      return contexto('SessionStart', '# Lineamientos (lineamientos-dev-claude-bacg): alta pendiente\n\nEl plugin está instalado pero esta PC todavía no tiene la copia de los lineamientos. Antes de cualquier RQ, guiá al usuario con /bacg-alta, de a un paso, hasta que quede todo en verde.');
+    }
     const lineas = [
       '# Lineamientos (lineamientos-dev-claude-bacg): repos registrados debajo de esta carpeta',
       debajo.map((d) => `- ${path.relative(cwd, d)}`).join('\n'),
@@ -179,6 +184,12 @@ export async function handler(
     partes.push(`Aviso: el proyecto ${repo.proyectoId} no tiene .bacg-dev/proyecto.yml en el repo ni está registrado en ${path.join(dirLin, 'proyectos')}.`);
   }
   partes.push(`CLI del RQ: node "${rutaCli(pluginRoot)}" (usá esta ruta exacta donde la skill ciclo-rq o una compuerta dicen $RQ).`);
+  try {
+    const alta = lineaAlta(pasosAlta({ cwd: repo.raiz, env, home, dirLin, sinGh: true }));
+    if (alta) partes.push(alta);
+  } catch {
+    // el alta sólo orienta: si falla, el arranque sigue
+  }
   partes.push(REGLA_SKILLS);
   const r = resumenes(dirLin, repo.proyectoId, repo.raiz, pluginRoot);
   if (r) partes.push(r);

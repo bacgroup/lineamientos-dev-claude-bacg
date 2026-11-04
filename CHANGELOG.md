@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.0: stepper de alta (2026-11-04)
+
+- `/bacg-alta` y `rq.mjs alta`: pasos en orden (Node, gh, lineamientos, al día, plugins, repo del proyecto, repos hermanos, tests de la PC, script de los tests, E2E, ajustes locales), con ✅/❌/⚠️ y qué hacer en el próximo. Sale 1 si falta algo obligatorio.
+- El arranque de sesión avisa "Alta incompleta" (y, recién instalado sin lineamientos, "alta pendiente") y pide guiar con `/bacg-alta`.
+- `rq.mjs abrir` no abre un RQ con un paso obligatorio pendiente; `--sin-alta` sólo si el usuario lo pide.
+- Arreglo: la CLI reconoce el repo por su remoto con la copia de lineamientos configurada (antes usaba sólo la del entorno del proceso).
+
 ## 3.0.0: el plugin se llama como el repositorio (2026-11-04)
 
 Incompatible con 2.x: hay que reinstalar.

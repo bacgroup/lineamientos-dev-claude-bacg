@@ -20,7 +20,7 @@ function copiaLineamientos() {
   return dir;
 }
 const DIR_LIN = copiaLineamientos();
-const ENV = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DEV_SIN_GH: '1' };
+const ENV = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' };
 
 async function correr(cwd, args, env = ENV) {
   let out = '';
@@ -106,7 +106,7 @@ test('entregar: si HEAD ya está en origin/main, dice que la rama está integrad
 
 test('entregar sin proyecto.yml en el checkout: dice dónde lo buscó y que origin/main sí lo tiene', async () => {
   // Caso real: la configuración pasó a .bacg-dev/ en main y la copia de lineamientos ya no tiene proyecto.yml.
-  const env = { BACG_LINEAMIENTOS_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'lin-vacio-')), BACG_DEV_SIN_GH: '1' };
+  const env = { BACG_LINEAMIENTOS_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'lin-vacio-')), BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' };
   const { raiz, origen } = repoConOrigen();
   await abrirR1(raiz, env);
   empujarAMain(raiz, origen, { '.bacg-dev/proyecto.yml': 'id: demo\n' });
@@ -118,7 +118,7 @@ test('entregar sin proyecto.yml en el checkout: dice dónde lo buscó y que orig
 
 test('cerrar sin estado.tarea: toma el título del # de spec.md (y Prioridad/Impacto si los dice) para backlog y changelog', async () => {
   const lin = copiaLineamientos();
-  const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_GH: '1' };
+  const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' };
   const raiz = repoDemo();
   await abrirR1(raiz, env);
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'spec.md'), '# R-1 · Aviso que se entienda\n\nPrioridad: Media\n**Impacto:** UX\n');
@@ -135,7 +135,7 @@ test('cerrar sin estado.tarea: toma el título del # de spec.md (y Prioridad/Imp
 
 test('cerrar: no pisa la Tarea ni la Prioridad vigentes del backlog y avisa lo que quedó vacío', async () => {
   const lin = copiaLineamientos();
-  const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_GH: '1' };
+  const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' };
   const raiz = repoDemo();
   await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded', '--tarea', 'La vigente', '--prioridad', 'Alta'], env);
   const { tarea, ...sinTarea } = cargarEstado(raiz, 'R-1');

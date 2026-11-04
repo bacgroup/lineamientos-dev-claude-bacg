@@ -9,6 +9,10 @@ El plugin pone el marco de entrada (encuadre + backlog) y de salida (entrega + c
 
 `$RQ` es la línea `CLI del RQ: node "<ruta>"` que inyecta `SessionStart`; si falta, `node "${CLAUDE_PLUGIN_ROOT}/scripts/rq.mjs"`. Se corre desde la raíz del repo y es la única vía para escribir `docs/rq/<código>/estado.yml` y `docs/rq/ACTIVO`. `$RQ estado` dice dónde está el RQ; corrélo al retomar o cuando una compuerta bloquee. La configuración del proyecto está en `.bacg-dev/` del repo (o, en proyectos viejos, en la copia de lineamientos); `proyecto.yml` se lee con Read.
 
+## 0. Alta de la PC (una vez)
+
+Si el arranque dice "Alta incompleta" o `$RQ abrir` lo frena, primero el alta: `$RQ alta` (o `/bacg-alta`) lista los pasos (Node, gh, lineamientos, repo del proyecto, tests en esta PC…) y el próximo que falta. Guiá al usuario de a un paso hasta "Todo listo". `--sin-alta` en `abrir` sólo si el usuario lo pide con sus palabras.
+
 ## 1. Tipo y encuadre (una pasada)
 
 | Tipo | Qué es | Abrir |

@@ -18,6 +18,7 @@ import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
+import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 const CLASIFICACIONES = ['spike', 'bounded', 'arquitectonico'];
@@ -27,7 +28,8 @@ const COMPUERTAS = ['edicion', 'commit', 'push', 'e2e', 'skills', 'seguridad', '
 const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige entre varios RQ activos; sin --rq, el más reciente)
-  abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>]
+  alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
+  abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta]
   etapa <n>                          (0-7; opcional: estado deriva la etapa de la evidencia)
   aprobar <etapa> "<frase>"          (etapa 0-7; la frase es texto literal del usuario)
   autonomia <hasta> "<frase>"        (hasta 1-5)
@@ -174,8 +176,14 @@ function anotarBacklog(repo, env, codigo, campos, io) {
 
 function abrir(repo, args, env, io) {
   const raiz = repo.raiz;
-  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto']);
+  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta']);
   if (posicionales.length !== 1 || !res.tipo || !res.clasificacion) throw new ErrorUso();
+  // Alta de la PC: sin los pasos obligatorios (tests, lineamientos…) no se abre un RQ. --sin-alta sólo si el usuario
+  // lo pide con sus palabras (p. ej. un RQ de sólo documentación).
+  if (res['sin-alta'] !== true && env.BACG_DEV_SIN_ALTA !== '1') {
+    const falta = bloqueante(pasosAlta({ cwd: raiz, env, sinGh: true }));
+    if (falta) throw new ErrorCli(`Antes del primer RQ falta completar el alta de esta PC: "${falta.titulo}". Corré ${'`'}rq.mjs alta${'`'} (o /bacg-alta) y seguí los pasos. ${falta.como ?? ''}`.trim());
+  }
   const [codigo] = posicionales;
   if (!RE_CODIGO.test(codigo)) throw new ErrorCli(`Código inválido: "${codigo}" (letras, números, "_" y "-"; empieza con letra o número).`);
   if (!TIPOS.includes(res.tipo)) throw new ErrorCli(`--tipo inválido: "${res.tipo}" (rq | bug).`);
@@ -1021,7 +1029,13 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
     [sub, ...args] = argv;
     const n = args.length;
     const uso = (ok) => { if (!ok) throw new ErrorUso(); };
-    const SUBS = ['abrir', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
+    if (sub === 'alta') {
+      // Stepper de primer uso: corre en cualquier carpeta, aun sin repo ni lineamientos.
+      const pasos = pasosAlta({ cwd, env });
+      io.stdout.write(`${formatoAlta(pasos)}\n`);
+      return bloqueante(pasos) ? 1 : 0;
+    }
+    const SUBS = ['alta', 'abrir', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0 };
@@ -1032,8 +1046,8 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
     else if (sub === 'auditar') uso(n === 0 || (n === 2 && args[0] === '--cerrar'));
     else if (!['abrir', 'cerrar', 'verificar'].includes(sub)) uso(n === aridad[sub]);
 
-    const repo = buscarRepo(cwd);
-    if (!repo) throw new ErrorCli('No es un repo con .bacg-lineamientos ni .bacg-dev/proyecto.yml.');
+    const repo = buscarRepo(cwd, { dirLin: dirLineamientos({ env }) });
+    if (!repo) throw new ErrorCli('No es un repo de un proyecto registrado (por su remoto en proyectos/<id>/proyecto.yml, .bacg-lineamientos o .bacg-dev/proyecto.yml). Corré rq.mjs alta para ver qué falta.');
     const raiz = repo.raiz;
     // El RQ elegido con --rq pasa a ser el "en curso" (último de ACTIVO): ahí registra las skills el hook.
     const activos = rqsActivos(raiz);

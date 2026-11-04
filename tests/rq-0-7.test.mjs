@@ -15,7 +15,7 @@ async function correr(cwd, args, env) {
   let err = '';
   const code = await main(args, {
     cwd,
-    env: { BACG_DEV_SIN_GH: '1', ...env },
+    env: { BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1', ...env },
     stdout: { write: (s) => { out += s; } },
     stderr: { write: (s) => { err += s; } },
   });

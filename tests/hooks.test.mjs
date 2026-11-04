@@ -30,7 +30,7 @@ function homeCon(plugins) {
 }
 
 const HOME = homeCon([]);
-const ENV = { BACG_LINEAMIENTOS_DIR: DIR_LIN, CLAUDE_PLUGIN_ROOT: PLUGIN, HOME, USERPROFILE: HOME, BACG_DEV_SIN_GH: '1' };
+const ENV = { BACG_LINEAMIENTOS_DIR: DIR_LIN, CLAUDE_PLUGIN_ROOT: PLUGIN, HOME, USERPROFILE: HOME, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' };
 
 const repoDemo = (archivos = {}) => crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app', archivos });
 
@@ -556,7 +556,7 @@ test('session-start avisa si la cuenta activa de gh no es la del proyecto', () =
   assert.equal(avisoCuentaGh({ cuenta_github: 'duena' }, conf('duena')), null);
   assert.equal(avisoCuentaGh({ cuenta_github: 'duena', cuenta_gh: 'colaborador' }, conf('colaborador')), null, 'cuenta_gh manda');
   assert.equal(avisoCuentaGh({}, conf('otra')), null, 'sin cuenta declarada');
-  assert.equal(avisoCuentaGh({ cuenta_github: 'duena' }, { ...conf('otra'), BACG_DEV_SIN_GH: '1' }), null);
+  assert.equal(avisoCuentaGh({ cuenta_github: 'duena' }, { ...conf('otra'), BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' }), null);
 });
 
 // --- user-prompt ---

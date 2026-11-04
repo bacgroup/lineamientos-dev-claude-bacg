@@ -39,6 +39,8 @@ proyecto. Los lineamientos, reglas y backlog viven en un solo repo central (`bac
 
    `{archivos}` = lo que está en stage; `{specs}` = los E2E del RQ. El arranque de sesión dice qué tests usa.
 
+Después de los pasos de arriba, corré **`/bacg-alta`** en un repo del proyecto: verifica todo en orden y te dice qué falta. Hasta que quede en verde no se abre un RQ.
+
 ## Flujo diario
 
 1. Abrir Claude Code en el repo del proyecto: el arranque muestra el proyecto, el RQ activo y el stack.
