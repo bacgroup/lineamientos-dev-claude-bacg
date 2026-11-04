@@ -1,5 +1,9 @@
 # Changelog
 
+## Sin publicar: trabajo local como camino principal (2026-11-04)
+
+- `docs/ENTORNOS.md`: cada dev trabaja en local y el equipo converge en la rama de DEV de cada proyecto; la nube queda como opcional (sus límites: repos por sesión y plugins sólo desde la biblioteca de la organización). No cambia el código del plugin.
+
 ## 2.1.1: una sola copia de lineamientos en la nube (2026-11-04)
 
 - `~/.claude/bacg-dev.json` acepta `lineamientosDir` como lista (vale la primera que existe). El setup pone primero el repo que el entorno clona junto a los del proyecto (`/home/user/lineamientos-dev-claude-bacg`, el que se commitea) y deja la copia propia de respaldo. Antes el plugin escribía backlog y ADR en una copia que nadie pusheaba.

@@ -1,54 +1,47 @@
-# Entornos de desarrollo de BACG
+# Cómo trabaja el equipo de BACG
 
-Principio: **un repo central** (`bacgroup/lineamientos-dev-claude-bacg`) con el plugin, los lineamientos y el backlog de
-cada proyecto, y **un entorno en la nube por proyecto** que siempre lo carga. **Los repos del producto no se tocan**:
-el plugin los reconoce por su dirección en GitHub, declarada en `proyectos/<id>/proyecto.yml`.
+Principio: **cada desarrollador trabaja en local** con el plugin `bacg-dev`, y el equipo **converge en Git**: ramas y
+PR hacia la rama de DEV de cada proyecto, que despliega al entorno de DEV; de ahí, a PROD según el circuito del
+proyecto. Los lineamientos, reglas y backlog viven en un solo repo central (`bacgroup/lineamientos-dev-claude-bacg`).
 
 | Pieza | Dónde vive | ¿Toca el repo del producto? |
 |---|---|---|
 | Plugin `bacg-dev` (compuertas, ciclo de RQ, skills) | `plugin/` de este repo | No |
-| Lineamientos generales | `plugin/general/` | No |
-| Contrato, reglas y backlog del proyecto | `proyectos/<id>/` | No |
-| Qué repos son del proyecto | `cuenta_github` + `repos[].nombre` (o `repos[].github: owner/repo`) en `proyecto.yml` | No |
-| Instalar el plugin y traer los lineamientos | `scripts/setup-entorno.sh`, en el setup del entorno | No |
+| Contrato, reglas y backlog de cada proyecto | `proyectos/<id>/` | No |
+| Qué repos son de cada proyecto | `cuenta_github` + `repos[].nombre` en `proyecto.yml` (el plugin los reconoce por su remoto) | No |
+| Dónde convergen los cambios | La rama de DEV del proyecto (PowerFy: `18.0-dev` → dev.powerfy.cloud) | Es el flujo normal de Git |
 
-## Entorno en la nube de un proyecto (p. ej. PowerFy)
+## Alta de un desarrollador (una vez por PC)
 
-1. En claude.ai/code, crear un entorno "PowerFy" con:
-   - **Repos:** los del proyecto (`powerfy-docker`, `powerfy-addons`, `powerfy-ai`, `powerfy-bi`, `powerfy-l10n`) **y**
-     `bacgroup/lineamientos-dev-claude-bacg`.
-   - **Setup script:** el contenido de `scripts/setup-entorno.sh` (clona los lineamientos y habilita `bacg-dev` para
-     todas las sesiones del entorno).
-   - **Red:** acceso a GitHub y a lo que el proyecto necesite.
-2. Compartir el entorno con el equipo. Cada sesión arranca con las reglas, el backlog y las compuertas del proyecto.
-3. Mejoras de lineamientos o del plugin: PR a este repo; la próxima sesión las toma sola.
+1. `gh auth login` con una cuenta que vea la org `bacgroup`.
+2. Claude Code y Node 22 o más.
+3. Correr `scripts/setup-entorno.sh` de este repo (en Windows, con Git Bash). Clona los lineamientos en
+   `~/lineamientos-bacg` (o `C:\MiCarpeta\lineamientos-bacg`) y habilita `bacg-dev` y `superpowers` en
+   `~/.claude/settings.json`.
+4. Clonar los repos del proyecto **uno junto al otro**, en la misma carpeta (así el plugin vincula los RQ que tocan
+   varios repos). Para PowerFy, además, levantar el entorno local de Odoo del proyecto.
 
-## Entorno y sesiones
+## Flujo diario
 
-- El **entorno** es la plantilla (repos, setup, red): uno por proyecto, se configura una vez.
-- Cada **sesión** es una máquina nueva creada desde el entorno: una por tarea o RQ. Es descartable; sólo queda lo que se
-  pushea a GitHub (código en los repos del producto; backlog, ADR y reglas en este repo).
-- En la sesión, los lineamientos que usa el plugin son los de `/home/user/lineamientos-dev-claude-bacg` (el repo del
-  entorno): lo que el ciclo de RQ escribe ahí se commitea y pushea desde ese repo al cerrar.
-
-## PC local
-
-Correr una vez `scripts/setup-entorno.sh` (Git Bash en Windows) con `gh auth login` hecho con una cuenta que vea
-`bacgroup`. Hace lo mismo que en la nube: copia de lineamientos en `~/lineamientos-bacg` y plugin habilitado.
+1. Abrir Claude Code en el repo del proyecto: el arranque muestra el proyecto, el RQ activo y el stack.
+2. `/bacg-rq <código>` o pedir el cambio: el ciclo de RQ guía diseño, desarrollo con tests y revisión.
+3. Converger: push a una rama propia y PR a la rama de DEV (o push a la rama de DEV, según `reglas.md` del proyecto).
+   El plugin exige tests y revisión antes; PROD pide además el OK explícito.
+4. Al cerrar el RQ, el backlog se actualiza en la copia local de este repo: **commitear y pushear este repo** para
+   que el resto del equipo lo vea (`git pull --rebase` antes, por si otro cerró un RQ al mismo tiempo).
 
 ## Proyecto nuevo (p. ej. Migración Odoo 20)
 
-1. Copiar `proyectos/_plantilla/` a `proyectos/<id>/` y completar `proyecto.yml` (con `cuenta_github` y `repos`),
-   `resumen.md`, `reglas.md` y `backlog.md`.
-2. Sumarlo a `proyectos/registro.yml`.
-3. Crear su entorno en la nube (pasos de arriba).
+1. Copiar `proyectos/_plantilla/` a `proyectos/<id>/` y completar `proyecto.yml` (con `cuenta_github`, `repos`,
+   `ramas_prod` y la rama de DEV), `resumen.md`, `reglas.md` y `backlog.md`.
+2. Sumarlo a `proyectos/registro.yml` y pushear. Cada dev hace `git pull` de este repo y ya lo tiene.
 
-Opcional: un repo que prefiera declararse a sí mismo puede llevar `.bacg-lineamientos` (`proyecto: <id>`); el marcador
-manda sobre el remoto. Para BACG no hace falta.
+## Cambios a lineamientos o al plugin
 
-## Cómo colabora el equipo
+- Rama + PR a `main` de este repo, con `npm test` en verde. Mejoras del plugin: `proyectos/plugin/backlog.md`.
+- Al subir la versión del plugin, el arranque de sesión avisa a cada uno: `/plugin marketplace update lineamientos-bacg`.
 
-- Cambios a lineamientos o al plugin: rama + PR a `main` de este repo; `npm test` en verde. Al subir la versión del
-  plugin, el arranque de sesión avisa que hay que actualizar (`/plugin marketplace update lineamientos-bacg`).
-- Backlog: lo escribe `rq.mjs` al cerrar cada RQ en `proyectos/<id>/backlog.md`; se commitea acá.
-- Accesos: equipo técnico de BACG con escritura (team de GitHub); externos como colaboradores puntuales.
+## Sesiones en la nube (opcional, no es el camino principal)
+
+Sirven para tareas puntuales, no para el trabajo del día a día. En la nube los repos se eligen en cada sesión y los
+plugins sólo llegan si están publicados en la biblioteca de plugins de la organización en claude.ai.
