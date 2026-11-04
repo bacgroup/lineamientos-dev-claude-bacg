@@ -1,41 +1,46 @@
 # Entornos de desarrollo de BACG
 
-Principio: **un repo central** (`bacgroup/lineamientos-dev-claude-bacg`) con el plugin, los lineamientos y el backlog de cada
-proyecto; **un entorno por proyecto** que siempre lo carga. Nadie copia lineamientos a mano: se actualizan acá y
-llegan a todos.
+Principio: **un repo central** (`bacgroup/lineamientos-dev-claude-bacg`) con el plugin, los lineamientos y el backlog de
+cada proyecto, y **un entorno en la nube por proyecto** que siempre lo carga. **Los repos del producto no se tocan**:
+el plugin los reconoce por su dirección en GitHub, declarada en `proyectos/<id>/proyecto.yml`.
 
-| Pieza | Dónde vive | Quién la mantiene |
+| Pieza | Dónde vive | ¿Toca el repo del producto? |
 |---|---|---|
-| Plugin `bacg-dev` (compuertas, ciclo de RQ, skills) | `plugin/` de este repo | Responsable técnico, vía PR |
-| Lineamientos generales | `plugin/general/` | Todo el equipo, vía PR |
-| Contrato, reglas y backlog de cada proyecto | `proyectos/<id>/` (o `.bacg-dev/` del repo del proyecto) | Equipo del proyecto |
-| Activación del plugin en cada repo | `.claude/settings.json` + `.bacg-lineamientos` en el repo del proyecto | Equipo del proyecto |
+| Plugin `bacg-dev` (compuertas, ciclo de RQ, skills) | `plugin/` de este repo | No |
+| Lineamientos generales | `plugin/general/` | No |
+| Contrato, reglas y backlog del proyecto | `proyectos/<id>/` | No |
+| Qué repos son del proyecto | `cuenta_github` + `repos[].nombre` (o `repos[].github: owner/repo`) en `proyecto.yml` | No |
+| Instalar el plugin y traer los lineamientos | `scripts/setup-entorno.sh`, en el setup del entorno | No |
 
-## Un entorno por proyecto
+## Entorno en la nube de un proyecto (p. ej. PowerFy)
 
-Cada proyecto (PowerFy, Migración Odoo 20, …) tiene:
+1. En claude.ai/code, crear un entorno "PowerFy" con:
+   - **Repos:** los del proyecto (`powerfy-docker`, `powerfy-addons`, `powerfy-ai`, `powerfy-bi`, `powerfy-l10n`) **y**
+     `bacgroup/lineamientos-dev-claude-bacg`.
+   - **Setup script:** el contenido de `scripts/setup-entorno.sh` (clona los lineamientos y habilita `bacg-dev` para
+     todas las sesiones del entorno).
+   - **Red:** acceso a GitHub y a lo que el proyecto necesite.
+2. Compartir el entorno con el equipo. Cada sesión arranca con las reglas, el backlog y las compuertas del proyecto.
+3. Mejoras de lineamientos o del plugin: PR a este repo; la próxima sesión las toma sola.
 
-1. **En sus repos**, dos archivos de `plantillas/repo-proyecto/`:
-   - `.claude/settings.json`: registra el marketplace `lineamientos-bacg` y habilita el plugin. Quien abra el repo con
-     Claude Code recibe el pedido de instalarlo; no hace falta que nadie se acuerde.
-   - `.bacg-lineamientos` con `proyecto: <id>`: activa las compuertas para ese proyecto. Sin este archivo, no hay compuertas.
-2. **Entorno en la nube (claude.ai/code)**, uno por proyecto, con:
-   - Repos: los del proyecto **y** `bacgroup/lineamientos-dev-claude-bacg` (sin este último el plugin no encuentra backlog ni reglas).
-   - Setup script: el contenido de `scripts/setup-entorno.sh`.
-   - Red: acceso a GitHub (y a lo que el proyecto necesite).
-3. **Máquina local**: `gh auth login` con una cuenta que vea la org `bacgroup`, clonar este repo en
-   `C:\MiCarpeta\lineamientos-bacg` (Windows) o `~/lineamientos-bacg`, y abrir Claude Code en el repo del proyecto.
+## PC local
 
-## Proyecto nuevo
+Correr una vez `scripts/setup-entorno.sh` (Git Bash en Windows) con `gh auth login` hecho con una cuenta que vea
+`bacgroup`. Hace lo mismo que en la nube: copia de lineamientos en `~/lineamientos-bacg` y plugin habilitado.
 
-1. Copiar `proyectos/_plantilla/` a `proyectos/<id>/` y completar `proyecto.yml`, `resumen.md`, `reglas.md` y `backlog.md`.
+## Proyecto nuevo (p. ej. Migración Odoo 20)
+
+1. Copiar `proyectos/_plantilla/` a `proyectos/<id>/` y completar `proyecto.yml` (con `cuenta_github` y `repos`),
+   `resumen.md`, `reglas.md` y `backlog.md`.
 2. Sumarlo a `proyectos/registro.yml`.
-3. Poner `.claude/settings.json` y `.bacg-lineamientos` en cada repo del proyecto.
-4. Crear su entorno en la nube (paso 2 de arriba).
+3. Crear su entorno en la nube (pasos de arriba).
+
+Opcional: un repo que prefiera declararse a sí mismo puede llevar `.bacg-lineamientos` (`proyecto: <id>`); el marcador
+manda sobre el remoto. Para BACG no hace falta.
 
 ## Cómo colabora el equipo
 
 - Cambios a lineamientos o al plugin: rama + PR a `main` de este repo; `npm test` en verde. Al subir la versión del
-  plugin, el arranque de sesión avisa a cada uno que actualice (`/plugin marketplace update lineamientos-bacg`).
-- Backlog: lo escribe `rq.mjs` al cerrar cada RQ; se commitea acá, así todos ven el mismo estado.
-- Accesos: equipo técnico de BACG con permiso de escritura (team de GitHub); externos como colaboradores puntuales.
+  plugin, el arranque de sesión avisa que hay que actualizar (`/plugin marketplace update lineamientos-bacg`).
+- Backlog: lo escribe `rq.mjs` al cerrar cada RQ en `proyectos/<id>/backlog.md`; se commitea acá.
+- Accesos: equipo técnico de BACG con escritura (team de GitHub); externos como colaboradores puntuales.

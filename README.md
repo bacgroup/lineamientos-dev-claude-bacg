@@ -67,15 +67,11 @@ Un repo se activa con uno solo de los marcadores: no pongas los dos en el mismo 
 
 ## Dar de alta un proyecto
 
-1. Copiar `proyectos/_plantilla/` a `proyectos/<id>/` y completar `proyecto.yml` (repos y cuáles publican a PROD, entornos y refs de Supabase de PROD, proyectos de Lovable, patrones de UI, circuito de PROD, comandos de tests), `resumen.md`, `reglas.md` y `backlog.md`.
+1. Copiar `proyectos/_plantilla/` a `proyectos/<id>/` y completar `proyecto.yml` (con `cuenta_github` y `repos`: así el plugin reconoce los repos por su remoto, sin archivos en ellos), `resumen.md`, `reglas.md` y `backlog.md`.
 2. Sumarlo a `proyectos/registro.yml`.
-3. En la raíz de cada repo del proyecto, los archivos de `plantillas/repo-proyecto/`: `.claude/settings.json` (instala el plugin a quien abra el repo) y `.bacg-lineamientos` con una línea:
+3. Crear su entorno en la nube con `scripts/setup-entorno.sh` (ver [docs/ENTORNOS.md](docs/ENTORNOS.md)).
 
-   ```
-   proyecto: <id>
-   ```
-
-Un repo sin `.bacg-lineamientos` no tiene compuertas.
+Opcional: `.bacg-lineamientos` en un repo (`proyecto: <id>`) manda sobre el remoto.
 
 ## Flujo diario
 

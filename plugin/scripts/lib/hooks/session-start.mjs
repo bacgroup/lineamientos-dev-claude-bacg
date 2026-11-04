@@ -61,8 +61,11 @@ export const PLUGINS_REQUERIDOS = [
   'claude-md-management@claude-plugins-official',
 ];
 
-/** Carpetas con .bacg-lineamientos debajo de dir (hasta dos niveles), sin entrar a node_modules ni a carpetas ocultas. */
-export function reposDebajo(dir, niveles = 2) {
+/**
+ * Repos registrados debajo de dir (hasta dos niveles): con .bacg-lineamientos o, sin marcador, por su remoto origin
+ * (proyecto.repos del proyecto registrado). Sin entrar a node_modules ni a carpetas ocultas.
+ */
+export function reposDebajo(dir, niveles = 2, dirLin = dirLineamientos()) {
   const out = [];
   const visitar = (d, n) => {
     let entradas;
@@ -74,7 +77,9 @@ export function reposDebajo(dir, niveles = 2) {
     for (const e of entradas) {
       if (!e.isDirectory() || e.name.startsWith('.') || e.name === 'node_modules') continue;
       const sub = path.join(d, e.name);
+      const esGit = fs.existsSync(path.join(sub, '.git'));
       if (fs.existsSync(path.join(sub, '.bacg-lineamientos'))) out.push(sub);
+      else if (esGit && buscarRepo(sub, { dirLin })?.raiz === path.resolve(sub)) out.push(sub);
       else if (n > 1) visitar(sub, n - 1);
     }
   };
@@ -157,9 +162,9 @@ export async function handler(
   { dirLin = dirLineamientos(), home = os.homedir(), pluginRoot = process.env.CLAUDE_PLUGIN_ROOT, env = process.env } = {},
 ) {
   const cwd = typeof entrada?.cwd === 'string' && entrada.cwd ? entrada.cwd : process.cwd();
-  const repo = buscarRepo(cwd);
+  const repo = buscarRepo(cwd, { dirLin });
   if (!repo) {
-    const debajo = reposDebajo(cwd);
+    const debajo = reposDebajo(cwd, 2, dirLin);
     if (debajo.length === 0) return null;
     const lineas = [
       '# Lineamientos (bacg-dev): repos registrados debajo de esta carpeta',
