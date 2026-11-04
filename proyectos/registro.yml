@@ -1,0 +1,11 @@
+# Proyectos de BACG que usan el plugin como-trabajo-bacg. La configuración de cada uno (proyecto.yml, reglas, resumen,
+# backlog) vive en proyectos/<id>/ de este repo o en .como-trabajo/ de su repo principal; acá queda el índice.
+# Alta de un proyecto nuevo: ver docs/ENTORNOS.md (sección "Proyecto nuevo").
+
+proyectos:
+  - id: powerfy
+    repo: bacgroup/powerfy-docker
+    cuenta_gh: nlopez-bacg
+  # - id: odoo20-migracion           # ejemplo: alta cuando arranque el proyecto
+  #   repo: bacgroup/<repo-principal>
+  #   cuenta_gh: <cuenta>

@@ -1,0 +1,17 @@
+id: demo
+nombre: Demo
+repos:
+  - { nombre: demo-app, rol: padre, push_prod: true }
+entornos:
+  prod:
+    supabase_refs: [refprod1, refprod2]
+lovable:
+  proyectos: { demo-app: lovprj1 }
+ui:
+  patrones: ["src/components/**", "src/pages/**", "**/*.css"]
+circuito_prod:
+  - { paso: "sql:refprod1" }
+  - { paso: "push:demo-app" }
+  - { paso: "sql:refprod2" }
+tests:
+  unit: "node -e \"process.exit(0)\""

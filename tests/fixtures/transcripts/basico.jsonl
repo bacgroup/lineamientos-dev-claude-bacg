@@ -1,0 +1,7 @@
+{"type":"queue-operation","operation":"enqueue","content":"hola"}
+{"type":"user","message":{"role":"user","content":"Quiero armar el RQ de reportes"},"origin":{"kind":"human"},"turnOrigin":"human","uuid":"u1"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"voy a brainstormear"},{"type":"text","text":"Arranco con brainstorming."},{"type":"tool_use","id":"toolu_1","name":"Skill","input":{"skill":"superpowers:brainstorming"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Spec aprobada, seguí"}]},"origin":{"kind":"human"},"turnOrigin":"human","uuid":"u2"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_2","name":"Read","input":{"file_path":"x"}}]}}
+{"type":"system","subtype":"info","content":"Aprobado"}
+{"type":"last-prompt","lastPrompt":"Aprobado"}

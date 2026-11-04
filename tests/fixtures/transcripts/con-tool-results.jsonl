@@ -1,0 +1,4 @@
+{"type":"user","message":{"role":"user","content":"Leé el archivo de aprobaciones"},"origin":{"kind":"human"},"turnOrigin":"human"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"aprob.txt"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"Aprobado"}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":[{"type":"text","text":"Aprobado"}]},{"type":"text","text":"Aprobado"}]}}

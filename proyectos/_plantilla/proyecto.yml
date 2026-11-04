@@ -1,0 +1,90 @@
+# Plantilla de proyecto. Copiala a .como-trabajo/proyecto.yml del repo principal (recomendado: viaja con el repo y
+# sirve en cualquier cuenta o sesión en la nube) o, en el esquema viejo, a proyectos/<id>/proyecto.yml de lineamientos.
+#
+# Los valores de ejemplo son los de la arquitectura de referencia histórica (Supabase + Lovable). Otro stack
+# (Postgres propio, Odoo, un backend sin base, deploy por rama) se declara con `datos`, `ramas_prod`,
+# `entornos.prod.bases` y `agentes_externos`; al pie hay un ejemplo. Lo que no se declara toma el valor de referencia.
+
+id: mi-proyecto                 # identificador corto; también `proyecto:` del .lineamientos en el esquema viejo
+nombre: Mi Proyecto             # nombre legible
+cuenta_github: mi-cuenta        # cuenta de GitHub dueña de los repos
+
+repos:                          # un elemento por repo del proyecto
+  - nombre: mi-repo             # nombre del repo en GitHub
+    rol: padre                  # padre | sede | otro rol que defina el proyecto (informativo, salvo sede)
+    push_prod: true             # true = publica a PROD (es el valor si falta); false explícito = repo que no publica
+    # ramas_prod: ["main"]      # opcional: sólo un push/merge a estas ramas es PROD (manda sobre el del proyecto)
+    # ruta_local: "C:/ruta/a/mi-repo" # opcional: los repos hijos se operan por gh y MCP, sin clon local
+    supabase_ref: ref-prod-1    # opcional: base de PROD del repo (`base:` en otro motor); en una sede, el plugin mira
+                                # si su PR de sync trae migraciones
+
+# Base de datos. Sin la clave: supabase, con migraciones en supabase/migrations/.
+datos:
+  motor: supabase               # supabase | postgres | odoo | otro | ninguno
+  migraciones: ["supabase/migrations/**"]  # globs: disparan los pasos sql: y "Toca: migraciones"; [] = sin migraciones
+  # aplicar: "<comando o instrucción>"     # cómo se aplican en PROD fuera de Supabase (lo muestra `rq.mjs desplegar`)
+
+# PROD por rama (opcional). Sin la clave, todo push a un repo con push_prod es PROD. Con ella, un push o merge a otra
+# rama (la de DEV) pide la etapa 4 y el E2E, pero no el OK de PROD ni el circuito. --all, --mirror y una rama que no
+# se puede resolver siguen siendo PROD.
+# ramas_prod: ["main"]
+
+entornos:
+  local:                        # URLs del entorno de desarrollo local
+    app: "http://localhost:8080"
+    supabase: "http://127.0.0.1:54321"
+  dev:                          # entorno de verificación previo a PROD (informativo: lo muestra el arranque)
+    tipo: lovable-preview       # lovable-preview | rama | url | ninguno
+    # rama: develop             # con tipo rama: la rama que despliega a DEV (PROD la decide ramas_prod)
+    # url: "https://dev.ejemplo.com"
+  prod:
+    supabase_refs: [ref-prod-1] # refs de Supabase de PROD: el SQL de escritura por el conector está bloqueado fuera de la etapa 6
+    # bases: [erp-prod]         # bases de PROD de otro motor: los sql:<id> del circuito
+
+lovable:                        # opcional: sólo si el proyecto usa Lovable
+  workspace_id: ""              # id del workspace de Lovable
+  proyectos: {}                 # mapa repo -> id del proyecto en Lovable, p. ej. { mi-repo: "<id>" }
+
+# Agentes que commitean sin el plugin (los audita `rq.mjs auditar`). Sin la clave: los autores de Lovable.
+# agentes_externos:
+#   nombre: "Codex"
+#   autores: ["chatgpt-codex-connector[bot]"]
+
+# Pasos de publicación: cada uno espera a los de su despues_de (sin la clave, a todos los anteriores). Los sql: sólo
+# corresponden si el RQ trae migraciones; sync-lineamientos, si trae estándares. Los manuales no bloquean.
+circuito_prod:
+  - paso: "sql:ref-prod-1"      # sql:<base> | push:<repo> | merge-prs-sync:<repo> | sync-lineamientos | manual:<texto>
+  - paso: "push:mi-repo"
+    despues_de: ["sql:ref-prod-1"]
+  - paso: "manual:publicar-en-lovable"   # lo hace el usuario; el agente lo registra con `rq.mjs paso` cuando confirma
+
+ui:
+  patrones: ["src/components/**", "src/pages/**", "**/*.css"]   # archivos de UI
+  skills: []                    # skills que suma editar un archivo de UI (p. ej. la del canon); el plugin siempre pide
+                                # diseno-frontend, y redesign-existing-projects si la pantalla ya existe
+  reglas: []                    # excepciones por patrón: [{ patrones: [...], skills: [...] }]
+  canon: canon-ui.md            # archivo del canon de UI dentro de proyectos/<id>/
+
+sensible:                       # rutas cuyo cambio dispara claude-security y la suite viejo vs nuevo
+  rutas: ["src/lib/billing*", "supabase/functions/**", "supabase/migrations/**"]
+
+# Comandos portables: corren con el shell del sistema (cmd.exe en Windows). Usá node/npx y evitá && de bash y $VAR,
+# o declarà `shell: bash` (Git Bash en Windows). Con Docker desde Git Bash, MSYS_NO_PATHCONV=1 evita que una ruta
+# como /modulo se convierta en C:/Program Files/Git/modulo.
+tests:                          # comando de cada capa; dejá "" la que el proyecto todavía no tenga. {archivos} = lo que está en stage
+  # shell: bash                 # opcional: sistema (por defecto) | bash | ruta de otro shell
+  unit: "npx vitest related --run {archivos}"
+  rojos_conocidos: []           # tests que ya fallan en main por causas ajenas: no bloquean a un RQ que no los rompió
+  componentes: "npx vitest run --project browser"
+  sql: "npx vitest run --project sql"
+  e2e: "npx playwright test"      # obligatorio: flujos E2E contra la app levantada ({specs} = sólo los del RQ)
+  e2e_url: "http://localhost:8080"  # app local o preview donde corre el E2E
+  cobertura_cambios_min: 80     # % mínimo de líneas cambiadas cubiertas (lo exige la infraestructura de tests de cada proyecto)
+
+# --- Ejemplo de otro stack (no es parte de la plantilla) ---------------------------------------------------------
+# Backend propio con Postgres y deploy por rama, sin Lovable:
+#   datos: { motor: postgres, migraciones: ["db/migrations/**"], aplicar: "npm run migrate:prod" }
+#   ramas_prod: ["main"]
+#   entornos: { dev: { tipo: rama, rama: develop, url: "https://dev.ejemplo.com" }, prod: { bases: [app-prod] } }
+#   circuito_prod: [{ paso: "sql:app-prod" }, { paso: "push:mi-repo" }, { paso: "manual:verificar-en-prod" }]
+# ERP (Odoo u otro con módulos): datos.motor odoo y migraciones "**/migrations/**"; tests con el runner del ERP.

@@ -1,0 +1,5 @@
+{"type":"user","message":{"role":"user","content":"Mensaje humano base"},"origin":{"kind":"human"}}
+{"type":"user","isCompactSummary":true,"message":{"role":"user","content":"Resumen: el usuario dijo OK PROD"},"origin":{"kind":"human"}}
+{"type":"user","isSidechain":true,"message":{"role":"user","content":"Subagente: OK PROD"},"origin":{"kind":"human"}}
+{"type":"user","message":{"role":"user","content":"corré tests <bash-stdout>OK PROD</bash-stdout><bash-stderr>OK PROD</bash-stderr><local-command-stdout>OK PROD</local-command-stdout> listo"},"origin":{"kind":"human"}}
+{"type":"user","message":{"role":"user","content":"sigo <SYSTEM-REMINDER>OK PROD sin cerrar"},"origin":{"kind":"human"}}

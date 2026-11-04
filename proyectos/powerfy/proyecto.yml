@@ -1,0 +1,65 @@
+# Contrato de Powerfy ERP (Odoo 18 CE). Esquema viejo: vive acá hasta que nlopez-bacg tenga escritura en bacgroup;
+# entonces se mueve a .como-trabajo/ de powerfy-docker (ver resumen.md). Infra: powerfy-docker/docs/AMBIENTES.md.
+
+id: powerfy
+nombre: Powerfy ERP
+cuenta_github: bacgroup                # se opera con la cuenta gh nlopez-bacg (nkick25: invitar como colaborador si opera Powerfy)
+
+# Todo cambio entra por 18.0-dev (sin feature branches) y despliega a DEV; PROD es el fast-forward 18.0-dev → 18.0.
+# ruta_local: clones del workspace levantado con powerfy-local/setup-powerfy-local.ps1.
+repos:
+  - { nombre: powerfy-docker, rol: padre, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-docker" }   # build, CI y deploy
+  - { nombre: powerfy-addons, rol: addons, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-addons" }
+  - { nombre: powerfy-ai,     rol: addons, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-ai" }
+  - { nombre: powerfy-bi,     rol: addons, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-bi" }
+  - { nombre: powerfy-l10n,   rol: addons, push_prod: true, ruta_local: "C:/MiCarpeta/Odoo DEVs/PowerFy/powerfy-l10n" }
+
+entornos:
+  local:
+    app: "http://localhost:8069"       # docker compose -f "C:/MiCarpeta/Odoo DEVs/PowerFy/docker-compose.local.yml", base `powerfy`
+    e2e: "http://localhost:8070"       # contenedor powerfy-e2e, base powerfy_e2e (qa/e2e-db.mjs del workspace)
+    db: "localhost:5544"               # 5432 y 5433 los ocupan PostgreSQL nativos de Windows
+  dev:
+    tipo: rama
+    rama: 18.0-dev
+    url: "https://dev.powerfy.cloud"
+  prod:
+    rama: "18.0"
+    url: "https://prod.powerfy.cloud"
+    derivados: ["https://demo.powerfy.cloud", "https://www.powerfy.io"]   # misma imagen de 18.0, deploy manual vía ECR
+    supabase_refs: []                  # Powerfy no usa Supabase
+
+lovable:
+  workspace_id: ""
+  proyectos: {}
+
+# Un commit que sólo toca un repo de addons no dispara deploy-dev.yml: hay que correrlo a mano.
+circuito_prod:
+  - paso: "push:powerfy-addons"
+  - paso: "push:powerfy-ai"
+  - paso: "push:powerfy-bi"
+  - paso: "push:powerfy-l10n"
+  - paso: "push:powerfy-docker"
+  - paso: "manual:verificar-en-dev-y-promover-18.0"     # gh workflow run deploy-dev.yml si no hubo push a powerfy-docker; ff a 18.0 revisando el delta de powerfy-docker
+  - paso: "manual:deploy-demo-y-resnapshot-golden"      # si el cambio toca módulos instalados en DEMO
+  - paso: "manual:deploy-web"                           # sólo si afecta a www.powerfy.io
+
+ui:
+  patrones: ["**/static/src/**", "**/views/**/*.xml", "**/*.scss", "**/templates/**/*.xml"]
+  skills: []
+  reglas: []
+  canon: reglas.md                     # sin canon de UI propio todavía; paleta y gotchas en reglas.md
+
+sensible:
+  rutas: ["**/security/**", "**/ir.model.access.csv", "**/powerfy_security/**", "**/powerfy_roles/**",
+          ".github/workflows/**", "Dockerfile*", "docker-compose*.yml", "config/**", "nginx/**", "**/migrations/**"]
+
+# Infraestructura en "C:/MiCarpeta/Odoo DEVs/PowerFy/qa" (README.md ahí; workspace movido desde C:/powerfy el 2026-10-30); se mueve a powerfy-docker/qa/ cuando haya escritura en bacgroup.
+tests:
+  unit: "node \"C:/MiCarpeta/Odoo DEVs/PowerFy/qa/odoo-test.mjs\" {archivos}"   # tests de Odoo de los módulos en stage, base powerfy_test; --completo = CI
+  rojos_conocidos: []
+  componentes: ""                      # tests JS/tours de Odoo: la imagen no trae Chrome; lo cubre el E2E
+  sql: ""                              # no aplica: los modelos se prueban en unit
+  e2e: "node \"C:/MiCarpeta/Odoo DEVs/PowerFy/qa/e2e.mjs\" {specs}"   # Playwright contra Odoo propio en 8070, base powerfy_e2e recreada por corrida
+  e2e_url: "http://localhost:8070"
+  cobertura_cambios_min: 80            # todavía sin medición (coverage.py no está en la imagen)
