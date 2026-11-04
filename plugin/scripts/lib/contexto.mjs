@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { buscarRepo, cargarProyecto, carpetaProyecto } from './config.mjs';
 import { rqsActivos, cargarEstado } from './estado.mjs';
+import { entradaMcpProd } from './mcp-prod.mjs';
 
 const esObjeto = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
 const lista = (x) => (Array.isArray(x) ? x : []);
@@ -77,11 +78,11 @@ const mismaRuta = (a, b) => {
  * - Proyecto: el del repo de cwd si está registrado; si `project_id` no figura en él, el primer proyecto
  *   registrado que lo declare (ref de PROD o proyecto de Lovable).
  * - Estado: el del repo de cwd si es de ese proyecto; si no, el del repo `rol: padre` con `ruta_local`,
- *   sólo si el .lineamientos de esa carpeta nombra al mismo proyecto.
+ *   sólo si el .bacg-lineamientos de esa carpeta nombra al mismo proyecto.
  * Devuelve { proyectoId, proyecto, raiz, codigo, estado, rqs } (con null donde no se pudo ubicar; rqs son todos
  * los RQ activos con estado, y codigo/estado el más reciente).
  */
-export function resolverMcp({ cwd, toolInput, dirLin }) {
+export function resolverMcp({ cwd, toolInput, dirLin, toolName = null }) {
   const repo = buscarRepo(cwd);
   let proyectoId = null;
   let proyecto = null;
@@ -92,6 +93,11 @@ export function resolverMcp({ cwd, toolInput, dirLin }) {
   const ref = norm(esObjeto(toolInput) ? toolInput.project_id : null);
   if (ref && !(proyecto && contiene(proyecto, ref))) {
     const otro = proyectosRegistrados(dirLin).find((x) => contiene(x.proyecto, ref));
+    if (otro) ({ id: proyectoId, proyecto } = otro);
+  }
+  // Servidor MCP de PROD (n8n, Odoo…) que el proyecto de cwd no declara: el primer proyecto que lo declare.
+  if (toolName && !(proyecto && entradaMcpProd(proyecto, toolName))) {
+    const otro = proyectosRegistrados(dirLin).find((x) => entradaMcpProd(x.proyecto, toolName));
     if (otro) ({ id: proyectoId, proyecto } = otro);
   }
   let raiz = null;

@@ -1,5 +1,7 @@
-// Compuerta de herramientas MCP: Supabase a PROD y Lovable.
+// Compuerta de herramientas MCP: servidores de PROD declarados (`mcp_prod`: n8n, Odoo u otro), Supabase a PROD y Lovable.
 //
+// - `mcp_prod` (ver mcp-prod.mjs): la lectura pasa; toda otra herramienta del servidor es escritura a PROD y
+//   exige un RQ activo con el OK de PROD (etapa 6). Falla cerrada: lo que no se reconoce como lectura, escribe.
 // - SQL (`execute_sql`, `apply_migration`) a un ref de `entornos.prod.supabase_refs`: la lectura pura
 //   pasa; la escritura exige un RQ activo con el OK de PROD (etapa 6) y que estén hechos los pasos de
 //   los que depende en `circuito_prod` (ver circuito.mjs). Los saltos nunca aplican.
@@ -24,6 +26,7 @@
 import { etapaCumplida } from './estado.mjs';
 import { cli } from './cli.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad } from './circuito.mjs';
+import { clasificarMcp } from './mcp-prod.mjs';
 
 // Postgres trata todo carácter >= U+0080 como parte de un identificador.
 const IDENT = /[A-Za-z0-9_$\u0080-￿]/;
@@ -247,6 +250,20 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
   const c = esObjeto(ctx) ? ctx : {};
   const refs = refsProd(proyecto);
   const id = norm(input.project_id);
+
+  // --- Servidores MCP de PROD declarados (n8n, Odoo, otros) ---
+  const mcp = clasificarMcp(proyecto, nombre, input);
+  if (mcp) {
+    if (!mcp.prod) return allow();
+    return (
+      exigirProd(
+        ests,
+        c,
+        `${corto} en ${mcp.destino} (PROD) sin RQ activo.`,
+        `${corto} en ${mcp.destino} es escritura a PROD: falta el OK del usuario para PROD (etapa 6).`,
+      ) ?? allow(true)
+    );
+  }
 
   // --- Supabase: SQL ---
   if (SQL_SUPABASE.some((s) => sufijo(nombre, s))) {

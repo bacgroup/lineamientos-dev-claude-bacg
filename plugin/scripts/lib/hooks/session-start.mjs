@@ -25,9 +25,9 @@ const LINEAS_ENCUADRE = 30;
 const cuentaEsperada = (proyecto) =>
   [proyecto?.cuenta_gh, proyecto?.cuenta_github].find((c) => typeof c === 'string' && c.trim() !== '') ?? null;
 
-/** Aviso si la cuenta activa de gh no es la del proyecto. Sin gh, sin cuenta declarada o con COMO_TRABAJO_SIN_GH, nada. */
+/** Aviso si la cuenta activa de gh no es la del proyecto. Sin gh, sin cuenta declarada o con BACG_DEV_SIN_GH, nada. */
 export function avisoCuentaGh(proyecto, env = process.env) {
-  if (env.COMO_TRABAJO_SIN_GH === '1') return null;
+  if (env.BACG_DEV_SIN_GH === '1') return null;
   const esperada = cuentaEsperada(proyecto);
   if (!esperada) return null;
   const r = spawnSync('gh', ['config', 'get', '-h', 'github.com', 'user'], { encoding: 'utf8', env, timeout: 5000 });
@@ -61,7 +61,7 @@ export const PLUGINS_REQUERIDOS = [
   'claude-md-management@claude-plugins-official',
 ];
 
-/** Carpetas con .lineamientos debajo de dir (hasta dos niveles), sin entrar a node_modules ni a carpetas ocultas. */
+/** Carpetas con .bacg-lineamientos debajo de dir (hasta dos niveles), sin entrar a node_modules ni a carpetas ocultas. */
 export function reposDebajo(dir, niveles = 2) {
   const out = [];
   const visitar = (d, n) => {
@@ -74,7 +74,7 @@ export function reposDebajo(dir, niveles = 2) {
     for (const e of entradas) {
       if (!e.isDirectory() || e.name.startsWith('.') || e.name === 'node_modules') continue;
       const sub = path.join(d, e.name);
-      if (fs.existsSync(path.join(sub, '.lineamientos'))) out.push(sub);
+      if (fs.existsSync(path.join(sub, '.bacg-lineamientos'))) out.push(sub);
       else if (n > 1) visitar(sub, n - 1);
     }
   };
@@ -91,7 +91,7 @@ function leer(ruta) {
 }
 
 // general/resumen.md: el de la copia de lineamientos si existe (una organización puede pisarlo); si no, el que trae
-// el plugin. El del proyecto sale de su carpeta (.como-trabajo/ del repo o proyectos/<id>).
+// el plugin. El del proyecto sale de su carpeta (.bacg-dev/ del repo o proyectos/<id>).
 function resumenes(dirLin, proyectoId, raiz, pluginRoot) {
   const general =
     leer(path.join(dirLin, 'general', 'resumen.md')) ??
@@ -145,7 +145,7 @@ function avisoVersion(dirLin, pluginRoot) {
   if (!trabajo || !instalada) return null;
   for (let i = 0; i < 3; i++) {
     if (trabajo.partes[i] > instalada.partes[i]) {
-      return `La copia de trabajo de como-trabajo (${trabajo.texto}) es más nueva que la instalada (${instalada.texto}): actualizá el plugin (/plugin marketplace update lineamientos-bacg y reinstalá como-trabajo-bacg).`;
+      return `La copia de trabajo de bacg-dev (${trabajo.texto}) es más nueva que la instalada (${instalada.texto}): actualizá el plugin (/plugin marketplace update lineamientos-bacg y reinstalá bacg-dev).`;
     }
     if (trabajo.partes[i] < instalada.partes[i]) return null;
   }
@@ -162,16 +162,16 @@ export async function handler(
     const debajo = reposDebajo(cwd);
     if (debajo.length === 0) return null;
     const lineas = [
-      '# Lineamientos (como-trabajo): repos registrados debajo de esta carpeta',
+      '# Lineamientos (bacg-dev): repos registrados debajo de esta carpeta',
       debajo.map((d) => `- ${path.relative(cwd, d)}`).join('\n'),
       `CLI del RQ: node "${rutaCli(pluginRoot)}" (corrélo desde la raíz del repo; es el $RQ de la skill ciclo-rq).`,
     ];
     return contexto('SessionStart', lineas.join('\n\n'));
   }
 
-  const partes = [`# Lineamientos (como-trabajo): proyecto ${repo.proyectoId}`];
+  const partes = [`# Lineamientos (bacg-dev): proyecto ${repo.proyectoId}`];
   if (!fs.existsSync(path.join(carpetaProyecto(repo.proyectoId, dirLin, repo.raiz), 'proyecto.yml'))) {
-    partes.push(`Aviso: el proyecto ${repo.proyectoId} no tiene .como-trabajo/proyecto.yml en el repo ni está registrado en ${path.join(dirLin, 'proyectos')}.`);
+    partes.push(`Aviso: el proyecto ${repo.proyectoId} no tiene .bacg-dev/proyecto.yml en el repo ni está registrado en ${path.join(dirLin, 'proyectos')}.`);
   }
   partes.push(`CLI del RQ: node "${rutaCli(pluginRoot)}" (usá esta ruta exacta donde la skill ciclo-rq o una compuerta dicen $RQ).`);
   partes.push(REGLA_SKILLS);

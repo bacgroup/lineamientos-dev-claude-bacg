@@ -15,6 +15,7 @@ import { entradaSoloLectura } from '../compuerta-mcp.mjs';
 import { resolverMcp, cargarRqsDe, proyectoRegistrado, refsProd, norm } from '../contexto.mjs';
 import { resumirError } from '../salida.mjs';
 import { rutasTocadas } from '../transcript.mjs';
+import { espejar } from '../multi-repo.mjs';
 
 const esObjeto = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
 const lista = (x) => (Array.isArray(x) ? x : []);
@@ -59,6 +60,19 @@ function anotarSkill(raiz, skill, sesion) {
   if (typeof sesion === 'string' && sesion) entrada.sesion = sesion;
   estado.skills = [...lista(estado.skills), entrada];
   guardarEstado(raiz, estado);
+  // RQ multi-repo: la skill vale para el RQ lógico, en todos los repos donde está activo.
+  const repo = buscarRepo(raiz);
+  if (!repo) return;
+  let proyecto = null;
+  try {
+    proyecto = proyectoRegistrado(repo.proyectoId, dirLineamientos(), repo.raiz);
+  } catch {
+    // proyecto.yml ilegible: igual se replica por carpetas vecinas
+  }
+  espejar(raiz, repo.proyectoId, proyecto, codigo, (s) => {
+    if (tieneSkill(s, skill)) return false;
+    s.skills = [...lista(s.skills), { ...entrada }];
+  });
 }
 
 /**

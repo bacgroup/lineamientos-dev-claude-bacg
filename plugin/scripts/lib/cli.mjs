@@ -120,3 +120,27 @@ export function conSpecs(comando, specs) {
   if (insegura !== undefined) throw new Error(`Spec que no se puede pasar al shell sin riesgo: ${JSON.stringify(insegura)}.`);
   return comando.replace('{specs}', () => specs.map((a) => `"${a}"`).join(' ')).replace(/\s+$/, '');
 }
+
+/**
+ * Rutas portables en los comandos de tests (PLG-NUBE): `{raiz}` es la raíz del repo donde corre el comando y
+ * `{repo:<nombre>}` la de otro repo del proyecto en esta máquina (por `ruta_local` o clonado junto a este; ver
+ * multi-repo.mjs). Se reemplazan sin comillas: en el comando, ponelas vos ("{repo:powerfy-docker}/qa/x.mjs").
+ * `resolver(nombre)` devuelve la raíz o null; un repo que no se encuentra o una ruta con caracteres que el shell
+ * interpreta lanzan (falla cerrada).
+ */
+const RAIZ_SEGURA = /^[\p{L}\p{N} _.\/\\:@+()\[\],=-]+$/u;
+
+export function conRutas(comando, raiz, resolver = () => null) {
+  if (typeof comando !== 'string' || !/\{(raiz|repo:[^}]+)\}/.test(comando)) return comando;
+  const segura = (r, que) => {
+    if (!RAIZ_SEGURA.test(r)) throw new Error(`La ruta de ${que} no se puede pasar al shell sin riesgo: ${JSON.stringify(r)}.`);
+    return r.replace(/\\/g, '/');
+  };
+  return comando
+    .replace(/\{raiz\}/g, () => segura(raiz, 'este repo'))
+    .replace(/\{repo:([^}]+)\}/g, (_, n) => {
+      const r = resolver(n.trim());
+      if (!r) throw new Error(`No encuentro el repo ${n.trim()} en esta máquina: clonalo junto a este o declará su ruta_local en proyecto.yml.`);
+      return segura(r, n.trim());
+    });
+}

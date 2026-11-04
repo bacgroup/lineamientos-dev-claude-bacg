@@ -12,7 +12,7 @@ const MAX = 300;
 
 function primeraVez(sesion) {
   if (typeof sesion !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sesion)) return true;
-  const marca = path.join(os.tmpdir(), `como-trabajo-${sesion}.recordado`);
+  const marca = path.join(os.tmpdir(), `bacg-dev-${sesion}.recordado`);
   if (fs.existsSync(marca)) return false;
   try {
     fs.writeFileSync(marca, '');
@@ -29,7 +29,7 @@ export async function handler(entrada) {
   if (cargarRqDe(repo.raiz)) return null;
   if (!primeraVez(entrada?.session_id)) return null;
   const texto =
-    `Proyecto ${repo.proyectoId}, sin RQ activo. Para cambiar código o base: skill como-trabajo-bacg:ciclo-rq. ` +
+    `Proyecto ${repo.proyectoId}, sin RQ activo. Para cambiar código o base: skill bacg-dev:ciclo-rq. ` +
     'Docs, tests y consultas no necesitan RQ.';
   return contexto('UserPromptSubmit', texto.slice(0, MAX));
 }

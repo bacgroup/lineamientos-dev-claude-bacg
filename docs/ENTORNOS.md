@@ -6,10 +6,10 @@ llegan a todos.
 
 | Pieza | Dónde vive | Quién la mantiene |
 |---|---|---|
-| Plugin `como-trabajo-bacg` (compuertas, ciclo de RQ, skills) | `plugin/` de este repo | Responsable técnico, vía PR |
+| Plugin `bacg-dev` (compuertas, ciclo de RQ, skills) | `plugin/` de este repo | Responsable técnico, vía PR |
 | Lineamientos generales | `plugin/general/` | Todo el equipo, vía PR |
-| Contrato, reglas y backlog de cada proyecto | `proyectos/<id>/` (o `.como-trabajo/` del repo del proyecto) | Equipo del proyecto |
-| Activación del plugin en cada repo | `.claude/settings.json` + `.lineamientos` en el repo del proyecto | Equipo del proyecto |
+| Contrato, reglas y backlog de cada proyecto | `proyectos/<id>/` (o `.bacg-dev/` del repo del proyecto) | Equipo del proyecto |
+| Activación del plugin en cada repo | `.claude/settings.json` + `.bacg-lineamientos` en el repo del proyecto | Equipo del proyecto |
 
 ## Un entorno por proyecto
 
@@ -18,7 +18,7 @@ Cada proyecto (PowerFy, Migración Odoo 20, …) tiene:
 1. **En sus repos**, dos archivos de `plantillas/repo-proyecto/`:
    - `.claude/settings.json`: registra el marketplace `lineamientos-bacg` y habilita el plugin. Quien abra el repo con
      Claude Code recibe el pedido de instalarlo; no hace falta que nadie se acuerde.
-   - `.lineamientos` con `proyecto: <id>`: activa las compuertas para ese proyecto. Sin este archivo, no hay compuertas.
+   - `.bacg-lineamientos` con `proyecto: <id>`: activa las compuertas para ese proyecto. Sin este archivo, no hay compuertas.
 2. **Entorno en la nube (claude.ai/code)**, uno por proyecto, con:
    - Repos: los del proyecto **y** `bacgroup/lineamientos-dev-claude-bacg` (sin este último el plugin no encuentra backlog ni reglas).
    - Setup script: el contenido de `scripts/setup-entorno.sh`.
@@ -30,7 +30,7 @@ Cada proyecto (PowerFy, Migración Odoo 20, …) tiene:
 
 1. Copiar `proyectos/_plantilla/` a `proyectos/<id>/` y completar `proyecto.yml`, `resumen.md`, `reglas.md` y `backlog.md`.
 2. Sumarlo a `proyectos/registro.yml`.
-3. Poner `.claude/settings.json` y `.lineamientos` en cada repo del proyecto.
+3. Poner `.claude/settings.json` y `.bacg-lineamientos` en cada repo del proyecto.
 4. Crear su entorno en la nube (paso 2 de arriba).
 
 ## Cómo colabora el equipo

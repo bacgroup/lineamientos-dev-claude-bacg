@@ -18,7 +18,7 @@ const dirProyecto = (p) => path.join(proyectos, p);
 const cargar = (p) => yaml.load(fs.readFileSync(path.join(dirProyecto(p), 'proyecto.yml'), 'utf8'));
 const pasos = (py) => py.circuito_prod.map((c) => c.paso);
 
-// Proyectos que todavía tienen su proyecto.yml acá (desde 0.5 la configuración vive en .como-trabajo/ de cada repo).
+// Proyectos que todavía tienen su proyecto.yml acá (desde 0.5 la configuración vive en .bacg-dev/ de cada repo).
 const registrados = fs.existsSync(proyectos)
   ? fs.readdirSync(proyectos, { withFileTypes: true })
       .filter((d) => d.isDirectory() && !d.name.startsWith('_') && fs.existsSync(path.join(proyectos, d.name, 'proyecto.yml')))

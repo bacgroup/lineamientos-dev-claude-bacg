@@ -3,7 +3,7 @@ description: Abre o retoma un RQ o BUG (ciclo-rq) y muestra su estado
 argument-hint: <código> [descripción]
 ---
 
-Invocá la skill `como-trabajo-bacg:ciclo-rq` con la herramienta Skill y seguila para el pedido: `$ARGUMENTS`.
+Invocá la skill `bacg-dev:ciclo-rq` con la herramienta Skill y seguila para el pedido: `$ARGUMENTS`.
 
 Para la CLI, usá la ruta exacta y entre comillas de la línea `CLI del RQ: node "…"` que inyectó `SessionStart`. Abajo aparece como `…/rq.mjs`. Sólo si esa línea falta, usá `${CLAUDE_PLUGIN_ROOT}/scripts/rq.mjs`.
 

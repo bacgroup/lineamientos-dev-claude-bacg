@@ -1,5 +1,5 @@
 # Contrato de Powerfy ERP (Odoo 18 CE). Esquema viejo: vive acá hasta que nlopez-bacg tenga escritura en bacgroup;
-# entonces se mueve a .como-trabajo/ de powerfy-docker (ver resumen.md). Infra: powerfy-docker/docs/AMBIENTES.md.
+# entonces se mueve a .bacg-dev/ de powerfy-docker (ver resumen.md). Infra: powerfy-docker/docs/AMBIENTES.md.
 
 id: powerfy
 nombre: Powerfy ERP
@@ -21,6 +21,11 @@ datos:
   aplicar: "Las aplica Odoo al actualizar el módulo (-u) en el deploy de la imagen 18.0"
 
 ramas_prod: ["18.0"]
+
+# Conectores MCP de PROD (PLG-MCP): completar con el segmento real de mcp__<servidor>__ de cada conector.
+# mcp_prod:
+#   - { servidor: "<n8n de PROD>", tipo: n8n }
+#   - { servidor: "<Odoo de PROD>", tipo: odoo }
 
 entornos:
   local:
@@ -62,6 +67,7 @@ sensible:
   rutas: ["**/security/**", "**/ir.model.access.csv", "**/powerfy_security/**", "**/powerfy_roles/**",
           ".github/workflows/**", "Dockerfile*", "docker-compose*.yml", "config/**", "nginx/**", "**/migrations/**"]
 
+# PLG-NUBE: cuando qa/ esté en powerfy-docker, cambiar unit/e2e a "node \"{repo:powerfy-docker}/qa/odoo-test.mjs\" {archivos}" (corre en la nube y en cualquier PC).
 # Infraestructura en "C:/MiCarpeta/Odoo DEVs/PowerFy/qa" (README.md ahí; workspace movido desde C:/powerfy el 2026-10-30); se mueve a powerfy-docker/qa/ cuando haya escritura en bacgroup.
 tests:
   unit: "node \"C:/MiCarpeta/Odoo DEVs/PowerFy/qa/odoo-test.mjs\" {archivos}"   # tests de Odoo de los módulos en stage, base powerfy_test; --completo = CI

@@ -4,7 +4,7 @@
     "superpowers-marketplace": { "source": { "source": "github", "repo": "obra/superpowers-marketplace" } }
   },
   "enabledPlugins": {
-    "como-trabajo-bacg@lineamientos-bacg": true,
+    "bacg-dev@lineamientos-bacg": true,
     "superpowers@superpowers-marketplace": true
   }
 }

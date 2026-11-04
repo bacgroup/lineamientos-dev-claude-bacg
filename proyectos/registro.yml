@@ -1,5 +1,5 @@
-# Proyectos de BACG que usan el plugin como-trabajo-bacg. La configuración de cada uno (proyecto.yml, reglas, resumen,
-# backlog) vive en proyectos/<id>/ de este repo o en .como-trabajo/ de su repo principal; acá queda el índice.
+# Proyectos de BACG que usan el plugin bacg-dev. La configuración de cada uno (proyecto.yml, reglas, resumen,
+# backlog) vive en proyectos/<id>/ de este repo o en .bacg-dev/ de su repo principal; acá queda el índice.
 # Alta de un proyecto nuevo: ver docs/ENTORNOS.md (sección "Proyecto nuevo").
 
 proyectos:

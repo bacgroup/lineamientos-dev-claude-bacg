@@ -814,7 +814,7 @@ const real = (p) => {
   }
 };
 
-// Pasa rutas relativas al toplevel de git a rutas relativas a la raíz de .lineamientos (null = afuera).
+// Pasa rutas relativas al toplevel de git a rutas relativas a la raíz de .bacg-lineamientos (null = afuera).
 function relativasARaiz(dir, raiz, archivos) {
   const top = real(git(dir, ['rev-parse', '--show-toplevel']).trim());
   const r = real(raiz);
@@ -992,11 +992,11 @@ export function publicaEnProd(op, raiz, proyecto, entrada, ctx) {
   return destinos.some((d) => ramas.includes(d));
 }
 
-// Repo destino de un push/merge: { raiz, proyecto?, error?, fuera?, nombre, prod }, o null si no hay .lineamientos.
+// Repo destino de un push/merge: { raiz, proyecto?, error?, fuera?, nombre, prod }, o null si no hay .bacg-lineamientos.
 function destino(op, dirLin, ctx) {
   const repo = buscarRepo(op.dir);
   if (!repo) {
-    // Merge explícito a otro repo desde un directorio sin .lineamientos: no se puede verificar el RQ.
+    // Merge explícito a otro repo desde un directorio sin .bacg-lineamientos: no se puede verificar el RQ.
     if (op.op === 'merge-pr' && op.repoGh) return { fuera: true, nombre: String(op.repoGh), prod: true };
     return null;
   }

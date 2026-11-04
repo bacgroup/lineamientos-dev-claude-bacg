@@ -1,13 +1,13 @@
 ---
 name: ciclo-rq
-description: Usar antes de cualquier cambio de código o base de datos en un repo con .lineamientos o .como-trabajo/ (o cuando el usuario pide un RQ, un BUG, /rq o /estado). Distingue RQ de BUG, hace el encuadre y la fila del backlog, delega diseño y desarrollo en Superpowers sin duplicarlo, exige refuerzo de UI y E2E live, lleva la entrega hasta PROD y cierra con changelog y log.
+description: Usar antes de cualquier cambio de código o base de datos en un repo con .bacg-lineamientos o .bacg-dev/ (o cuando el usuario pide un RQ, un BUG, /bacg-rq o /bacg-estado). Distingue RQ de BUG, hace el encuadre y la fila del backlog, delega diseño y desarrollo en Superpowers sin duplicarlo, exige refuerzo de UI y E2E live, lleva la entrega hasta PROD y cierra con changelog y log.
 ---
 
 # Ciclo de un RQ o BUG
 
 El plugin pone el marco de entrada (encuadre + backlog) y de salida (entrega + changelog + log). Lo del medio lo hace Superpowers. **Un artefacto por fase, una pasada por artefacto:** lo aprobado no se vuelve a revisar salvo que el usuario lo pida. Al usuario se le pide sólo el OK de PROD (y el de diseño y plan cuando hay ARQ).
 
-`$RQ` es la línea `CLI del RQ: node "<ruta>"` que inyecta `SessionStart`; si falta, `node "${CLAUDE_PLUGIN_ROOT}/scripts/rq.mjs"`. Se corre desde la raíz del repo y es la única vía para escribir `docs/rq/<código>/estado.yml` y `docs/rq/ACTIVO`. `$RQ estado` dice dónde está el RQ; corrélo al retomar o cuando una compuerta bloquee. La configuración del proyecto está en `.como-trabajo/` del repo (o, en proyectos viejos, en la copia de lineamientos); `proyecto.yml` se lee con Read.
+`$RQ` es la línea `CLI del RQ: node "<ruta>"` que inyecta `SessionStart`; si falta, `node "${CLAUDE_PLUGIN_ROOT}/scripts/rq.mjs"`. Se corre desde la raíz del repo y es la única vía para escribir `docs/rq/<código>/estado.yml` y `docs/rq/ACTIVO`. `$RQ estado` dice dónde está el RQ; corrélo al retomar o cuando una compuerta bloquee. La configuración del proyecto está en `.bacg-dev/` del repo (o, en proyectos viejos, en la copia de lineamientos); `proyecto.yml` se lee con Read.
 
 ## 1. Tipo y encuadre (una pasada)
 
@@ -17,7 +17,7 @@ El plugin pone el marco de entrada (encuadre + backlog) y de salida (entrega + c
 | BUG | Algo que anda mal respecto de lo acordado | `--tipo bug` |
 | Consulta u operativa | Preguntas, lecturas, SELECTs, docs, tests | Sin ciclo |
 
-Sin ciclo también: `docs/**`, `**/*.md`, `tests/**`, `e2e/**`, `*.test.*`, `*.spec.*`, `.lineamientos`, `.lovable/**`, `.agents/**`. Nunca libres: `.claude/` y `.como-trabajo/`.
+Sin ciclo también: `docs/**`, `**/*.md`, `tests/**`, `e2e/**`, `*.test.*`, `*.spec.*`, `.bacg-lineamientos`, `.lovable/**`, `.agents/**`. Nunca libres: `.claude/` y `.bacg-dev/`.
 
 1. Buscá el código en el backlog con Grep (`docs/backlog.md`). Si no existe, proponé el siguiente con la convención del backlog y seguí.
 2. `$RQ abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico --tarea "<texto>"` crea o retoma el RQ y escribe la fila del backlog. `arquitectonico` si se cumple algún criterio ARQ (sección 3); si no, `bounded` (`spike` para exploración).
@@ -54,6 +54,20 @@ La etapa sale sola de la evidencia (`$RQ estado` la muestra); `$RQ etapa <n>` es
 
 Si el usuario decide saltear una skill exigida: `$RQ saltar skills "<frase>" "<motivo>"`; la de seguridad: `$RQ saltar seguridad "<frase>" "<motivo>"`.
 
+### 2.0 Skills de BACG por etapa
+
+Además de las de la tabla, las de BACG según lo que toca el RQ. El proyecto puede volverlas obligatorias con `skills_requeridas` en `proyecto.yml` (por etapa, tipo y rutas); entonces la CLI las exige como las de arriba.
+
+| Etapa | Si el RQ… | Skill |
+|---|---|---|
+| 1 Diseño | diseña o revisa un agente de IA, o decide agente vs. workflow | `anthropic-skills:bacg-agent-architecture` |
+| 1 Diseño | toca multicompañía, localización o contabilidad de Odoo | `anthropic-skills:odoo-multicompany-consultant` |
+| 1 Diseño · BUG | diagnostica un error de n8n + Odoo (mails [ERROR], ejecuciones fallidas, rechazos del conector) | `anthropic-skills:bacg-diagnostico-bugs` |
+| 3 Desarrollo | crea o edita un workflow de n8n | `anthropic-skills:bacg-n8n-guidelines` |
+| 3 Desarrollo | toca el conector MCP Odoo–Claude | `anthropic-skills:bacg-conector-mcp-odoo` |
+| 3 Desarrollo | replica un stack de n8n a otro cliente | `anthropic-skills:bacg-n8n-clonado-clientes` |
+| 6 PROD | promueve workflows de n8n de DEV a PROD | `anthropic-skills:bacg-n8n-pasaje-prod` |
+
 ### 2.1 Reglas con Superpowers (mandan sobre las de cada skill)
 
 - `brainstorming`: arranca desde el encuadre, sin rehacer contexto del repo, backlog ni tipo; todas las dudas en un mensaje. Su HARD-GATE (diseño aprobado antes de seguir) aplica sólo en arquitectónico; en spike y bounded no se usa.
@@ -83,21 +97,21 @@ En orden, cada una sólo si aporta:
 4. La skill de la base del stack (`datos.motor`), si toca base de datos: `supabase-postgres-best-practices` en Supabase o Postgres; en otro motor, su documentación vía `context7` y las reglas del proyecto.
 5. Skill "claude-security:claude-security": si toca seguridad o rutas de `sensible`.
 6. `feature-dev:code-architect`: si atraviesa varios módulos.
-7. `como-trabajo-bacg:decision-arq`: si sale una decisión duradera (ADR).
+7. `bacg-dev:decision-arq`: si sale una decisión duradera (ADR).
 
 Resultado: `docs/rq/<código>/arq.md` de una página (contexto, opciones y trade-offs, decisión, atributos de calidad afectados, riesgos, ADR). Entra a `brainstorming` como dato.
 
 ## 4. Refuerzos obligatorios
 
 **UI** (archivos de `ui.patrones`), en todo RQ y BUG, también los bounded: "bounded" no habilita un diseño exprés. La compuerta de edición pide:
-- `como-trabajo-bacg:diseno-frontend` siempre, y seguí su orden (canon primero);
-- `como-trabajo-bacg:redesign-existing-projects` si el archivo ya existe (pantalla existente: se audita antes de cambiarla);
+- `bacg-dev:diseno-frontend` siempre, y seguí su orden (canon primero);
+- `bacg-dev:redesign-existing-projects` si el archivo ya existe (pantalla existente: se audita antes de cambiarla);
 - además, las de `ui.skills` / `ui.reglas` de `proyecto.yml`, que se suman a estas;
 - la sección `## Diseño` en `docs/rq/<código>/spec.md` con el entregable de `diseno-frontend`: canon que aplica, dirección, auditoría, estados, revisión en móvil y alineación con los componentes vecinos.
 
 **Cambio menor** (un texto, un ícono, un tooltip o un espaciado puntual; sin componentes nuevos, sin cambiar el layout ni lo que se ve en móvil, sin tocar un estilo compartido): antes de cargar nada, preguntale al usuario en el chat, con texto, si omite el refuerzo. No uses botones: la compuerta sólo acepta sus palabras. Si acepta: `$RQ saltar ui "<su frase>" "<motivo>"`, y se sigue pidiendo sólo el canon del proyecto. Ante la duda, no lo propongas.
 
-`como-trabajo-bacg:design-taste-frontend` (~22 k tokens) va sólo donde el proyecto lo declara (landing, marca). La base de todo cambio de UI que no sea menor es `emil-design-eng` (componentes e interacción), `mobile-native` (móvil) y, si hay pantalla o componente nuevo o más de una dirección, proponerle al usuario `/prototype` (el agente no puede invocarla). El detalle y las skills de apoyo por caso (`break-ui`, `pick-ui-library`) están en `diseno-frontend`. Una skill cargada queda en el RQ y vale para subagentes y otras sesiones. Lo que el usuario pide explícitamente sobre la UI (por ejemplo, "color acorde al sentido de la acción") es criterio de aceptación: anotalo en el spec y verificalo en la captura.
+`bacg-dev:design-taste-frontend` (~22 k tokens) va sólo donde el proyecto lo declara (landing, marca). La base de todo cambio de UI que no sea menor es `emil-design-eng` (componentes e interacción), `mobile-native` (móvil) y, si hay pantalla o componente nuevo o más de una dirección, proponerle al usuario `/prototype` (el agente no puede invocarla). El detalle y las skills de apoyo por caso (`break-ui`, `pick-ui-library`) están en `diseno-frontend`. Una skill cargada queda en el RQ y vale para subagentes y otras sesiones. Lo que el usuario pide explícitamente sobre la UI (por ejemplo, "color acorde al sentido de la acción") es criterio de aceptación: anotalo en el spec y verificalo en la captura.
 
 **E2E live** (todo RQ y BUG): al menos un flujo de Playwright Test que recorre el cambio en la app levantada (`entornos.local` o la preview de `entornos.dev`), no en jsdom. En un BUG, el flujo reproduce el síntoma: rojo antes del arreglo, verde después. Traza y capturas a `docs/rq/<código>/qa/`. `$RQ verificar` corre `tests.e2e` de `proyecto.yml` (con `E2E_URL`/`BASE_URL` = `tests.e2e_url`) y lo registra. Si el comando trae `{specs}`, corre sólo los specs del RQ (o los que le pases) mientras desarrollás; antes de PROD, `$RQ verificar --completo`; sin E2E en verde la compuerta no deja publicar código. Sólo se omite si el usuario lo dice con sus palabras y el cambio no tiene superficie de app: `$RQ saltar e2e "<frase>" "<motivo>"`.
 
@@ -128,5 +142,5 @@ Si `$RQ estado` o `$RQ entregar` avisan que la rama está atrasada o que el RQ y
 ## 8. Agentes sin el plugin (Lovable u otros)
 
 Lovable y otros agentes (los de `agentes_externos` en `proyecto.yml`) no pasan por las compuertas: pushean directo a la rama principal.
-- `$RQ agents` escribe en `AGENTS.md` (entre marcas) los lineamientos en una forma que esos agentes siguen a mano: RQ o BUG, backlog, encuadre, tests, E2E, nada de SQL en PROD, changelog y log. Correlo cuando cambie `.como-trabajo/` y commitealo (es documentación). En proyectos con sedes, `AGENTS.md` viaja con `sync-lineamientos`.
+- `$RQ agents` escribe en `AGENTS.md` (entre marcas) los lineamientos en una forma que esos agentes siguen a mano: RQ o BUG, backlog, encuadre, tests, E2E, nada de SQL en PROD, changelog y log. Correlo cuando cambie `.bacg-dev/` y commitealo (es documentación). En proyectos con sedes, `AGENTS.md` viaja con `sync-lineamientos`.
 - `$RQ auditar` lista los commits de esos agentes posteriores a la última revisión, marcando migraciones, rutas sensibles y código sin tests. Si el arranque avisa que hay commits sin revisar: revisá primero los marcados, regularizá lo que haga falta como RQ o BUG y cerrá con `$RQ auditar --cerrar "<qué se revisó y qué se abrió>"` (mueve la marca `docs/log/auditoria-lovable.yml` y deja la línea en `docs/log/rq.jsonl`).

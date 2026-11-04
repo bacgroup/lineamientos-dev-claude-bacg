@@ -22,7 +22,7 @@ export function crearRepoTemporal({ proyectoId, archivos = {}, nombre } = {}) {
   git(dir, 'config', 'user.name', 'Test');
   git(dir, 'config', 'user.email', 'test@example.com');
   git(dir, 'config', 'commit.gpgsign', 'false');
-  if (proyectoId) fs.writeFileSync(path.join(dir, '.lineamientos'), `proyecto: ${proyectoId}\n`);
+  if (proyectoId) fs.writeFileSync(path.join(dir, '.bacg-lineamientos'), `proyecto: ${proyectoId}\n`);
   for (const [rel, contenido] of Object.entries(archivos)) {
     const destino = path.join(dir, rel);
     fs.mkdirSync(path.dirname(destino), { recursive: true });

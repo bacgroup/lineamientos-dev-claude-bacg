@@ -9,7 +9,7 @@ const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const general = path.join(raiz, 'plugin', 'general');
 const plantilla = path.join(raiz, 'proyectos', '_plantilla');
 
-const ARCHIVOS_GENERAL = ['resumen', 'proceso', 'entornos', 'tests', 'seguridad', 'tokens', 'git-lovable'];
+const ARCHIVOS_GENERAL = ['resumen', 'proceso', 'entornos', 'tests', 'seguridad', 'tokens', 'git'];
 
 test('general/ tiene los siete lineamientos', () => {
   for (const n of ARCHIVOS_GENERAL) {
@@ -32,14 +32,16 @@ test('ningún archivo de general/ nombra un proyecto puntual', () => {
 
 test('_plantilla/proyecto.yml parsea y tiene las claves del contrato', () => {
   const py = yaml.load(fs.readFileSync(path.join(plantilla, 'proyecto.yml'), 'utf8'));
-  for (const k of ['id', 'nombre', 'cuenta_github', 'repos', 'entornos', 'lovable', 'circuito_prod', 'ui', 'sensible', 'tests']) {
+  for (const k of ['id', 'nombre', 'cuenta_github', 'repos', 'datos', 'ramas_prod', 'entornos', 'mcp_prod', 'skills_requeridas', 'circuito_prod', 'ui', 'sensible', 'tests']) {
     assert.ok(k in py, `falta la clave ${k}`);
   }
   assert.ok(Array.isArray(py.repos) && py.repos.length > 0);
   for (const k of ['nombre', 'rol', 'push_prod']) assert.ok(k in py.repos[0], `repos[0].${k}`);
   assert.ok(py.entornos.local && py.entornos.dev && py.entornos.prod);
-  assert.ok(Array.isArray(py.entornos.prod.supabase_refs));
-  assert.ok('workspace_id' in py.lovable && 'proyectos' in py.lovable);
+  assert.equal(py.datos.motor, 'odoo', 'la plantilla es la de referencia BACG');
+  assert.ok(Array.isArray(py.mcp_prod) && py.mcp_prod.every((m) => m.servidor && m.tipo));
+  assert.ok(py.skills_requeridas.every((s) => [3, 4, 6].includes(s.etapa) && s.skill));
+  assert.ok(!('lovable' in py), 'Lovable no es parte de la plantilla BACG');
   assert.ok(Array.isArray(py.circuito_prod) && py.circuito_prod[0].paso);
   for (const { paso } of py.circuito_prod) {
     assert.match(paso, /^(sql|push|merge-prs-sync|manual):.+|^sync-lineamientos$/, `paso inválido en circuito_prod: ${paso}`);

@@ -15,7 +15,7 @@ async function correr(cwd, args, env) {
   let err = '';
   const code = await main(args, {
     cwd,
-    env: { COMO_TRABAJO_SIN_GH: '1', ...env },
+    env: { BACG_DEV_SIN_GH: '1', ...env },
     stdout: { write: (s) => { out += s; } },
     stderr: { write: (s) => { err += s; } },
   });
@@ -26,7 +26,7 @@ function lin(yml) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-'));
   fs.mkdirSync(path.join(dir, 'proyectos', 'demo'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'proyectos', 'demo', 'proyecto.yml'), `id: demo\n${yml}`);
-  return { LINEAMIENTOS_DIR: dir };
+  return { BACG_LINEAMIENTOS_DIR: dir };
 }
 
 // Con core.autocrlf el stash pop devuelve CRLF, como cualquier checkout en Windows.

@@ -1,5 +1,5 @@
 {
-  "description": "como-trabajo: contexto de lineamientos, compuertas de edición/shell/MCP de PROD y circuito de PROD.",
+  "description": "bacg-dev: contexto de lineamientos, compuertas de edición/shell/MCP de PROD (n8n, Odoo, Supabase, Lovable) y circuito de PROD.",
   "hooks": {
     "SessionStart": [
       {
@@ -26,7 +26,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|mcp__.*__(execute_sql|apply_migration|deploy_edge_function|deploy_project|merge_branch|reset_branch|restore_project|pause_project|query_database|respond_to_approval)",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|mcp__.*",
         "hooks": [
           {
             "type": "command",

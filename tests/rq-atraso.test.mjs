@@ -20,7 +20,7 @@ function copiaLineamientos() {
   return dir;
 }
 const DIR_LIN = copiaLineamientos();
-const ENV = { LINEAMIENTOS_DIR: DIR_LIN, COMO_TRABAJO_SIN_GH: '1' };
+const ENV = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DEV_SIN_GH: '1' };
 
 async function correr(cwd, args, env = ENV) {
   let out = '';
@@ -105,20 +105,20 @@ test('entregar: si HEAD ya está en origin/main, dice que la rama está integrad
 });
 
 test('entregar sin proyecto.yml en el checkout: dice dónde lo buscó y que origin/main sí lo tiene', async () => {
-  // Caso real: la configuración pasó a .como-trabajo/ en main y la copia de lineamientos ya no tiene proyecto.yml.
-  const env = { LINEAMIENTOS_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'lin-vacio-')), COMO_TRABAJO_SIN_GH: '1' };
+  // Caso real: la configuración pasó a .bacg-dev/ en main y la copia de lineamientos ya no tiene proyecto.yml.
+  const env = { BACG_LINEAMIENTOS_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'lin-vacio-')), BACG_DEV_SIN_GH: '1' };
   const { raiz, origen } = repoConOrigen();
   await abrirR1(raiz, env);
-  empujarAMain(raiz, origen, { '.como-trabajo/proyecto.yml': 'id: demo\n' });
+  empujarAMain(raiz, origen, { '.bacg-dev/proyecto.yml': 'id: demo\n' });
   const r = await correr(raiz, ['entregar'], env);
   assert.equal(r.code, 1);
-  assert.match(r.err, /El proyecto demo no tiene proyecto\.yml en este checkout \(\.como-trabajo\/proyecto\.yml\) ni en .*proyectos[\\/]demo/);
-  assert.match(r.err, /origin\/main sí tiene \.como-trabajo\/proyecto\.yml: la rama está 1 commit\(s\) atrás; actualizala \(git merge origin\/main\)/);
+  assert.match(r.err, /El proyecto demo no tiene proyecto\.yml en este checkout \(\.bacg-dev\/proyecto\.yml\) ni en .*proyectos[\\/]demo/);
+  assert.match(r.err, /origin\/main sí tiene \.bacg-dev\/proyecto\.yml: la rama está 1 commit\(s\) atrás; actualizala \(git merge origin\/main\)/);
 });
 
 test('cerrar sin estado.tarea: toma el título del # de spec.md (y Prioridad/Impacto si los dice) para backlog y changelog', async () => {
   const lin = copiaLineamientos();
-  const env = { LINEAMIENTOS_DIR: lin, COMO_TRABAJO_SIN_GH: '1' };
+  const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_GH: '1' };
   const raiz = repoDemo();
   await abrirR1(raiz, env);
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'spec.md'), '# R-1 · Aviso que se entienda\n\nPrioridad: Media\n**Impacto:** UX\n');
@@ -135,7 +135,7 @@ test('cerrar sin estado.tarea: toma el título del # de spec.md (y Prioridad/Imp
 
 test('cerrar: no pisa la Tarea ni la Prioridad vigentes del backlog y avisa lo que quedó vacío', async () => {
   const lin = copiaLineamientos();
-  const env = { LINEAMIENTOS_DIR: lin, COMO_TRABAJO_SIN_GH: '1' };
+  const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_GH: '1' };
   const raiz = repoDemo();
   await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded', '--tarea', 'La vigente', '--prioridad', 'Alta'], env);
   const { tarea, ...sinTarea } = cargarEstado(raiz, 'R-1');
@@ -255,7 +255,7 @@ test('desplegar: las migraciones propias siguen contando, sin pushear (aunque no
   // pero la de un commit que lo nombra sí cuenta.
   const clon = fs.mkdtempSync(path.join(os.tmpdir(), 'clon-nuevo-'));
   git(clon, 'clone', '-q', origen2, '.');
-  fs.writeFileSync(path.join(clon, '.lineamientos'), 'proyecto: demo\n');
+  fs.writeFileSync(path.join(clon, '.bacg-lineamientos'), 'proyecto: demo\n');
   guardarEstado(clon, cargarEstado(raiz2, 'R-1'));
   fs.writeFileSync(path.join(clon, 'docs', 'rq', 'ACTIVO'), 'R-1\n');
   r = await correr(clon, ['desplegar']);

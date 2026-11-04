@@ -1,90 +1,93 @@
-# Plantilla de proyecto. Copiala a .como-trabajo/proyecto.yml del repo principal (recomendado: viaja con el repo y
-# sirve en cualquier cuenta o sesión en la nube) o, en el esquema viejo, a proyectos/<id>/proyecto.yml de lineamientos.
+# Plantilla de proyecto de BACG. Copiala a proyectos/<id>/proyecto.yml del repo central de lineamientos
+# (bacgroup/lineamientos-dev-claude-bacg) y sumá el proyecto a proyectos/registro.yml. Cada repo del proyecto lleva
+# `.bacg-lineamientos` con `proyecto: <id>` y `.claude/settings.json` (ver plantillas/repo-proyecto/).
 #
-# Los valores de ejemplo son los de la arquitectura de referencia histórica (Supabase + Lovable). Otro stack
-# (Postgres propio, Odoo, un backend sin base, deploy por rama) se declara con `datos`, `ramas_prod`,
-# `entornos.prod.bases` y `agentes_externos`; al pie hay un ejemplo. Lo que no se declara toma el valor de referencia.
+# Los valores de ejemplo son los de la arquitectura de referencia de BACG: Odoo + n8n + AWS, PROD por rama y
+# conectores MCP de PROD declarados. Lo que no se declara toma ese valor. Otro stack (Supabase + Lovable, Postgres
+# propio, sin base) se declara con `datos`, `entornos.prod`, `lovable` y `agentes_externos`; ver el pie.
 
-id: mi-proyecto                 # identificador corto; también `proyecto:` del .lineamientos en el esquema viejo
+id: mi-proyecto                 # identificador corto; el `proyecto:` de .bacg-lineamientos
 nombre: Mi Proyecto             # nombre legible
-cuenta_github: mi-cuenta        # cuenta de GitHub dueña de los repos
+cuenta_github: bacgroup         # org o cuenta dueña de los repos
 
-repos:                          # un elemento por repo del proyecto
-  - nombre: mi-repo             # nombre del repo en GitHub
-    rol: padre                  # padre | sede | otro rol que defina el proyecto (informativo, salvo sede)
+repos:                          # un elemento por repo del proyecto (los RQ multi-repo sólo vinculan repos declarados)
+  - nombre: mi-docker           # nombre del repo en GitHub
+    rol: padre                  # padre | addons | sede | otro (informativo, salvo sede)
     push_prod: true             # true = publica a PROD (es el valor si falta); false explícito = repo que no publica
-    # ramas_prod: ["main"]      # opcional: sólo un push/merge a estas ramas es PROD (manda sobre el del proyecto)
-    # ruta_local: "C:/ruta/a/mi-repo" # opcional: los repos hijos se operan por gh y MCP, sin clon local
-    supabase_ref: ref-prod-1    # opcional: base de PROD del repo (`base:` en otro motor); en una sede, el plugin mira
-                                # si su PR de sync trae migraciones
+    # ramas_prod: ["18.0"]      # opcional: manda sobre el del proyecto
+    # ruta_local: "C:/ruta/a/mi-docker"  # opcional: sin ella, el repo se busca clonado junto a los demás
+  - nombre: mi-addons
+    rol: addons
+    push_prod: true
 
-# Base de datos. Sin la clave: supabase, con migraciones en supabase/migrations/.
+# Base de datos. Sin la clave: odoo, con migraciones de módulos en **/migrations/**.
 datos:
-  motor: supabase               # supabase | postgres | odoo | otro | ninguno
-  migraciones: ["supabase/migrations/**"]  # globs: disparan los pasos sql: y "Toca: migraciones"; [] = sin migraciones
-  # aplicar: "<comando o instrucción>"     # cómo se aplican en PROD fuera de Supabase (lo muestra `rq.mjs desplegar`)
+  motor: odoo                   # odoo | supabase | postgres | otro | ninguno
+  migraciones: ["**/migrations/**"]   # globs: disparan "Toca: migraciones"; [] = sin migraciones
+  aplicar: "Las aplica Odoo al actualizar el módulo (-u) en el deploy"   # lo muestra `rq.mjs desplegar`
 
-# PROD por rama (opcional). Sin la clave, todo push a un repo con push_prod es PROD. Con ella, un push o merge a otra
-# rama (la de DEV) pide la etapa 4 y el E2E, pero no el OK de PROD ni el circuito. --all, --mirror y una rama que no
-# se puede resolver siguen siendo PROD.
-# ramas_prod: ["main"]
+# PROD por rama: sólo un push o merge a estas ramas es PROD. La rama de DEV pide tests y revisión, no el OK de PROD.
+# --all, --mirror y una rama que no se puede resolver siguen siendo PROD. Sin la clave, todo push es PROD.
+ramas_prod: ["18.0"]
 
 entornos:
-  local:                        # URLs del entorno de desarrollo local
-    app: "http://localhost:8080"
-    supabase: "http://127.0.0.1:54321"
-  dev:                          # entorno de verificación previo a PROD (informativo: lo muestra el arranque)
-    tipo: lovable-preview       # lovable-preview | rama | url | ninguno
-    # rama: develop             # con tipo rama: la rama que despliega a DEV (PROD la decide ramas_prod)
-    # url: "https://dev.ejemplo.com"
+  local:
+    app: "http://localhost:8069"
+  dev:
+    tipo: rama                  # rama | url | lovable-preview | ninguno (informativo: lo muestra el arranque)
+    rama: 18.0-dev
+    url: "https://dev.ejemplo.com"
   prod:
-    supabase_refs: [ref-prod-1] # refs de Supabase de PROD: el SQL de escritura por el conector está bloqueado fuera de la etapa 6
-    # bases: [erp-prod]         # bases de PROD de otro motor: los sql:<id> del circuito
+    url: "https://prod.ejemplo.com"
+    # bases: [erp-prod]         # bases de PROD con pasos sql:<id> en el circuito (si se aplica SQL a mano)
 
-lovable:                        # opcional: sólo si el proyecto usa Lovable
-  workspace_id: ""              # id del workspace de Lovable
-  proyectos: {}                 # mapa repo -> id del proyecto en Lovable, p. ej. { mi-repo: "<id>" }
+# Conectores MCP que tocan PROD. Leer pasa; toda otra herramienta del servidor pide RQ activo + OK de PROD.
+# servidor = el segmento de mcp__<servidor>__<herramienta> (nombre o id del conector).
+mcp_prod:
+  - servidor: n8n-prod
+    tipo: n8n                   # n8n | odoo | generico: define qué herramientas son de lectura
+    # lectura: ["get_user_preferences"]   # herramientas extra de sólo lectura
+    # ids_prod: ["<workflowId>"]          # si DEV y PROD comparten instancia: sólo estos ids son PROD
+  # - servidor: odoo-prod
+  #   tipo: odoo                # con execute_kw/call_kw, decide `method` (search_read pasa; write/create/unlink no)
 
-# Agentes que commitean sin el plugin (los audita `rq.mjs auditar`). Sin la clave: los autores de Lovable.
-# agentes_externos:
-#   nombre: "Codex"
-#   autores: ["chatgpt-codex-connector[bot]"]
+# Skills de BACG que la CLI exige (además de las de proceso). etapa 3 | 4 | 6; tipo rq | bug; rutas opcionales.
+skills_requeridas:
+  - { etapa: 3, skill: "anthropic-skills:bacg-n8n-guidelines", rutas: ["**/n8n/**"] }
+  - { etapa: 6, skill: "anthropic-skills:bacg-n8n-pasaje-prod", rutas: ["**/n8n/**"] }
+  # - { etapa: 3, skill: "anthropic-skills:bacg-diagnostico-bugs", tipo: bug }
 
-# Pasos de publicación: cada uno espera a los de su despues_de (sin la clave, a todos los anteriores). Los sql: sólo
-# corresponden si el RQ trae migraciones; sync-lineamientos, si trae estándares. Los manuales no bloquean.
+# Pasos de publicación: cada uno espera a los de su despues_de (sin la clave, a todos los anteriores). Los manuales no
+# bloquean el cierre: quedan pendientes del usuario.
 circuito_prod:
-  - paso: "sql:ref-prod-1"      # sql:<base> | push:<repo> | merge-prs-sync:<repo> | sync-lineamientos | manual:<texto>
-  - paso: "push:mi-repo"
-    despues_de: ["sql:ref-prod-1"]
-  - paso: "manual:publicar-en-lovable"   # lo hace el usuario; el agente lo registra con `rq.mjs paso` cuando confirma
+  - paso: "push:mi-addons"      # push:<repo> | sql:<base> | merge-prs-sync:<repo> | sync-lineamientos | manual:<texto>
+  - paso: "push:mi-docker"
+  - paso: "manual:verificar-en-dev-y-promover-18.0"
 
 ui:
-  patrones: ["src/components/**", "src/pages/**", "**/*.css"]   # archivos de UI
-  skills: []                    # skills que suma editar un archivo de UI (p. ej. la del canon); el plugin siempre pide
-                                # diseno-frontend, y redesign-existing-projects si la pantalla ya existe
+  patrones: ["**/static/src/**", "**/views/**/*.xml", "**/*.scss"]
+  skills: []                    # skills que suma editar un archivo de UI; el plugin siempre pide diseno-frontend
   reglas: []                    # excepciones por patrón: [{ patrones: [...], skills: [...] }]
-  canon: canon-ui.md            # archivo del canon de UI dentro de proyectos/<id>/
+  canon: reglas.md              # canon de UI dentro de proyectos/<id>/
 
-sensible:                       # rutas cuyo cambio dispara claude-security y la suite viejo vs nuevo
-  rutas: ["src/lib/billing*", "supabase/functions/**", "supabase/migrations/**"]
+sensible:                       # rutas cuyo cambio pide claude-security
+  rutas: ["**/security/**", "**/ir.model.access.csv", ".github/workflows/**", "Dockerfile*", "**/migrations/**"]
 
-# Comandos portables: corren con el shell del sistema (cmd.exe en Windows). Usá node/npx y evitá && de bash y $VAR,
-# o declarà `shell: bash` (Git Bash en Windows). Con Docker desde Git Bash, MSYS_NO_PATHCONV=1 evita que una ruta
-# como /modulo se convierta en C:/Program Files/Git/modulo.
-tests:                          # comando de cada capa; dejá "" la que el proyecto todavía no tenga. {archivos} = lo que está en stage
-  # shell: bash                 # opcional: sistema (por defecto) | bash | ruta de otro shell
-  unit: "npx vitest related --run {archivos}"
-  rojos_conocidos: []           # tests que ya fallan en main por causas ajenas: no bloquean a un RQ que no los rompió
-  componentes: "npx vitest run --project browser"
-  sql: "npx vitest run --project sql"
-  e2e: "npx playwright test"      # obligatorio: flujos E2E contra la app levantada ({specs} = sólo los del RQ)
-  e2e_url: "http://localhost:8080"  # app local o preview donde corre el E2E
-  cobertura_cambios_min: 80     # % mínimo de líneas cambiadas cubiertas (lo exige la infraestructura de tests de cada proyecto)
+# Comandos portables (nube y cualquier PC): {raiz} = este repo, {repo:<nombre>} = otro repo del proyecto clonado en
+# la máquina; ponelos entre comillas. {archivos} = lo que está en stage; {specs} = los E2E del RQ. Corren con el shell
+# del sistema (cmd.exe en Windows) salvo `shell: bash`.
+tests:
+  # shell: bash
+  unit: "node \"{repo:mi-docker}/qa/odoo-test.mjs\" {archivos}"
+  rojos_conocidos: []
+  componentes: ""
+  sql: ""
+  e2e: "node \"{repo:mi-docker}/qa/e2e.mjs\" {specs}"
+  e2e_url: "http://localhost:8070"
+  cobertura_cambios_min: 80
 
-# --- Ejemplo de otro stack (no es parte de la plantilla) ---------------------------------------------------------
-# Backend propio con Postgres y deploy por rama, sin Lovable:
-#   datos: { motor: postgres, migraciones: ["db/migrations/**"], aplicar: "npm run migrate:prod" }
-#   ramas_prod: ["main"]
-#   entornos: { dev: { tipo: rama, rama: develop, url: "https://dev.ejemplo.com" }, prod: { bases: [app-prod] } }
-#   circuito_prod: [{ paso: "sql:app-prod" }, { paso: "push:mi-repo" }, { paso: "manual:verificar-en-prod" }]
-# ERP (Odoo u otro con módulos): datos.motor odoo y migraciones "**/migrations/**"; tests con el runner del ERP.
+# --- Otro stack (no es parte de la plantilla) ---------------------------------------------------------------------
+# Supabase + Lovable: datos: { motor: supabase, migraciones: ["supabase/migrations/**"] };
+#   entornos.prod.supabase_refs: [<ref>]; lovable: { workspace_id: "", proyectos: { <repo>: "<id>" } };
+#   circuito con "sql:<ref>" antes de "push:<repo>" y "manual:publicar-en-lovable".
+# Agentes que commitean sin el plugin: agentes_externos: { nombre: "Codex", autores: ["chatgpt-codex-connector[bot]"] }

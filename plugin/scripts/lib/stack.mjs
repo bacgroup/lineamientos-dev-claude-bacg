@@ -1,6 +1,7 @@
 // Stack del proyecto: lo que el plugin necesita saber de la base de datos, las ramas que publican y los agentes que
-// trabajan sin el plugin. El valor por defecto es la arquitectura de referencia histórica (Supabase + Lovable): un
-// proyecto.yml que no declara nada se comporta como antes. Otro stack (Postgres propio, Odoo, sin base) lo declara:
+// trabajan sin el plugin. El valor por defecto es la arquitectura de referencia de BACG (PLG-STACK): Odoo, con las
+// migraciones de módulos en **/migrations/**, sin agentes externos y con n8n/Odoo de PROD por `mcp_prod`. Otro stack
+// (Supabase + Lovable, Postgres propio, sin base) lo declara:
 //
 //   datos: { motor: supabase | postgres | odoo | otro | ninguno, migraciones: ["<glob>", …] }
 //   ramas_prod: ["main"]                      (por proyecto o por repo: sólo un push/merge a esas ramas es PROD)
@@ -12,12 +13,23 @@ import { globARegExp } from './rutas.mjs';
 const lista = (x) => (Array.isArray(x) ? x.filter((s) => typeof s === 'string' && s.trim()) : []);
 const norm = (x) => (typeof x === 'string' ? x.trim().toLowerCase() : '');
 
-export const MOTOR_DEFECTO = 'supabase';
-export const MIGRACIONES_DEFECTO = ['supabase/migrations/**'];
+export const MOTOR_DEFECTO = 'odoo';
+export const MIGRACIONES_DEFECTO = ['**/migrations/**'];
+export const MIGRACIONES_SUPABASE = ['supabase/migrations/**'];
 export const AUTORES_LOVABLE = ['gpt-engineer-app[bot]', 'lovable-dev[bot]', 'Lovable'];
 
-/** Motor de base de datos declarado (`datos.motor`), en minúsculas; sin declarar, supabase. */
-export const motorDatos = (proyecto) => norm(proyecto?.datos?.motor) || MOTOR_DEFECTO;
+/**
+ * Motor de base de datos: `datos.motor` declarado; sin declarar, supabase si el proyecto declara refs de Supabase o
+ * proyectos de Lovable (stack heredado); si no, odoo (referencia BACG).
+ */
+export function motorDatos(proyecto) {
+  const declarado = norm(proyecto?.datos?.motor);
+  if (declarado) return declarado;
+  const refs = lista(proyecto?.entornos?.prod?.supabase_refs).length > 0;
+  const sedes = (Array.isArray(proyecto?.repos) ? proyecto.repos : []).some((r) => typeof r?.supabase_ref === 'string' && r.supabase_ref.trim());
+  const lovable = Object.keys(proyecto?.lovable?.proyectos ?? {}).length > 0;
+  return refs || sedes || lovable ? 'supabase' : MOTOR_DEFECTO;
+}
 
 /**
  * Globs de las migraciones: `datos.migraciones` si está declarado (una lista vacía = el proyecto no tiene
@@ -26,7 +38,9 @@ export const motorDatos = (proyecto) => norm(proyecto?.datos?.motor) || MOTOR_DE
 export function globsMigraciones(proyecto) {
   const m = proyecto?.datos?.migraciones;
   if (Array.isArray(m)) return lista(m);
-  return motorDatos(proyecto) === 'ninguno' ? [] : MIGRACIONES_DEFECTO;
+  const motor = motorDatos(proyecto);
+  if (motor === 'ninguno') return [];
+  return motor === 'supabase' ? MIGRACIONES_SUPABASE : MIGRACIONES_DEFECTO;
 }
 
 /** ¿La ruta (relativa al repo, POSIX) es una migración del proyecto? */
@@ -41,10 +55,14 @@ export function basesProd(proyecto) {
   return [...new Set([...lista(prod?.supabase_refs), ...lista(prod?.bases)].map(norm).filter(Boolean))];
 }
 
-/** Autores de git de los agentes sin el plugin: agentes_externos.autores, lovable.autores o los de Lovable. */
+/**
+ * Autores de git de los agentes sin el plugin: agentes_externos.autores o lovable.autores; con proyectos de Lovable
+ * declarados y sin autores, los de Lovable. En el stack BACG, ninguno.
+ */
 export function autoresExternos(proyecto) {
   const propios = [...lista(proyecto?.agentes_externos?.autores), ...lista(proyecto?.lovable?.autores)];
-  return propios.length ? [...new Set(propios)] : AUTORES_LOVABLE;
+  if (propios.length) return [...new Set(propios)];
+  return Object.keys(proyecto?.lovable?.proyectos ?? {}).length > 0 ? AUTORES_LOVABLE : [];
 }
 
 /**
@@ -83,6 +101,7 @@ export function lineaStack(proyecto) {
     `Stack del proyecto: datos ${motorDatos(proyecto)} (${migs.length ? `migraciones ${migs.join(', ')}` : 'sin migraciones versionadas'}${aplicar})`,
     `PROD ${ramas ? `= push o merge a ${ramas.join(', ')}` : conRamas ? '= las ramas_prod de cada repo' : '= todo push a un repo con push_prod'}`,
     `DEV ${devTxt || 'sin declarar'}`,
+    `MCP de PROD: ${Array.isArray(proyecto.mcp_prod) && proyecto.mcp_prod.length ? proyecto.mcp_prod.map((m) => `${m?.servidor} (${m?.tipo ?? 'generico'})`).join(', ') : 'ninguno declarado'}`,
     `agentes sin el plugin: ${externos ? (lovable ? 'Lovable' : 'los de agentes_externos') : 'ninguno declarado'}.`,
   ].join(' · ');
 }

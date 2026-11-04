@@ -18,17 +18,17 @@ function homeTemporal(json) {
   temporales.push(home);
   if (json !== undefined) {
     fs.mkdirSync(path.join(home, '.claude'));
-    fs.writeFileSync(path.join(home, '.claude', 'como-trabajo-bacg.json'), json);
+    fs.writeFileSync(path.join(home, '.claude', 'bacg-dev.json'), json);
   }
   return home;
 }
 
-test('dirLineamientos respeta LINEAMIENTOS_DIR', () => {
+test('dirLineamientos respeta BACG_LINEAMIENTOS_DIR', () => {
   const home = homeTemporal(JSON.stringify({ lineamientosDir: '/otro' }));
-  assert.equal(dirLineamientos({ env: { LINEAMIENTOS_DIR: '/desde/env' }, home, platform: 'linux' }), '/desde/env');
+  assert.equal(dirLineamientos({ env: { BACG_LINEAMIENTOS_DIR: '/desde/env' }, home, platform: 'linux' }), '/desde/env');
 });
 
-test('dirLineamientos lee como-trabajo-bacg.json', () => {
+test('dirLineamientos lee bacg-dev.json', () => {
   const home = homeTemporal(JSON.stringify({ lineamientosDir: '/desde/json' }));
   assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), '/desde/json');
 });
@@ -45,7 +45,7 @@ test('dirLineamientos default por plataforma', () => {
   assert.equal(dirLineamientos({ env: {}, home, platform: 'linux' }), path.join(home, 'lineamientos-bacg'));
 });
 
-test('buscarRepo sube hasta .lineamientos', () => {
+test('buscarRepo sube hasta .bacg-lineamientos', () => {
   const repo = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'src/a/b/x.txt': 'x' } });
   temporales.push(repo);
   const r = buscarRepo(path.join(repo, 'src', 'a', 'b'));
@@ -54,16 +54,16 @@ test('buscarRepo sube hasta .lineamientos', () => {
   assert.ok(repo.includes(' '));
 });
 
-test('buscarRepo devuelve null sin .lineamientos', () => {
+test('buscarRepo devuelve null sin .bacg-lineamientos', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sin repo-'));
   temporales.push(dir);
   assert.equal(buscarRepo(dir), null);
 });
 
-test('buscarRepo saltea un .lineamientos sin proyecto y sigue subiendo', () => {
+test('buscarRepo saltea un .bacg-lineamientos sin proyecto y sigue subiendo', () => {
   const repo = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'sub/x.txt': 'x' } });
   temporales.push(repo);
-  fs.writeFileSync(path.join(repo, 'sub', '.lineamientos'), 'otra: cosa');
+  fs.writeFileSync(path.join(repo, 'sub', '.bacg-lineamientos'), 'otra: cosa');
   const r = buscarRepo(path.join(repo, 'sub'));
   assert.equal(r.proyectoId, 'demo');
   assert.equal(fs.realpathSync(r.raiz), fs.realpathSync(repo));
@@ -81,26 +81,26 @@ test('cargarProyecto lanza si no existe', () => {
   });
 });
 
-// --- configuración en el repo (.como-trabajo/) ---
+// --- configuración en el repo (.bacg-dev/) ---
 
-test('buscarRepo reconoce .como-trabajo/proyecto.yml sin .lineamientos', () => {
-  const repo = crearRepoTemporal({ archivos: { '.como-trabajo/proyecto.yml': 'id: remoto\nrepos: []\n', 'src/x.txt': 'x' } });
+test('buscarRepo reconoce .bacg-dev/proyecto.yml sin .bacg-lineamientos', () => {
+  const repo = crearRepoTemporal({ archivos: { '.bacg-dev/proyecto.yml': 'id: remoto\nrepos: []\n', 'src/x.txt': 'x' } });
   temporales.push(repo);
   const r = buscarRepo(path.join(repo, 'src'));
   assert.equal(r.proyectoId, 'remoto');
   assert.equal(fs.realpathSync(r.raiz), fs.realpathSync(repo));
 });
 
-test('cargarProyecto prefiere .como-trabajo/ del repo a lineamientos', () => {
-  const repo = crearRepoTemporal({ proyectoId: 'demo', archivos: { '.como-trabajo/proyecto.yml': 'id: demo\nnombre: del repo\n' } });
+test('cargarProyecto prefiere .bacg-dev/ del repo a lineamientos', () => {
+  const repo = crearRepoTemporal({ proyectoId: 'demo', archivos: { '.bacg-dev/proyecto.yml': 'id: demo\nnombre: del repo\n' } });
   temporales.push(repo);
   assert.equal(cargarProyecto('demo', fixtures, repo).nombre, 'del repo');
-  assert.equal(carpetaProyecto('demo', fixtures, repo), path.join(repo, '.como-trabajo'));
+  assert.equal(carpetaProyecto('demo', fixtures, repo), path.join(repo, '.bacg-dev'));
   assert.equal(carpetaProyecto('demo', fixtures, null), path.join(fixtures, 'proyectos', 'demo'));
 });
 
 test('rutaBacklog: con configuración en el repo es docs/backlog.md', () => {
-  const repo = crearRepoTemporal({ archivos: { '.como-trabajo/proyecto.yml': 'id: remoto\n' } });
+  const repo = crearRepoTemporal({ archivos: { '.bacg-dev/proyecto.yml': 'id: remoto\n' } });
   temporales.push(repo);
   assert.equal(rutaBacklog('/lin', 'remoto', repo), path.join(repo, 'docs', 'backlog.md'));
   assert.equal(rutaBacklog('/lin', 'remoto', null), path.join('/lin', 'proyectos', 'remoto', 'backlog.md'));

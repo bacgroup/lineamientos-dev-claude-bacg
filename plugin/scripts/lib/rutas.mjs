@@ -49,10 +49,10 @@ export function globARegExp(glob) {
 // Documentación, tests e instrucciones en texto para agentes: se editan, commitean y pushean sin RQ.
 // `.claude/` nunca es libre, ni sus .md: settings, hooks, agentes, comandos y skills definen lo que el agente
 // puede hacer (herramientas permitidas, permisos), así que cambiarlos pasa por la compuerta.
-// `.como-trabajo/` tampoco: su proyecto.yml declara qué es PROD, qué repos publican y qué tests corren.
-const NUNCA_LIBRES = ['.claude/**', '.como-trabajo/**'].map(globARegExp);
+// `.bacg-dev/` tampoco: su proyecto.yml declara qué es PROD, qué repos publican y qué tests corren.
+const NUNCA_LIBRES = ['.claude/**', '.bacg-dev/**'].map(globARegExp);
 const LIBRES = [
-  'docs/**', '**/*.md', '**/*.test.*', '**/*.spec.*', 'e2e/**', 'tests/**', '.lineamientos',
+  'docs/**', '**/*.md', '**/*.test.*', '**/*.spec.*', 'e2e/**', 'tests/**', '.bacg-lineamientos',
   '.lovable/**', '.agents/**',
 ].map(globARegExp);
 

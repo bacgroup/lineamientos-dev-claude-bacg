@@ -54,7 +54,7 @@ test('cada SKILL.md tiene frontmatter con name (igual a su carpeta) y descriptio
 test('ciclo-rq: description y las 8 etapas', () => {
   const { datos, cuerpo } = frontmatter(leer(join(dirSkills, 'ciclo-rq', 'SKILL.md')));
   assert.ok(
-    datos.description.startsWith('Usar antes de cualquier cambio de código o base de datos en un repo con .lineamientos'),
+    datos.description.startsWith('Usar antes de cualquier cambio de código o base de datos en un repo con .bacg-lineamientos'),
     'description de ciclo-rq',
   );
   for (let e = 0; e <= 7; e++) assert.match(cuerpo, new RegExp(`^\\|\\s*${e}\\s*\\|`, 'm'), `falta la fila de la etapa ${e}`);
@@ -88,10 +88,10 @@ test('ciclo-rq: nombra las skills obligatorias de cada etapa', () => {
     'pr-review-toolkit',
     'claude-security',
     'claude-md-management',
-    'como-trabajo-bacg:diseno-frontend',
-    'como-trabajo-bacg:design-taste-frontend',
-    'como-trabajo-bacg:redesign-existing-projects',
-    'como-trabajo-bacg:decision-arq',
+    'bacg-dev:diseno-frontend',
+    'bacg-dev:design-taste-frontend',
+    'bacg-dev:redesign-existing-projects',
+    'bacg-dev:decision-arq',
     'superpowers:systematic-debugging',
     'pr-review-toolkit:silent-failure-hunter',
     'supabase-postgres-best-practices',
@@ -119,12 +119,12 @@ test('ciclo-rq: invocación exacta de lo que no es una Skill', () => {
 test('ciclo-rq: precisión de compuertas y ruta del CLI', () => {
   const texto = leer(join(dirSkills, 'ciclo-rq', 'SKILL.md'));
   assert.ok(texto.includes('push_prod: false'), 'PROD salvo push_prod: false explícito');
-  for (const s of ['docs/**', 'tests/**', 'e2e/**', '*.test.*', '*.spec.*', '.lineamientos']) {
+  for (const s of ['docs/**', 'tests/**', 'e2e/**', '*.test.*', '*.spec.*', '.bacg-lineamientos']) {
     assert.ok(texto.includes(s), `commits libres: falta ${s}`);
   }
   assert.match(texto, /`apply_migration`[^\n]*siempre/, 'apply_migration a PROD siempre exige la etapa 6');
   assert.ok(texto.includes('CLI del RQ'), 'ciclo-rq no manda a usar la ruta de SessionStart');
-  for (const c of ['rq', 'estado']) {
+  for (const c of ['bacg-rq', 'bacg-estado']) {
     assert.ok(leer(join(dirComandos, `${c}.md`)).includes('CLI del RQ'), `/${c} no usa la ruta de SessionStart`);
   }
 });
@@ -155,13 +155,13 @@ test('skills vendorizadas: FUENTE.md con URL, licencia y commit, y la licencia a
   }
 });
 
-test('comandos /rq y /estado: description, invocan ciclo-rq y usan subcomandos reales', () => {
+test('comandos /bacg-rq y /bacg-estado: description, invocan ciclo-rq y usan subcomandos reales', () => {
   const reales = subcomandosRq();
-  for (const c of ['rq', 'estado']) {
+  for (const c of ['bacg-rq', 'bacg-estado']) {
     const texto = leer(join(dirComandos, `${c}.md`));
     const { datos, cuerpo } = frontmatter(texto);
     assert.equal(typeof datos?.description, 'string', `description de /${c}`);
-    assert.ok(cuerpo.includes('como-trabajo-bacg:ciclo-rq'), `/${c} no invoca ciclo-rq`);
+    assert.ok(cuerpo.includes('bacg-dev:ciclo-rq'), `/${c} no invoca ciclo-rq`);
     assert.ok(usados(cuerpo).has('estado'), `/${c} no corre rq.mjs estado`);
     for (const s of usados(cuerpo)) assert.ok(reales.has(s), `/${c} usa "rq.mjs ${s}", que no existe`);
   }

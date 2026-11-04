@@ -5,10 +5,10 @@
   "owner": { "name": "BACG - Equipo técnico", "email": "nlopez@bacgroup.net" },
   "plugins": [
     {
-      "name": "como-trabajo-bacg",
+      "name": "bacg-dev",
       "description": "Núcleo de cómo trabajamos: ciclo de RQ, compuertas y lineamientos por proyecto.",
       "source": "./plugin",
-      "version": "1.0.0"
+      "version": "2.0.0"
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Cómo trabajamos (resumen general)
 
-Esto se inyecta al arrancar cada sesión en un repo con `.lineamientos` o `.como-trabajo/`. El detalle está en `general/*.md` (dentro del plugin) y en la skill `como-trabajo-bacg:ciclo-rq`.
+Esto se inyecta al arrancar cada sesión en un repo con `.bacg-lineamientos` o `.bacg-dev/`. El detalle está en `general/*.md` (dentro del plugin) y en la skill `bacg-dev:ciclo-rq`.
 
 **Principio:** el plugin pone el marco de entrada y de salida; Superpowers hace el trabajo del medio; nada se duplica. Un artefacto por fase, una pasada por artefacto. Al usuario se le pide lo mínimo.
 
@@ -34,14 +34,15 @@ Se registra con sus palabras literales; un "Dale" vale si fue la respuesta enter
 
 - Varios RQ pueden estar activos a la vez (`--rq <código>` elige). No abras una sesión por RQ: para repartir trabajo, subagentes.
 - Un repo es PROD salvo `push_prod: false` explícito en `proyecto.yml`; con `ramas_prod`, sólo el push o merge a esas ramas.
-- El stack es el que declara `proyecto.yml` (el arranque lo resume): la referencia histórica es Supabase + Lovable, pero un proyecto puede usar otra base, otro backend o deploy por rama. No lo supongas.
+- El stack es el que declara `proyecto.yml` (el arranque lo resume). La referencia de BACG es Odoo + n8n + AWS, con PROD por rama (`ramas_prod`) y conectores MCP de PROD en `mcp_prod`; otro stack se declara. No lo supongas.
+- Un RQ que toca varios repos se abre con el mismo código en cada uno: aprobaciones y skills se comparten solas.
 - Nada se borra: lo que sale de la vista activa se archiva con `git mv`.
 - Antes de buscar con grep, el grafo (`codebase-memory-mcp`); antes de contestar sobre una librería, `context7`.
 
-## Dónde vive cada cosa (todo en el repo)
+## Dónde vive cada cosa
 
-- `.como-trabajo/`: `proyecto.yml`, `reglas.md`, `resumen.md`, canon, `adr/`. Protegida: cambiarla pasa por la compuerta.
-- `docs/backlog.md`: backlog (lo escribe la CLI).
+- Repo central de lineamientos (`bacgroup/lineamientos-dev-claude-bacg`): `proyectos/<id>/` con `proyecto.yml`, `reglas.md`, `resumen.md` y `backlog.md` (lo escribe la CLI; copia en `docs/backlog.md` del repo). Las mejoras del plugin van a `proyectos/plugin/backlog.md`.
+- Un repo que trae su propia configuración la tiene en `.bacg-dev/` (protegida: cambiarla pasa por la compuerta).
 - `docs/rq/<código>/`: `spec.md` (encuadre + diseño), `plan.md`, `arq.md`, `estado.yml`, `qa/`.
 - `docs/log/changelog/AAAA-MM.md` y `docs/log/rq.jsonl`: changelog y log del proyecto.
 

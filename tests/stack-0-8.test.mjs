@@ -30,13 +30,16 @@ const ODOO = {
 
 // ---------- stack.mjs ----------
 
-test('stack por defecto: Supabase + Lovable (proyecto.yml sin declarar nada se comporta como antes)', () => {
-  assert.equal(motorDatos({}), 'supabase');
-  assert.deepEqual(globsMigraciones({}), ['supabase/migrations/**']);
-  assert.equal(esMigracion('supabase/migrations/1.sql', {}), true);
-  assert.equal(esMigracion('addons/x/migrations/18.0.1/post.py', {}), false);
-  assert.deepEqual(autoresExternos({}), AUTORES_LOVABLE);
+test('stack por defecto: el de BACG (Odoo, sin agentes externos); Supabase sólo si se declaran refs o Lovable', () => {
+  assert.equal(motorDatos({}), 'odoo');
+  assert.deepEqual(globsMigraciones({}), ['**/migrations/**']);
+  assert.equal(esMigracion('addons/x/migrations/18.0.1/post.py', {}), true);
+  assert.deepEqual(autoresExternos({}), []);
   assert.deepEqual(autoresExternos({ lovable: { autores: ['x[bot]'] } }), ['x[bot]']);
+  assert.deepEqual(autoresExternos({ lovable: { proyectos: { app: 'p' } } }), AUTORES_LOVABLE);
+  assert.equal(motorDatos({ entornos: { prod: { supabase_refs: ['r'] } } }), 'supabase');
+  assert.equal(motorDatos({ repos: [{ nombre: 's', supabase_ref: 'r' }] }), 'supabase');
+  assert.equal(esMigracion('supabase/migrations/1.sql', { lovable: { proyectos: { app: 'p' } } }), true);
   assert.equal(ramasProd({}, { nombre: 'a' }), null);
 });
 
@@ -172,23 +175,23 @@ test('P4: un RQ bounded que edita un .scss de ui.patrones sin diseno-frontend qu
   const r = editar(raiz, 'web/static/nuevo.scss');
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /diseno-frontend/);
-  assert.deepEqual(editar(raiz, 'web/static/nuevo.scss', ['como-trabajo-bacg:diseno-frontend']), { decision: 'allow' }, 'archivo nuevo: sólo diseno-frontend');
+  assert.deepEqual(editar(raiz, 'web/static/nuevo.scss', ['bacg-dev:diseno-frontend']), { decision: 'allow' }, 'archivo nuevo: sólo diseno-frontend');
 });
 
 test('P4: pantalla existente pide además redesign-existing-projects', () => {
   const raiz = repoUi({ archivos: { 'web/static/botones.scss': '.a{}\n' } });
-  const r = editar(raiz, 'web/static/botones.scss', ['como-trabajo-bacg:diseno-frontend']);
+  const r = editar(raiz, 'web/static/botones.scss', ['bacg-dev:diseno-frontend']);
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /pantalla existente: cargá antes la skill redesign-existing-projects/);
   assert.deepEqual(
-    editar(raiz, 'web/static/botones.scss', ['como-trabajo-bacg:diseno-frontend', 'como-trabajo-bacg:redesign-existing-projects']),
+    editar(raiz, 'web/static/botones.scss', ['bacg-dev:diseno-frontend', 'bacg-dev:redesign-existing-projects']),
     { decision: 'allow' },
   );
 });
 
 test('P4: sin la sección de diseño en spec.md, la edición de UI queda bloqueada', () => {
   const raiz = repoUi({ spec: '# R-U1\n## Qué\nBotonera.\n' });
-  const r = editar(raiz, 'web/static/nuevo.scss', ['como-trabajo-bacg:diseno-frontend']);
+  const r = editar(raiz, 'web/static/nuevo.scss', ['bacg-dev:diseno-frontend']);
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /falta la sección de diseño en docs\/rq\/R-U1\/spec\.md/);
   assert.deepEqual(editar(raiz, 'web/models/x.py'), { decision: 'allow' }, 'lo que no es UI no lo pide');
@@ -200,7 +203,7 @@ function repoConRq(padre, nombre, codigo) {
   const raiz = path.join(padre, nombre);
   fs.mkdirSync(raiz);
   git(raiz, 'init', '-q');
-  fs.writeFileSync(path.join(raiz, '.lineamientos'), 'proyecto: erp\n');
+  fs.writeFileSync(path.join(raiz, '.bacg-lineamientos'), 'proyecto: erp\n');
   guardarEstado(raiz, { codigo, tipo: 'rq', clasificacion: 'bounded', etapa: 1, autonomia: null, aprobaciones: [], saltos: [] });
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), `${codigo}\n`);
   return raiz;
@@ -233,9 +236,9 @@ test('P5: un RQ que abarca dos repos registra la skill en los dos (cd y git -C d
     ['Bash', { command: 'cd erp-addons && git status' }, padre],
     ['Bash', { command: `git -C "${b}" log -1` }, padre],
   ]);
-  await postTool({ tool_name: 'Skill', tool_input: { skill: 'como-trabajo-bacg:diseno-frontend' }, cwd: padre, transcript_path: t });
-  assert.deepEqual(skillsEn(a, 'PF-UI'), ['como-trabajo-bacg:diseno-frontend']);
-  assert.deepEqual(skillsEn(b, 'PF-UI'), ['como-trabajo-bacg:diseno-frontend']);
+  await postTool({ tool_name: 'Skill', tool_input: { skill: 'bacg-dev:diseno-frontend' }, cwd: padre, transcript_path: t });
+  assert.deepEqual(skillsEn(a, 'PF-UI'), ['bacg-dev:diseno-frontend']);
+  assert.deepEqual(skillsEn(b, 'PF-UI'), ['bacg-dev:diseno-frontend']);
 });
 
 test('P5: sin rutas en el transcript, las subcarpetas del cwd que son repos con RQ activo', async () => {
@@ -255,6 +258,8 @@ test('lineaStack: el arranque dice el stack declarado (y el de referencia cuando
   assert.match(erp, /PROD = push o merge a 18\.0/);
   assert.match(erp, /DEV rama 18\.0-dev/);
   assert.match(erp, /agentes sin el plugin: los de agentes_externos/);
+  assert.match(lineaStack({}), /datos odoo .* MCP de PROD: ninguno declarado .* agentes sin el plugin: ninguno declarado/);
+  assert.match(lineaStack({ mcp_prod: [{ servidor: 'n8n-prod', tipo: 'n8n' }] }), /MCP de PROD: n8n-prod \(n8n\)/);
 });
 
 // ---------- Cambio menor: saltar ui ----------
@@ -276,7 +281,7 @@ test('saltar ui (cambio menor aceptado por el usuario): sin diseno-frontend, red
 
 test('rq.mjs saltar acepta la compuerta ui', () => {
   const raiz = repoUi();
-  fs.writeFileSync(path.join(raiz, '.lineamientos'), 'proyecto: erp\n');
+  fs.writeFileSync(path.join(raiz, '.bacg-lineamientos'), 'proyecto: erp\n');
   const r = spawnSync(process.execPath, [path.join(process.cwd(), 'plugin', 'scripts', 'rq.mjs'), 'saltar', 'ui', 'sí, omitilo', 'texto del botón'], { cwd: raiz, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /Salto de la compuerta ui registrado/);

@@ -57,7 +57,7 @@ export async function handler(entrada, { dirLin = dirLineamientos() } = {}) {
       evaluarBash({ comando, cwd, ctx: { textosUsuario }, dirLin }),
     );
   } else if (typeof tool === 'string' && tool.startsWith('mcp__')) {
-    let { proyecto, raiz, estado, rqs } = resolverMcp({ cwd, toolInput: input, dirLin });
+    let { proyecto, raiz, estado, rqs } = resolverMcp({ cwd, toolInput: input, dirLin, toolName: tool });
     // Las herramientas de ramas no dicen a qué proyecto apuntan: sin proyecto resuelto, si algún proyecto
     // registrado tiene refs de PROD se tratan como PROD sin estado (falla cerrada).
     const corto = tool.toLowerCase().split('__').pop();

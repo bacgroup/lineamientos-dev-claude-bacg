@@ -1,11 +1,11 @@
-# Prueba de humo — como-trabajo 0.1.0
+# Prueba de humo — bacg-dev 0.1.0
 
 Fecha: 2026-10-23. Claude Code 2.1.236, Windows 11, Node 24.
 
 ## Qué se probó y cómo
 
 - El plugin **no** se instaló en la configuración global. Se cargó por sesión con `--plugin-dir C:\MiCarpeta\lineamientos-bacg\plugin`.
-- Repo demo en el scratchpad de la sesión: `...\scratchpad\humo\demo-app` (git, rama `main`, sin remoto), con `.lineamientos` = `proyecto: demo`, `src/lib/x.ts` y un commit inicial. `LINEAMIENTOS_DIR=C:\MiCarpeta\lineamientos-bacg\tests\fixtures\lineamientos` (proyecto `demo` del fixture).
+- Repo demo en el scratchpad de la sesión: `...\scratchpad\humo\demo-app` (git, rama `main`, sin remoto), con `.bacg-lineamientos` = `proyecto: demo`, `src/lib/x.ts` y un commit inicial. `BACG_LINEAMIENTOS_DIR=C:\MiCarpeta\lineamientos-bacg\tests\fixtures\lineamientos` (proyecto `demo` del fixture).
 - Comando base de cada sesión:
 
   ```
@@ -43,7 +43,7 @@ Veredicto: **OK**, sin errores ni avisos.
 Sesión `938f5a2f-…` (la del caso a). Adjunto `hook_additional_context` de `SessionStart` en el transcript:
 
 ```
-# Lineamientos (como-trabajo): proyecto demo
+# Lineamientos (bacg-dev): proyecto demo
 
 CLI del RQ: node "C:\MiCarpeta\lineamientos-bacg\plugin\scripts\rq.mjs" (usá esta ruta exacta donde la skill ciclo-rq dice $RQ).
 ...
@@ -57,7 +57,7 @@ Faltan plugins requeridos. Pedile al usuario que corra:
 Y el de `UserPromptSubmit`:
 
 ```
-Proyecto demo. RQ activo: ninguno. Antes de cambiar código o base: skill como-trabajo-bacg:ciclo-rq (...). Registrá cada aprobación con rq.mjs aprobar.
+Proyecto demo. RQ activo: ninguno. Antes de cambiar código o base: skill bacg-dev:ciclo-rq (...). Registrá cada aprobación con rq.mjs aprobar.
 ```
 
 Veredicto: **OK**. La ruta inyectada es absoluta y existe. No se pudo hacer la pregunta al modelo ("¿Qué dice el contexto de arranque sobre el CLI del RQ?") por la autenticación; la verificación es sobre el contexto que Claude Code registró como inyectado.

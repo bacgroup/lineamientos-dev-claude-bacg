@@ -130,7 +130,7 @@ const conSpecDiseno = (raiz, codigo = 'R-T1') => {
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', codigo, 'spec.md'), '# x\n## Diseño\nCanon: …\n');
   return raiz;
 };
-const DISENO = 'como-trabajo-bacg:diseno-frontend';
+const DISENO = 'bacg-dev:diseno-frontend';
 const PISTA_MENOR = ' Si el cambio es menor, preguntale al usuario en el chat (texto, no botones) si omite el refuerzo; con su respuesta: $RQ saltar ui "<su frase>" "<motivo>".';
 
 test('UI: diseno-frontend siempre y, encima, las skills de la regla que cubre el archivo (ui.reglas, si no ui.skills)', () => {

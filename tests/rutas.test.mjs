@@ -44,7 +44,7 @@ test('tipoArchivo', () => {
   assert.equal(tipoArchivo('e2e/a.spec.ts', proyecto), 'libre');
   assert.equal(tipoArchivo('tests/a.ts', proyecto), 'libre');
   assert.equal(tipoArchivo('README.md', proyecto), 'libre');
-  assert.equal(tipoArchivo('.lineamientos', proyecto), 'libre');
+  assert.equal(tipoArchivo('.bacg-lineamientos', proyecto), 'libre');
   assert.equal(tipoArchivo('src/notas.md', proyecto), 'libre', 'todo .md es documentación');
   assert.equal(tipoArchivo('.lovable/memory/index.md', proyecto), 'libre');
   assert.equal(tipoArchivo('.agents/skills/x/SKILL.md', proyecto), 'libre');
@@ -65,7 +65,7 @@ test('reglasUi y skillsUi: ui.reglas manda; ui.patrones con ui.skills como regla
   assert.deepEqual(reglasUi({}), []);
 });
 
-test('tipoArchivo: .como-trabajo/ nunca es libre, tampoco sus .md', () => {
-  assert.equal(tipoArchivo('.como-trabajo/proyecto.yml', null), 'producto');
-  assert.equal(tipoArchivo('.como-trabajo/reglas.md', null), 'producto');
+test('tipoArchivo: .bacg-dev/ nunca es libre, tampoco sus .md', () => {
+  assert.equal(tipoArchivo('.bacg-dev/proyecto.yml', null), 'producto');
+  assert.equal(tipoArchivo('.bacg-dev/reglas.md', null), 'producto');
 });

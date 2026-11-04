@@ -16,7 +16,7 @@ const DIR_LIN = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-fixture-'));
 fs.cpSync(path.join(AQUI, 'fixtures', 'lineamientos'), DIR_LIN, { recursive: true });
 const SCRIPT = path.resolve(AQUI, '..', 'plugin', 'scripts', 'rq.mjs');
 
-async function correr(cwd, args, env = { LINEAMIENTOS_DIR: DIR_LIN, COMO_TRABAJO_SIN_GH: '1' }) {
+async function correr(cwd, args, env = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DEV_SIN_GH: '1' }) {
   let out = '';
   let err = '';
   const code = await main(args, {
@@ -85,11 +85,11 @@ test('abrir valida tipo, clasificación y código', async () => {
   assert.equal(rqActivo(raiz), null);
 });
 
-test('fuera de un repo con .lineamientos sale 1', async () => {
+test('fuera de un repo con .bacg-lineamientos sale 1', async () => {
   const sin = fs.mkdtempSync(path.join(os.tmpdir(), 'sin-'));
   const r = await correr(sin, ['estado']);
   assert.equal(r.code, 1);
-  assert.match(r.err, /No es un repo con \.lineamientos ni \.como-trabajo\/proyecto\.yml\./);
+  assert.match(r.err, /No es un repo con \.bacg-lineamientos ni \.bacg-dev\/proyecto\.yml\./);
 });
 
 test('sin RQ activo los subcomandos de estado fallan con exit 1', async () => {
@@ -202,7 +202,7 @@ test('registrar-tests: comando que sale 1 → ok false y exit 1; corta en el pri
   });
   const raiz = repoDemo();
   await abrirR1(raiz);
-  const r = await correr(raiz, ['registrar-tests'], { LINEAMIENTOS_DIR: lin });
+  const r = await correr(raiz, ['registrar-tests'], { BACG_LINEAMIENTOS_DIR: lin });
   assert.equal(r.code, 3);
   const t = cargarEstado(raiz, 'R-1').tests;
   assert.equal(t.ok, false);
@@ -213,7 +213,7 @@ test('registrar-tests: falla con exit 1 si el comando falla con 1', async () => 
   const lin = lineamientosCon({ unit: 'node -e "process.exit(1)"' });
   const raiz = repoDemo();
   await abrirR1(raiz);
-  const r = await correr(raiz, ['registrar-tests'], { LINEAMIENTOS_DIR: lin });
+  const r = await correr(raiz, ['registrar-tests'], { BACG_LINEAMIENTOS_DIR: lin });
   assert.equal(r.code, 1);
   assert.equal(cargarEstado(raiz, 'R-1').tests.ok, false);
 });
@@ -222,7 +222,7 @@ test('registrar-tests: sin comandos definidos sale 1 con mensaje', async () => {
   const lin = lineamientosCon({ unit: '' });
   const raiz = repoDemo();
   await abrirR1(raiz);
-  const r = await correr(raiz, ['registrar-tests'], { LINEAMIENTOS_DIR: lin });
+  const r = await correr(raiz, ['registrar-tests'], { BACG_LINEAMIENTOS_DIR: lin });
   assert.equal(r.code, 1);
   assert.match(r.err, /El proyecto no declara comandos de tests en proyecto\.yml\./);
   // M8: sugiere el salto de commit con las palabras del usuario
@@ -286,7 +286,7 @@ function linConCircuito(pasos) {
 
 test('paso: registra manual:<texto> y sync-lineamientos del circuito, sin duplicar', async () => {
   const lin = linConCircuito(['sql:ref1', 'Manual:Publicar-en-Lovable', 'sync-lineamientos']);
-  const env = { LINEAMIENTOS_DIR: lin };
+  const env = { BACG_LINEAMIENTOS_DIR: lin };
   const raiz = repoDemo();
   let r = await correr(raiz, ['paso', 'manual:publicar-en-lovable'], env);
   assert.equal(r.code, 1, 'sin RQ activo');
@@ -305,7 +305,7 @@ test('paso: registra manual:<texto> y sync-lineamientos del circuito, sin duplic
 
 test('paso: sql:/push:/merge-prs-sync: u otros se rechazan; manual fuera del circuito también', async () => {
   const lin = linConCircuito(['sql:ref1', 'manual:publicar-en-lovable']);
-  const env = { LINEAMIENTOS_DIR: lin };
+  const env = { BACG_LINEAMIENTOS_DIR: lin };
   const raiz = repoDemo();
   await abrirR1(raiz);
   for (const p of ['sql:ref1', 'push:demo-app', 'merge-prs-sync:demo-app', 'otra-cosa', 'manual:']) {
@@ -321,7 +321,7 @@ test('paso: sql:/push:/merge-prs-sync: u otros se rechazan; manual fuera del cir
 
 test('el script por línea de comandos funciona (child_process)', () => {
   const raiz = repoDemo();
-  const env = { ...process.env, LINEAMIENTOS_DIR: DIR_LIN };
+  const env = { ...process.env, BACG_LINEAMIENTOS_DIR: DIR_LIN };
   const a = spawnSync(process.execPath, [SCRIPT, 'abrir', 'R-9', '--tipo', 'fix', '--clasificacion', 'spike'], { cwd: raiz, env, encoding: 'utf8' });
   assert.equal(a.status, 0, a.stderr);
   assert.match(a.stdout, /RQ R-9 abierto\./);
@@ -365,7 +365,7 @@ test('abrir con otro RQ activo: quedan los dos activos, el nuevo es el más reci
 
 test('abrir y cerrar llevan la fila del RQ en el backlog del proyecto', async () => {
   const lin = linConCircuito(['push:demo-app', 'manual:publicar-en-lovable']);
-  const env = { LINEAMIENTOS_DIR: lin };
+  const env = { BACG_LINEAMIENTOS_DIR: lin };
   const raiz = repoDemo();
   let r = await correr(raiz, ['abrir', 'R-7', '--tipo', 'rq', '--clasificacion', 'bounded', '--tarea', 'Aviso | corto', '--prioridad', 'Alta'], env);
   assert.equal(r.code, 0, r.err);
@@ -392,7 +392,7 @@ test('abrir y cerrar llevan la fila del RQ en el backlog del proyecto', async ()
 
 test('paso hecho: registra un paso hecho por fuera con su evidencia; pisa una marca de no aplica', async () => {
   const lin = linConCircuito(['sql:ref1', 'push:demo-app', 'merge-prs-sync:sede']);
-  const env = { LINEAMIENTOS_DIR: lin };
+  const env = { BACG_LINEAMIENTOS_DIR: lin };
   const raiz = repoDemo();
   await abrirR1(raiz);
   let r = await correr(raiz, ['paso', 'hecho', 'merge-prs-sync:sede', 'mergeado desde GitHub (#47)'], env);
@@ -426,7 +426,7 @@ test('desplegar: plan con los pasos que corresponden, sin SQL si el RQ no trae m
     '  - { paso: "manual:publish" }',
     '',
   ].join('\n'));
-  const env = { LINEAMIENTOS_DIR: dir, COMO_TRABAJO_SIN_GH: '1' };
+  const env = { BACG_LINEAMIENTOS_DIR: dir, BACG_DEV_SIN_GH: '1' };
   const raiz = repoDemo();
   await abrirR1(raiz);
   fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
@@ -461,7 +461,7 @@ test('bloquesHandoff: títulos y SQL de cada bloque, en orden', () => {
 
 test('registrar-tests: {archivos} recibe lo que está en stage de producto; sin nada, no corre', async () => {
   const lin = lineamientosCon({ unit: 'node -e "require(\'fs\').writeFileSync(\'args.txt\', process.argv.slice(1).join(\'|\'))" {archivos}' });
-  const env = { LINEAMIENTOS_DIR: lin };
+  const env = { BACG_LINEAMIENTOS_DIR: lin };
   const raiz = repoDemo();
   await abrirR1(raiz);
   fs.writeFileSync(path.join(raiz, 'notas.md'), 'x');
@@ -484,7 +484,7 @@ test('registrar-tests: si sólo fallan tests de rojos_conocidos, cuenta como ok 
   fs.mkdirSync(path.join(dir, 'proyectos', 'demo'), { recursive: true });
   const yml = (unit) => `id: demo\ntests:\n  unit: ${JSON.stringify(unit)}\n  rojos_conocidos: ["src/viejo.test.ts"]\n`;
   fs.writeFileSync(path.join(dir, 'proyectos', 'demo', 'proyecto.yml'), yml(falla('src/viejo.test.ts > caso')));
-  const env = { LINEAMIENTOS_DIR: dir };
+  const env = { BACG_LINEAMIENTOS_DIR: dir };
   const raiz = repoDemo();
   await abrirR1(raiz);
   let r = await correr(raiz, ['registrar-tests'], env);
@@ -504,7 +504,7 @@ test('registrar-tests: si sólo fallan tests de rojos_conocidos, cuenta como ok 
 // Lo que el RQ publica se mide desde una base fija (estado.base), no desde el upstream: después del
 // push el upstream ya tiene los commits y el diff contra él queda vacío.
 const CIRCUITO_NA = ['sql:ref1', 'push:demo-app', 'sql:ref2', 'merge-prs-sync:sede', 'sync-lineamientos', 'manual:publicar-en-lovable'];
-const envNA = () => ({ LINEAMIENTOS_DIR: linConCircuito(CIRCUITO_NA) });
+const envNA = () => ({ BACG_LINEAMIENTOS_DIR: linConCircuito(CIRCUITO_NA) });
 const gitEn = (raiz, ...a) => execFileSync('git', a, { cwd: raiz, encoding: 'utf8' }).trim();
 function escribir(raiz, archivos) {
   for (const [rel, contenido] of Object.entries(archivos)) {
@@ -676,7 +676,7 @@ test('registrar-tests no corre el E2E; verificar lo corre y lo registra contra H
   const raiz = repoDemo();
   const marca = path.join(raiz, 'e2e-corrio.txt');
   const lin = lineamientosCon({ unit: 'node -e "process.exit(0)"', e2e: `node -e "require('fs').writeFileSync(process.argv[1],'x')" "${marca}"` });
-  const env = { LINEAMIENTOS_DIR: lin, COMO_TRABAJO_SIN_GH: '1' };
+  const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_GH: '1' };
   await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
   assert.equal((await correr(raiz, ['registrar-tests'], env)).code, 0);
   assert.equal(fs.existsSync(marca), false, 'registrar-tests no corre el E2E');
@@ -691,12 +691,12 @@ test('registrar-tests no corre el E2E; verificar lo corre y lo registra contra H
 test('verificar: E2E rojo → exit distinto de 0 y ok false; sin tests.e2e → mensaje', async () => {
   const raiz = repoDemo();
   let lin = lineamientosCon({ e2e: 'node -e "process.exit(3)"' });
-  await correr(raiz, ['abrir', 'R-1', '--tipo', 'bug', '--clasificacion', 'bounded'], { LINEAMIENTOS_DIR: lin });
-  let r = await correr(raiz, ['verificar'], { LINEAMIENTOS_DIR: lin });
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'bug', '--clasificacion', 'bounded'], { BACG_LINEAMIENTOS_DIR: lin });
+  let r = await correr(raiz, ['verificar'], { BACG_LINEAMIENTOS_DIR: lin });
   assert.equal(r.code, 3);
   assert.equal(cargarEstado(raiz, 'R-1').e2e.ok, false);
   lin = lineamientosCon({ unit: 'node -e "0"' });
-  r = await correr(raiz, ['verificar'], { LINEAMIENTOS_DIR: lin });
+  r = await correr(raiz, ['verificar'], { BACG_LINEAMIENTOS_DIR: lin });
   assert.equal(r.code, 1);
   assert.match(r.err, /no declara tests\.e2e/);
 });
@@ -774,7 +774,7 @@ test('sede (RQ espejo): no escribe backlog y al cerrar sólo deja pendientes sus
       '',
     ].join('\n'),
   );
-  const env = { LINEAMIENTOS_DIR: lin, COMO_TRABAJO_SIN_GH: '1' };
+  const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_GH: '1' };
   const raiz = repoDemo();
   execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/duena/demo-sede.git'], { cwd: raiz });
   let r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
@@ -795,13 +795,13 @@ test('agents: escribe la sección entre marcas en AGENTS.md y la reemplaza sin t
   let r = await correr(raiz, ['agents']);
   assert.equal(r.code, 0, r.err);
   let t = fs.readFileSync(path.join(raiz, 'AGENTS.md'), 'utf8');
-  assert.match(t, /^# Reglas propias\n\n- una regla del proyecto\n\n<!-- como-trabajo-bacg:inicio/);
+  assert.match(t, /^# Reglas propias\n\n- una regla del proyecto\n\n<!-- bacg-dev:inicio/);
   assert.match(t, /Bases de PROD: `refprod1`, `refprod2`/);
   assert.match(t, /docs\/log\/rq\.jsonl/);
   fs.writeFileSync(path.join(raiz, 'AGENTS.md'), t + '\n- regla agregada después\n');
   r = await correr(raiz, ['agents']);
   t = fs.readFileSync(path.join(raiz, 'AGENTS.md'), 'utf8');
-  assert.equal((t.match(/como-trabajo-bacg:inicio/g) ?? []).length, 1, 'una sola sección');
+  assert.equal((t.match(/bacg-dev:inicio/g) ?? []).length, 1, 'una sola sección');
   assert.match(t, /- regla agregada después/);
 });
 

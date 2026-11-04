@@ -1,5 +1,5 @@
 // Backlog del proyecto, una fila por RQ. Es la única fuente: el CLI agrega la fila al abrir el RQ y la pasa a Hecho
-// al cerrarlo. Con la configuración en el repo (.como-trabajo/) vive en docs/backlog.md del repo; si no, en
+// al cerrarlo. Con la configuración en el repo (.bacg-dev/) vive en docs/backlog.md del repo; si no, en
 // lineamientos-bacg/proyectos/<id>/backlog.md (rq.mjs le deja una copia en docs/backlog.md).
 
 import fs from 'node:fs';

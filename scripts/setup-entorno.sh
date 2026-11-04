@@ -3,7 +3,7 @@
 # Deja la copia de trabajo de los lineamientos donde el plugin la busca por defecto.
 # Uso en el "setup script" del entorno: bash <(curl ...) o copiar este contenido tal cual.
 set -euo pipefail
-DEST="${LINEAMIENTOS_DIR:-$HOME/lineamientos-bacg}"
+DEST="${BACG_LINEAMIENTOS_DIR:-$HOME/lineamientos-bacg}"
 if [ -d "$DEST/.git" ]; then
   git -C "$DEST" pull --ff-only --quiet || echo "aviso: no pude actualizar $DEST"
 else

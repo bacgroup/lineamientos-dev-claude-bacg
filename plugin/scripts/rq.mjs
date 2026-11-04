@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
-import { comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, cola, conSpecs, shellDeTests } from './lib/cli.mjs';
+import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, cola, conSpecs, shellDeTests } from './lib/cli.mjs';
 import { faltaParaEtapa, sensibleSinRevisar, skillsDe } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
@@ -17,6 +17,7 @@ import { tipoArchivo } from './lib/rutas.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
+import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 const CLASIFICACIONES = ['spike', 'bounded', 'arquitectonico'];
@@ -41,7 +42,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   paso reabrir <paso>                (quita la marca de no aplica)
   desplegar [<handoff.md>]           (plan de despliegue: pasos que faltan, en orden, con su comando)
   entregar                           (rama, PR, CI y plan de despliegue: qué falta para terminar)
-  agents                             (escribe en AGENTS.md la sección de lineamientos generada desde .como-trabajo/)
+  agents                             (escribe en AGENTS.md la sección de lineamientos generada desde .bacg-dev/)
   auditar [--cerrar "<nota>"]        (commits de Lovable sin revisar; --cerrar mueve la marca y lo anota en docs/log/rq.jsonl)
   estado                             (avisa si la rama está atrasada o si el RQ ya figura cerrado en origin/main)
   cerrar [--resumen "<1-2 frases>"] [--alcance "<texto>"] [--sin-changelog]   (con --resumen: changelog, docs/log/rq.jsonl y commit de docs; --sin-changelog: sólo el log)
@@ -123,6 +124,21 @@ function guardar(raiz, estado) {
   guardarEstado(raiz, estado);
 }
 
+/** Comando de tests con {raiz} y {repo:<nombre>} resueltos; un repo que no está en la máquina es un error del CLI. */
+function rutasEn(comando, raiz, proyecto) {
+  const propio = nombreRepo(raiz).toLowerCase();
+  const resolver = (n) => {
+    if (n.toLowerCase() === propio) return raiz;
+    const id = buscarRepo(raiz)?.proyectoId;
+    return reposHermanos(raiz, id, proyecto).find((r) => nombreRepo(r).toLowerCase() === n.toLowerCase()) ?? null;
+  };
+  try {
+    return conRutas(comando, raiz, resolver);
+  } catch (e) {
+    throw new ErrorCli(e.message);
+  }
+}
+
 /** Rol del repo en proyecto.repos (padre, sede…), por su remoto origin; null si no figura. */
 function rolDelRepo(repo, env) {
   const nombre = nombreRepo(repo.raiz).toLowerCase();
@@ -173,8 +189,9 @@ function abrir(repo, args, env, io) {
   } catch (e) {
     if (!String(e.message).startsWith('ESTADO_INEXISTENTE')) throw e;
   }
+  let vinculo = null;
   if (!existente) {
-    guardarEstado(raiz, {
+    const nuevo = {
       codigo,
       tipo: res.tipo,
       clasificacion: res.clasificacion,
@@ -187,12 +204,16 @@ function abrir(repo, args, env, io) {
       circuito: [],
       saltos: [],
       base: commitHead(raiz),
-    });
+    };
+    // RQ multi-repo: si el mismo código está activo en otro repo del proyecto, hereda lo compartido.
+    vinculo = heredar(raiz, repo.proyectoId, proyectoDe(repo, env), nuevo);
+    guardarEstado(raiz, nuevo);
   }
   fs.mkdirSync(dir, { recursive: true });
   const otros = rqsActivos(raiz).filter((c) => c !== codigo);
   guardarActivos(raiz, [...otros, codigo]);
   io.stdout.write(existente ? `RQ ${codigo} retomado (etapa ${existente.etapa}).\n` : `RQ ${codigo} abierto.\n`);
+  if (vinculo) io.stdout.write(`RQ multi-repo: vinculado con ${vinculo} (hereda aprobaciones, autonomía, saltos y skills; los cambios nuevos se replican).\n`);
   if (otros.length) io.stdout.write(`Otros RQ activos: ${otros.join(', ')} (usá --rq para elegir).\n`);
   anotarBacklog(repo, env, codigo, {
     Tarea: res.tarea,
@@ -208,6 +229,14 @@ function cambiar(raiz, elegido, io, fn) {
   const msg = fn(estado);
   guardar(raiz, estado);
   io.stdout.write(`${msg}\n`);
+  return estado;
+}
+
+/** cambiar() y, si el RQ está activo en otros repos del proyecto (RQ multi-repo), el mismo cambio en ellos. */
+function cambiarVinculado(repo, env, elegido, io, fn) {
+  const estado = cambiar(repo.raiz, elegido, io, fn);
+  const tocados = espejar(repo.raiz, repo.proyectoId, proyectoDe(repo, env), estado.codigo, (s) => { fn(s); });
+  if (tocados.length) io.stdout.write(`RQ multi-repo: también en ${tocados.join(', ')}.\n`);
 }
 
 /** Archivos en stage, relativos a la raíz, que no son libres (los que tienen tests relacionados). */
@@ -261,7 +290,7 @@ function correrTests(raiz, estado, proyecto, io, { silencioso = false } = {}) {
   const rojos = [];
   let codigo = 0;
   for (const base of comandos) {
-    const cmd = conArchivos(base, archivos);
+    const cmd = conArchivos(rutasEn(base, raiz, proyecto), archivos);
     if (cmd === null) continue;
     corridos.push(cmd);
     const r = spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -391,8 +420,9 @@ function verificar(repo, elegido, args, env, io) {
   const specs = res.completo || !base.includes('{specs}') ? [] : posicionales.length ? posicionales : specsDelRq(raiz, estado);
   let cmd;
   try {
-    cmd = conSpecs(base, specs);
+    cmd = conSpecs(rutasEn(base, raiz, proyecto), specs);
   } catch (e) {
+    if (e instanceof ErrorCli) throw e;
     throw new ErrorCli(e.message);
   }
   const completo = specs.length === 0;
@@ -481,8 +511,8 @@ function entregar(repo, elegido, env, io) {
   const principal = refPrincipal(raiz);
   if (principal && gitOk(raiz, ['merge-base', '--is-ancestor', 'HEAD', principal])) {
     l.push(`Rama integrada: HEAD ya está en ${principal} (merge-base --is-ancestor); no hace falta PR.`);
-  } else if (env.COMO_TRABAJO_SIN_GH === '1') {
-    l.push('PR y CI: sin consultar (COMO_TRABAJO_SIN_GH).');
+  } else if (env.BACG_DEV_SIN_GH === '1') {
+    l.push('PR y CI: sin consultar (BACG_DEV_SIN_GH).');
   } else {
     const r = spawnSync('gh', ['pr', 'view', '--json', 'number,state,url,statusCheckRollup'], { cwd: raiz, encoding: 'utf8' });
     if (r.status !== 0) l.push(`PR: no hay PR de esta rama (gh pr create --fill).`);
@@ -600,11 +630,11 @@ function registrarCierre(repo, codigo, estado, proyecto, { resumen, alcance, sin
   );
 }
 
-/** AGENTS.md con la sección generada desde .como-trabajo/ (para agentes sin el plugin, como Lovable). */
+/** AGENTS.md con la sección generada desde .bacg-dev/ (para agentes sin el plugin, como Lovable). */
 function agents(repo, env, io) {
   const proyecto = exigirProyecto(repo, env);
   const r = escribirAgents(repo.raiz, seccionAgents(proyecto));
-  io.stdout.write(`AGENTS.md: sección de como-trabajo ${r}. Es documentación: se commitea sin RQ.\n`);
+  io.stdout.write(`AGENTS.md: sección de bacg-dev ${r}. Es documentación: se commitea sin RQ.\n`);
 }
 
 /** Lista los commits de Lovable sin revisar; con --cerrar mueve la marca y anota la revisión en el log. */
@@ -777,8 +807,8 @@ function desplegar(repo, elegido, args, env, io) {
   const repos = lista(proyecto.repos);
   const cuenta = proyecto.cuenta_github;
   const rama = proyecto?.sync?.rama || RAMA_SYNC;
-  // COMO_TRABAJO_SIN_GH=1: no consulta GitHub (tests, o sin red).
-  const sedes = env.COMO_TRABAJO_SIN_GH === '1' ? {} : migracionesEnSync(proyecto);
+  // BACG_DEV_SIN_GH=1: no consulta GitHub (tests, o sin red).
+  const sedes = env.BACG_DEV_SIN_GH === '1' ? {} : migracionesEnSync(proyecto);
   const pend = new Set(pendientes({ proyecto, estado, raiz, rutas, sedes }).map(normPaso));
   const l = [`Plan de despliegue de ${codigo}`];
   l.push(rutas === null ? 'No pude leer el diff del RQ: se listan todos los pasos.' : `Migraciones en el RQ: ${migraciones.length ? migraciones.join(', ') : 'ninguna'}.`);
@@ -856,7 +886,7 @@ function pendientesDel(repo, estado, proyecto, env) {
   const raiz = repo.raiz;
   const desplego = (Number(estado.etapa) || 0) >= 5 || etapaDerivada(estado, raiz) >= 5 || lista(estado.circuito).length > 0;
   if (!proyecto || !desplego) return [];
-  const sedes = env.COMO_TRABAJO_SIN_GH !== '1' ? migracionesEnSync(proyecto) : {};
+  const sedes = env.BACG_DEV_SIN_GH !== '1' ? migracionesEnSync(proyecto) : {};
   let pend = pendientes({ proyecto, estado, raiz, rutas: rutasDelRq(raiz, estado), sedes });
   // En una sede (RQ espejo) sólo quedan pendientes los pasos de esta sede: el resto es del RQ del padre.
   if (esSede(repo, env)) {
@@ -1003,7 +1033,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
     else if (!['abrir', 'cerrar', 'verificar'].includes(sub)) uso(n === aridad[sub]);
 
     const repo = buscarRepo(cwd);
-    if (!repo) throw new ErrorCli('No es un repo con .lineamientos ni .como-trabajo/proyecto.yml.');
+    if (!repo) throw new ErrorCli('No es un repo con .bacg-lineamientos ni .bacg-dev/proyecto.yml.');
     const raiz = repo.raiz;
     // El RQ elegido con --rq pasa a ser el "en curso" (último de ACTIVO): ahí registra las skills el hook.
     const activos = rqsActivos(raiz);
@@ -1030,7 +1060,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       case 'aprobar': {
         const e = etapaValida(args[0]);
         const frase = textoNoVacio(args[1], 'La frase');
-        cambiar(raiz, elegido, io, (s) => {
+        cambiarVinculado(repo, env, elegido, io, (s) => {
           s.aprobaciones = [...lista(s.aprobaciones), { etapa: e, frase, fecha: ahora() }];
           return `Aprobación de la etapa ${e} registrada.`;
         });
@@ -1040,7 +1070,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         const h = entero(args[0]);
         if (h === null || h < 1 || h > 5) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de 1 a 5).`);
         const frase = textoNoVacio(args[1], 'La frase');
-        cambiar(raiz, elegido, io, (s) => { s.autonomia = { hasta: h, frase, fecha: ahora() }; return `Autonomía hasta la etapa ${h} registrada.`; });
+        cambiarVinculado(repo, env, elegido, io, (s) => { s.autonomia = { hasta: h, frase, fecha: ahora() }; return `Autonomía hasta la etapa ${h} registrada.`; });
         break;
       }
       case 'saltar': {
@@ -1048,7 +1078,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         if (!COMPUERTAS.includes(compuerta)) throw new ErrorCli(`Compuerta inválida: "${compuerta}" (${COMPUERTAS.join(' | ')}).`);
         textoNoVacio(frase, 'La frase');
         textoNoVacio(motivo, 'El motivo');
-        cambiar(raiz, elegido, io, (s) => {
+        cambiarVinculado(repo, env, elegido, io, (s) => {
           s.saltos = [...lista(s.saltos), { compuerta, frase, motivo, fecha: ahora() }];
           return `Salto de la compuerta ${compuerta} registrado.`;
         });

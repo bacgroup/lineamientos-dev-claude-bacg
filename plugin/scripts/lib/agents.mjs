@@ -1,4 +1,4 @@
-// Sección de AGENTS.md generada desde .como-trabajo/: los lineamientos en una forma que cualquier agente sin el
+// Sección de AGENTS.md generada desde .bacg-dev/: los lineamientos en una forma que cualquier agente sin el
 // plugin (Lovable, en emergencias o sin tokens) puede seguir a mano. La escribe `rq.mjs agents` entre marcas; el
 // resto de AGENTS.md es del proyecto y no se toca.
 
@@ -6,8 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { basesProd, globsMigraciones } from './stack.mjs';
 
-export const INICIO = '<!-- como-trabajo-bacg:inicio (lo genera `rq.mjs agents` desde .como-trabajo/; no editar a mano) -->';
-export const FIN = '<!-- como-trabajo-bacg:fin -->';
+export const INICIO = '<!-- bacg-dev:inicio (lo genera `rq.mjs agents` desde .bacg-dev/; no editar a mano) -->';
+export const FIN = '<!-- bacg-dev:fin -->';
 
 const lista = (x) => (Array.isArray(x) ? x.filter((s) => typeof s === 'string' && s.trim() !== '') : []);
 const codigo = (s) => `\`${s}\``;
@@ -16,16 +16,16 @@ const codigo = (s) => `\`${s}\``;
 export function seccionAgents(proyecto) {
   const p = proyecto ?? {};
   const tests = p.tests ?? {};
-  const canon = typeof p.ui?.canon === 'string' && p.ui.canon ? path.posix.normalize(`.como-trabajo/${p.ui.canon}`) : null;
+  const canon = typeof p.ui?.canon === 'string' && p.ui.canon ? path.posix.normalize(`.bacg-dev/${p.ui.canon}`) : null;
   const refs = basesProd(p);
   const migs = globsMigraciones(p);
   const sensibles = lista(p.sensible?.rutas);
   const pasos = (Array.isArray(p.circuito_prod) ? p.circuito_prod : []).map((c) => c?.paso).filter(Boolean);
   const l = [
     INICIO,
-    '## Cómo trabajamos (como-trabajo): vale para cualquier agente, Lovable incluido',
+    '## Cómo trabajamos (bacg-dev): vale para cualquier agente, Lovable incluido',
     '',
-    `Proyecto ${p.nombre ?? p.id ?? ''} (${codigo(p.id ?? '?')}). Antes de cambiar código leé ${codigo('.como-trabajo/reglas.md')}${canon ? ` y, si tocás pantallas, el canon de UI ${codigo(canon)}` : ''}. Si una regla de abajo choca con una del proyecto, manda la del proyecto.`,
+    `Proyecto ${p.nombre ?? p.id ?? ''} (${codigo(p.id ?? '?')}). Antes de cambiar código leé ${codigo('.bacg-dev/reglas.md')}${canon ? ` y, si tocás pantallas, el canon de UI ${codigo(canon)}` : ''}. Si una regla de abajo choca con una del proyecto, manda la del proyecto.`,
     '',
     '### Antes de cambiar código',
     '1. Decidí si es **RQ** (funcionalidad nueva o cambio de comportamiento) o **BUG** (algo que anda mal respecto de lo acordado). Consultas, docs y tests sueltos no necesitan nada de esto.',
@@ -38,7 +38,7 @@ export function seccionAgents(proyecto) {
       ? `- E2E obligatorio: agregá o actualizá un flujo en ${codigo('e2e/')} que recorra el cambio (${codigo(tests.e2e)}${tests.e2e_url ? `, app en ${codigo(tests.e2e_url)}` : ''}). Corre contra la base local, nunca contra PROD.`
       : '- El proyecto todavía no tiene E2E automatizado: describí en el spec cómo verificarlo.',
     ...(sensibles.length ? [`- Rutas sensibles (revisión extra y tests de todos los casos): ${sensibles.map(codigo).join(', ')}.`] : []),
-    `- Nunca commitees ${codigo('.env')}, lockfiles, ${codigo('.claude/')} ni ${codigo('.como-trabajo/')} (la configuración del proyecto la cambia sólo un RQ con el plugin).`,
+    `- Nunca commitees ${codigo('.env')}, lockfiles, ${codigo('.claude/')} ni ${codigo('.bacg-dev/')} (la configuración del proyecto la cambia sólo un RQ con el plugin).`,
     '',
     '### Base de datos y PROD',
     ...(refs.length

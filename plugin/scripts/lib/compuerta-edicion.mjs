@@ -50,7 +50,7 @@ const RE_ESTADO_O_ACTIVO = /(?:^|\/)docs\/rq\/(?:ACTIVO|[^/]+\/estado\.yml)$/i;
  * Motivo del deny si `abs` es un archivo que nunca se escribe a mano (ni con Edit/Write ni desde Bash), o null:
  * - docs/rq/<código>/estado.yml y docs/rq/ACTIVO: sólo con rq.mjs;
  * - el transcript de la sesión (~/.claude/projects/**.jsonl): es la prueba de lo que escribió el usuario.
- * Lo de docs/rq aplica dentro de un repo con .lineamientos (`raiz` si ya se conoce; si no, se busca).
+ * Lo de docs/rq aplica dentro de un repo con .bacg-lineamientos (`raiz` si ya se conoce; si no, se busca).
  */
 export function escrituraProhibida(abs, raiz) {
   const p = String(abs ?? '').replace(/\\/g, '/');

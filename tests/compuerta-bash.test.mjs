@@ -284,7 +284,7 @@ test('sin git ops -> allow, no crítica', () => {
   assert.deepEqual(evaluar('ls -la', CWD), { decision: 'allow', critica: false });
 });
 
-test('repo sin .lineamientos -> allow', () => {
+test('repo sin .bacg-lineamientos -> allow', () => {
   const raiz = crearRepoTemporal({});
   fs.writeFileSync(path.join(raiz, 'a.ts'), 'x');
   git(raiz, 'add', '.');
@@ -536,7 +536,7 @@ test('git add de docs con estado.yml y ACTIVO && git commit (cierre a mano) -> a
 
 test('error inesperado al evaluar -> deny con la crítica ya calculada', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sin git '));
-  fs.writeFileSync(path.join(dir, '.lineamientos'), 'proyecto: demo\n');
+  fs.writeFileSync(path.join(dir, '.bacg-lineamientos'), 'proyecto: demo\n');
   // .git roto: git falla aunque algún directorio padre sea un repo.
   fs.writeFileSync(path.join(dir, '.git'), 'gitdir: ./no-existe\n');
   const r = evaluar('git commit -m x; git push', dir);
@@ -545,7 +545,7 @@ test('error inesperado al evaluar -> deny con la crítica ya calculada', () => {
   assert.match(r.motivo, /^No se pudo evaluar commit \(.+\)$/);
 });
 
-test('repo con .lineamientos que no figura en proyecto.repos -> push_prod (falla cerrada)', () => {
+test('repo con .bacg-lineamientos que no figura en proyecto.repos -> push_prod (falla cerrada)', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'otro-nombre' });
   activar(raiz, base({ ...verde }));
   const r = evaluar('git push', raiz);
@@ -865,7 +865,7 @@ test('push de código: con tests.e2e declarado exige el E2E en verde (o salto e2
     .readFileSync(path.join(DIR_LIN, 'proyectos', 'demo', 'proyecto.yml'), 'utf8')
     .replace('push_prod: true', 'push_prod: false')
     .concat('  e2e: "npx playwright test"\n');
-  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app', archivos: { '.como-trabajo/proyecto.yml': yml } });
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app', archivos: { '.bacg-dev/proyecto.yml': yml } });
   activar(raiz, base({ ...verde }));
   const r = evaluar('git push', raiz);
   assert.equal(r.decision, 'deny');

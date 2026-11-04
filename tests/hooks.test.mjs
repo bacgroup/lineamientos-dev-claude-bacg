@@ -30,7 +30,7 @@ function homeCon(plugins) {
 }
 
 const HOME = homeCon([]);
-const ENV = { LINEAMIENTOS_DIR: DIR_LIN, CLAUDE_PLUGIN_ROOT: PLUGIN, HOME, USERPROFILE: HOME, COMO_TRABAJO_SIN_GH: '1' };
+const ENV = { BACG_LINEAMIENTOS_DIR: DIR_LIN, CLAUDE_PLUGIN_ROOT: PLUGIN, HOME, USERPROFILE: HOME, BACG_DEV_SIN_GH: '1' };
 
 const repoDemo = (archivos = {}) => crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app', archivos });
 
@@ -183,7 +183,7 @@ test('pre-tool MCP desde cwd no registrado usa el estado del repo padre (ruta_lo
   const cwd = tmp('suelto como-');
   const out = preTool(
     { cwd, tool_name: SB + 'apply_migration', tool_input: { project_id: 'refprod1', name: 'm', query: 'create table t()' } },
-    { ...ENV, LINEAMIENTOS_DIR: lin },
+    { ...ENV, BACG_LINEAMIENTOS_DIR: lin },
   );
   assert.equal(out, null);
 });
@@ -269,7 +269,7 @@ test('proyecto.yml corrupto no cuenta como no registrado: SQL de escritura a su 
   fs.appendFileSync(path.join(lin, 'proyectos', 'demo', 'proyecto.yml'), '\nroto: [sin cerrar\n');
   const out = preTool(
     { cwd: tmp('suelto como-'), tool_name: SB + 'execute_sql', tool_input: { project_id: 'refprod1', query: 'delete from t' } },
-    { ...ENV, LINEAMIENTOS_DIR: lin },
+    { ...ENV, BACG_LINEAMIENTOS_DIR: lin },
   );
   assert.equal(decision(out), 'deny');
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /no pudo evaluarse/);
@@ -285,7 +285,7 @@ test('herramientas de ramas sin proyecto resuelto: PROD si algún proyecto tiene
   const lin = tmp('lin como-');
   fs.mkdirSync(path.join(lin, 'proyectos', 'chico'), { recursive: true });
   fs.writeFileSync(path.join(lin, 'proyectos', 'chico', 'proyecto.yml'), 'id: chico\nrepos: []\n');
-  assert.equal(preTool({ cwd, tool_name: SB + 'merge_branch', tool_input: { branch_id: 'b1' } }, { ...ENV, LINEAMIENTOS_DIR: lin }), null);
+  assert.equal(preTool({ cwd, tool_name: SB + 'merge_branch', tool_input: { branch_id: 'b1' } }, { ...ENV, BACG_LINEAMIENTOS_DIR: lin }), null);
 });
 
 test('ruta_local de otro proyecto no aporta estado → deny', () => {
@@ -299,7 +299,7 @@ test('ruta_local de otro proyecto no aporta estado → deny', () => {
   fs.writeFileSync(archivo, yaml.dump(p));
   const out = preTool(
     { cwd: tmp('suelto como-'), tool_name: SB + 'apply_migration', tool_input: { project_id: 'refprod1', name: 'm', query: 'create table t()' } },
-    { ...ENV, LINEAMIENTOS_DIR: lin },
+    { ...ENV, BACG_LINEAMIENTOS_DIR: lin },
   );
   assert.equal(decision(out), 'deny');
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /sin RQ activo/);
@@ -450,7 +450,7 @@ test('post-tool sin RQ → sin salida y sin escribir', () => {
 const sessionStart = (cwd, env = ENV) =>
   json(correrHook('session-start', { hook_event_name: 'SessionStart', session_id: 's', transcript_path: TRANSCRIPT, cwd, source: 'startup' }, env));
 
-test('session-start en un repo sin .lineamientos → stdout vacío', () => {
+test('session-start en un repo sin .bacg-lineamientos → stdout vacío', () => {
   const dir = crearRepoTemporal({});
   assert.equal(sessionStart(dir), null);
 });
@@ -459,7 +459,7 @@ test('session-start fuera de un repo, con repos registrados debajo → CLI del R
   const padre = tmp('padre como-');
   const hijo = path.join(padre, 'PunaAPP-dev', 'hq');
   fs.mkdirSync(hijo, { recursive: true });
-  fs.writeFileSync(path.join(hijo, '.lineamientos'), 'proyecto: demo\n');
+  fs.writeFileSync(path.join(hijo, '.bacg-lineamientos'), 'proyecto: demo\n');
   const ctx = sessionStart(padre).hookSpecificOutput.additionalContext;
   assert.match(ctx, /repos registrados debajo/);
   assert.match(ctx, /PunaAPP-dev[\\/]hq/);
@@ -498,13 +498,13 @@ test('session-start avisa si la copia de trabajo del plugin es más nueva que la
   const lin = tmp('lin como-');
   fs.cpSync(DIR_LIN, lin, { recursive: true });
   fs.mkdirSync(path.join(lin, 'plugin', '.claude-plugin'), { recursive: true });
-  fs.writeFileSync(path.join(lin, 'plugin', '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'como-trabajo-bacg', version: '0.10.0' }));
+  fs.writeFileSync(path.join(lin, 'plugin', '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'bacg-dev', version: '0.10.0' }));
   const instalado = tmp('instalado como-');
   fs.mkdirSync(path.join(instalado, '.claude-plugin'));
-  fs.writeFileSync(path.join(instalado, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'como-trabajo-bacg', version: '0.9.3' }));
-  const out = sessionStart(raiz, { ...ENV, LINEAMIENTOS_DIR: lin, CLAUDE_PLUGIN_ROOT: instalado });
+  fs.writeFileSync(path.join(instalado, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'bacg-dev', version: '0.9.3' }));
+  const out = sessionStart(raiz, { ...ENV, BACG_LINEAMIENTOS_DIR: lin, CLAUDE_PLUGIN_ROOT: instalado });
   assert.match(out.hookSpecificOutput.additionalContext, /0\.10\.0.*0\.9\.3/);
-  const igual = sessionStart(raiz, { ...ENV, LINEAMIENTOS_DIR: lin, CLAUDE_PLUGIN_ROOT: path.join(lin, 'plugin') });
+  const igual = sessionStart(raiz, { ...ENV, BACG_LINEAMIENTOS_DIR: lin, CLAUDE_PLUGIN_ROOT: path.join(lin, 'plugin') });
   assert.doesNotMatch(igual.hookSpecificOutput.additionalContext, /más nueva/);
 });
 
@@ -530,7 +530,7 @@ test('session-start corta los resúmenes a 6.000 caracteres', () => {
   const lin = tmp('lin como-');
   fs.cpSync(DIR_LIN, lin, { recursive: true });
   fs.writeFileSync(path.join(lin, 'general', 'resumen.md'), 'x'.repeat(20000));
-  const out = sessionStart(raiz, { ...ENV, LINEAMIENTOS_DIR: lin });
+  const out = sessionStart(raiz, { ...ENV, BACG_LINEAMIENTOS_DIR: lin });
   const ctx = out.hookSpecificOutput.additionalContext;
   assert.ok((ctx.match(/x{100}/g) ?? []).join('').length <= 6000);
   assert.ok(ctx.length < 10000);
@@ -556,7 +556,7 @@ test('session-start avisa si la cuenta activa de gh no es la del proyecto', () =
   assert.equal(avisoCuentaGh({ cuenta_github: 'duena' }, conf('duena')), null);
   assert.equal(avisoCuentaGh({ cuenta_github: 'duena', cuenta_gh: 'colaborador' }, conf('colaborador')), null, 'cuenta_gh manda');
   assert.equal(avisoCuentaGh({}, conf('otra')), null, 'sin cuenta declarada');
-  assert.equal(avisoCuentaGh({ cuenta_github: 'duena' }, { ...conf('otra'), COMO_TRABAJO_SIN_GH: '1' }), null);
+  assert.equal(avisoCuentaGh({ cuenta_github: 'duena' }, { ...conf('otra'), BACG_DEV_SIN_GH: '1' }), null);
 });
 
 // --- user-prompt ---
@@ -572,7 +572,7 @@ test('user-prompt: sin RQ activo recuerda una sola vez por sesión; con RQ activ
   assert.equal(sin.hookEventName, 'UserPromptSubmit');
   assert.equal(
     sin.additionalContext,
-    'Proyecto demo, sin RQ activo. Para cambiar código o base: skill como-trabajo-bacg:ciclo-rq. Docs, tests y consultas no necesitan RQ.',
+    'Proyecto demo, sin RQ activo. Para cambiar código o base: skill bacg-dev:ciclo-rq. Docs, tests y consultas no necesitan RQ.',
   );
   assert.equal(userPrompt(raiz, sesion), null, 'segunda vez en la misma sesión');
   abrirRq(raiz, { etapa: 3 });
@@ -588,7 +588,7 @@ const TIMEOUTS = { 'pre-tool': 30, 'post-tool': 30, 'session-start': 30, 'user-p
 test('hooks.json declara los cuatro eventos con sus matchers', () => {
   const h = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const esperado = {
-    PreToolUse: ['pre-tool', 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|mcp__.*__(execute_sql|apply_migration|deploy_edge_function|deploy_project|merge_branch|reset_branch|restore_project|pause_project|query_database|respond_to_approval)'],
+    PreToolUse: ['pre-tool', 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|mcp__.*'],
     PostToolUse: ['post-tool', 'Bash|PowerShell|Skill|mcp__.*__(execute_sql|apply_migration)'],
     SessionStart: ['session-start', 'startup|resume|clear|compact'],
     UserPromptSubmit: ['user-prompt', undefined],
@@ -614,9 +614,9 @@ test('cada handler vive en lib/hooks y se exporta', async () => {
 test('session-start sin copia de lineamientos usa el resumen general del plugin y el del repo', () => {
   const raiz = crearRepoTemporal({
     nombre: 'remoto-app',
-    archivos: { '.como-trabajo/proyecto.yml': 'id: remoto\nrepos: []\n', '.como-trabajo/resumen.md': 'RESUMEN DEL REPO REMOTO' },
+    archivos: { '.bacg-dev/proyecto.yml': 'id: remoto\nrepos: []\n', '.bacg-dev/resumen.md': 'RESUMEN DEL REPO REMOTO' },
   });
-  const ctx = sessionStart(raiz, { ...ENV, LINEAMIENTOS_DIR: tmp('sin lin como-') }).hookSpecificOutput.additionalContext;
+  const ctx = sessionStart(raiz, { ...ENV, BACG_LINEAMIENTOS_DIR: tmp('sin lin como-') }).hookSpecificOutput.additionalContext;
   assert.match(ctx, /proyecto remoto/);
   assert.match(ctx, /RESUMEN DEL REPO REMOTO/);
   assert.match(ctx, /Cómo trabajamos/);

@@ -5,11 +5,11 @@ import { spawnSync } from 'node:child_process';
 import yaml from '../vendor/js-yaml.mjs';
 
 // Ruta de la copia de trabajo de lineamientos:
-// LINEAMIENTOS_DIR > ~/.claude/como-trabajo-bacg.json (lineamientosDir) > default por plataforma.
+// BACG_LINEAMIENTOS_DIR > ~/.claude/bacg-dev.json (lineamientosDir) > default por plataforma.
 export function dirLineamientos({ env = process.env, home = os.homedir(), platform = process.platform } = {}) {
-  if (env.LINEAMIENTOS_DIR) return env.LINEAMIENTOS_DIR;
+  if (env.BACG_LINEAMIENTOS_DIR) return env.BACG_LINEAMIENTOS_DIR;
   try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'como-trabajo-bacg.json'), 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'bacg-dev.json'), 'utf8'));
     if (cfg && typeof cfg.lineamientosDir === 'string' && cfg.lineamientosDir) return cfg.lineamientosDir;
   } catch {
     // archivo ausente o inválido: se sigue con el default
@@ -19,7 +19,7 @@ export function dirLineamientos({ env = process.env, home = os.homedir(), platfo
 
 // Carpeta del repo con la configuración del proyecto (proyecto.yml, reglas, resumen, canon, adr). Viaja con el
 // repo: cualquier clon, cuenta o sesión en la nube la tiene sin una copia local de lineamientos.
-export const CARPETA_REPO = '.como-trabajo';
+export const CARPETA_REPO = '.bacg-dev';
 
 // YAML de un archivo, o null si no existe, no es archivo o no se puede leer.
 function yamlDe(archivo) {
@@ -30,11 +30,11 @@ function yamlDe(archivo) {
   }
 }
 
-// Sube desde cwd hasta encontrar `.lineamientos` (línea `proyecto: <id>`) o `.como-trabajo/proyecto.yml` (con `id`).
+// Sube desde cwd hasta encontrar `.bacg-lineamientos` (línea `proyecto: <id>`) o `.bacg-dev/proyecto.yml` (con `id`).
 export function buscarRepo(cwd) {
   let dir = path.resolve(cwd);
   for (;;) {
-    const datos = yamlDe(path.join(dir, '.lineamientos'));
+    const datos = yamlDe(path.join(dir, '.bacg-lineamientos'));
     if (datos && datos.proyecto) return { raiz: dir, proyectoId: String(datos.proyecto) };
     const enRepo = yamlDe(path.join(dir, CARPETA_REPO, 'proyecto.yml'));
     if (enRepo && enRepo.id) return { raiz: dir, proyectoId: String(enRepo.id) };
@@ -44,10 +44,10 @@ export function buscarRepo(cwd) {
   }
 }
 
-/** ¿El repo trae su propia configuración en .como-trabajo/? */
+/** ¿El repo trae su propia configuración en .bacg-dev/? */
 export const configEnRepo = (raiz) => Boolean(raiz) && fs.existsSync(path.join(raiz, CARPETA_REPO, 'proyecto.yml'));
 
-/** Carpeta del proyecto: `.como-trabajo/` del repo si existe (manda el repo); si no, `proyectos/<id>` de lineamientos. */
+/** Carpeta del proyecto: `.bacg-dev/` del repo si existe (manda el repo); si no, `proyectos/<id>` de lineamientos. */
 export function carpetaProyecto(id, dirLin, raiz) {
   return configEnRepo(raiz) ? path.join(raiz, CARPETA_REPO) : path.join(dirLin, 'proyectos', id);
 }
