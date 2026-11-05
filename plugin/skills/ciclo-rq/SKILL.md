@@ -23,8 +23,9 @@ Si el arranque dice "Alta incompleta" o `$RQ abrir` lo frena, primero el alta: `
 
 Sin ciclo también: `docs/**`, `**/*.md`, `tests/**`, `e2e/**`, `*.test.*`, `*.spec.*`, `.bacg-lineamientos`, `.lovable/**`, `.agents/**`. Nunca libres: `.claude/` y `.bacg-dev/`.
 
-1. Buscá el código en el backlog con Grep (`docs/backlog.md`). Si no existe, proponé el siguiente con la convención del backlog y seguí.
-2. `$RQ abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico --tarea "<texto>"` crea o retoma el RQ y escribe la fila del backlog. `arquitectonico` si se cumple algún criterio ARQ (sección 3); si no, `bounded` (`spike` para exploración).
+0. **Proyecto y repo.** El plugin deduce el proyecto del repo de la sesión (marcador o remoto origin); no lo pregunta. Si el arranque dice que la carpeta no es un repo, o el pedido no coincide con el proyecto detectado, preguntale al usuario en qué proyecto y repo va a trabajar antes de seguir, y trabajá desde la raíz de ese repo. Si coincide, nombralo en una línea ("Proyecto powerfy, repo powerfy-addons") y seguí.
+1. Buscá el código en el backlog con Grep (`docs/backlog.md`). Si no existe, proponé el siguiente con la convención del backlog y seguí. `$RQ previa [<código>]` muestra dónde está parado el trabajo sin abrir nada.
+2. `$RQ abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico --tarea "<texto>"` corre primero la **validación previa**: trae origin de los repos del proyecto, dice cuántos commits está atrás cada uno de la rama de DEV, lista ramas y PR abiertos de otros (con los módulos que tocan) y las filas "En curso" del backlog remoto. Mostrale al usuario el atraso y el trabajo en paralelo que se cruce con el RQ; si hay atraso, actualizá la rama antes de editar. Un RQ nuevo no se abre si el código ya figura En curso o Hecho en el backlog remoto, o si lo nombra una rama o un PR: si es del usuario (otra PC), traé esa rama y volvé a abrir; si no, elegí otro código. `--sin-previa` sólo si el usuario lo pide con sus palabras. Después crea o retoma el RQ y escribe la fila del backlog. `arquitectonico` si se cumple algún criterio ARQ (sección 3); si no, `bounded` (`spike` para exploración).
 3. Escribí el encuadre como cabecera de `docs/rq/<código>/spec.md` (≤ 25 líneas; con él ya se puede editar en spike y bounded):
 
 ```markdown
@@ -71,6 +72,19 @@ Además de las de la tabla, las de BACG según lo que toca el RQ. El proyecto pu
 | 3 Desarrollo | toca el conector MCP Odoo–Claude | `anthropic-skills:bacg-conector-mcp-odoo` |
 | 3 Desarrollo | replica un stack de n8n a otro cliente | `anthropic-skills:bacg-n8n-clonado-clientes` |
 | 6 PROD | promueve workflows de n8n de DEV a PROD | `anthropic-skills:bacg-n8n-pasaje-prod` |
+
+### 2.0.1 Skills oficiales de Odoo (proyectos Odoo)
+
+En un proyecto Odoo (`datos.motor: odoo`, el valor por defecto; `odoo_skills: false` en `proyecto.yml` lo apaga), la CLI exige las skills de `github.com/odoo/odoo/tree/20.0/skills` según lo que el RQ toca dentro de un addon (carpeta con `__manifest__.py`). Se instalan en `~/.claude/skills` con `$RQ odoo-skills` (el alta lo pide).
+
+| Etapa | Si el RQ toca, dentro de un addon… | Skill |
+|---|---|---|
+| 3 Desarrollo | Python, XML, datos, seguridad (fuera de `static/`) | `odoo-guidelines` |
+| 3 Desarrollo | `static/` (JS, Owl, SCSS) | `odoo-web-guidelines` |
+| 4 Verificación | cualquier archivo del addon | `odoo-review` (como pasada de la revisión de la sección 5) |
+| 4 Verificación | rutas `sensible` o `controllers/` | `odoo-security` (además de `claude-security`) |
+
+Son de Odoo 20.0: si el proyecto corre otra versión (PowerFy: 18.0), donde una regla choque con la API de esa versión mandan el código del repo y la documentación de su versión. `odoo-git` no se exige: commits, ramas y PR siguen las convenciones del proyecto (rama por RQ, `feat(<código>): …`), no las de odoo/odoo.
 
 ### 2.1 Reglas con Superpowers (mandan sobre las de cada skill)
 

@@ -15,6 +15,7 @@ import { globARegExp } from './rutas.mjs';
 import { buscarRepo, dirLineamientos } from './config.mjs';
 import { proyectoRegistrado } from './contexto.mjs';
 import { rutasDelRq } from './circuito.mjs';
+import { exigenciasOdoo, usaOdoo } from './odoo-skills.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x : []);
 
@@ -87,8 +88,11 @@ export function faltaParaEtapa(estado, etapa, raiz, proyecto = undefined) {
   const sinSkills = saltoValido(estado, 'skills');
   const out = [];
   const py = proyecto === undefined ? proyectoDeRaiz(raiz) : proyecto;
-  const propias = lista(py?.skills_requeridas).length ? exigenciasDelProyecto(estado, py, raiz ? rutasDelRq(raiz, estado) : null) : [];
-  for (const x of [...exigencias(estado), ...propias]) {
+  let rutas;
+  const rutasRq = () => (rutas === undefined ? (rutas = raiz ? rutasDelRq(raiz, estado) : null) : rutas);
+  const propias = lista(py?.skills_requeridas).length ? exigenciasDelProyecto(estado, py, rutasRq()) : [];
+  const odoo = py && usaOdoo(py) ? exigenciasOdoo(py, raiz, rutasRq()) : [];
+  for (const x of [...exigencias(estado), ...propias, ...odoo]) {
     if (x.etapa > etapa) continue;
     if (x.skill && !sinSkills && !tieneSkill(estado, x.skill)) out.push(x.skill);
     if (x.causa && !causaEnSpec(raiz, estado.codigo)) out.push(`la causa raíz en docs/rq/${estado.codigo}/spec.md (## Causa)`);

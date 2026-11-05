@@ -20,6 +20,12 @@ function partir(linea) {
   return linea.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
 }
 
+/** Filas de un texto de backlog como objetos { Código, Tarea, ... } (sin el encabezado). */
+export function parsearBacklog(texto) {
+  const filas = String(texto ?? '').split(/\r?\n/).filter(esFila).slice(1);
+  return filas.map((l) => Object.fromEntries(partir(l).map((v, i) => [COLUMNAS[i] ?? `c${i}`, v])));
+}
+
 /** Filas del backlog como objetos { Código, Tarea, ... }. */
 export function leerBacklog(dirLin, proyectoId, raiz) {
   let texto;
@@ -28,8 +34,7 @@ export function leerBacklog(dirLin, proyectoId, raiz) {
   } catch {
     return [];
   }
-  const filas = texto.split(/\r?\n/).filter(esFila).slice(1);
-  return filas.map((l) => Object.fromEntries(partir(l).map((v, i) => [COLUMNAS[i] ?? `c${i}`, v])));
+  return parsearBacklog(texto);
 }
 
 /**

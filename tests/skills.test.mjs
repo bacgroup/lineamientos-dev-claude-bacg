@@ -66,7 +66,7 @@ test('ciclo-rq: sólo usa subcomandos de rq.mjs que existen, y usa todos', () =>
   const u = usados(texto);
   assert.deepEqual(
     [...reales].sort(),
-    ['abrir', 'agents', 'alta', 'aprobar', 'auditar', 'autonomia', 'cerrar', 'commit', 'desplegar', 'entregar', 'estado', 'etapa', 'paso', 'registrar-tests', 'revision', 'saltar', 'verificar'],
+    ['abrir', 'agents', 'alta', 'aprobar', 'auditar', 'autonomia', 'cerrar', 'commit', 'desplegar', 'entregar', 'estado', 'etapa', 'odoo-skills', 'paso', 'previa', 'registrar-tests', 'revision', 'saltar', 'verificar'],
   );
   for (const s of u) assert.ok(reales.has(s), `ciclo-rq usa "rq.mjs ${s}", que no existe`);
   for (const s of reales) assert.ok(u.has(s), `ciclo-rq no explica "rq.mjs ${s}"`);

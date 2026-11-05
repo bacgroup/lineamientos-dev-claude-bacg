@@ -171,9 +171,17 @@ export async function handler(
       if (fs.existsSync(path.join(dirLin, 'proyectos'))) return null;
       return contexto('SessionStart', '# Lineamientos (lineamientos-dev-claude-bacg): alta pendiente\n\nEl plugin está instalado pero esta PC todavía no tiene la copia de los lineamientos. Antes de cualquier RQ, guiá al usuario con /bacg-alta, de a un paso, hasta que quede todo en verde.');
     }
+    const proyectoDe = (d) => {
+      try {
+        return buscarRepo(d, { dirLin })?.proyectoId ?? '?';
+      } catch {
+        return '?';
+      }
+    };
     const lineas = [
       '# Lineamientos (lineamientos-dev-claude-bacg): repos registrados debajo de esta carpeta',
-      debajo.map((d) => `- ${path.relative(cwd, d)}`).join('\n'),
+      debajo.map((d) => `- ${path.relative(cwd, d)} (proyecto ${proyectoDe(d)})`).join('\n'),
+      'Esta carpeta no es un repo de un proyecto: el plugin no sabe en cuál vas a trabajar. Antes de cualquier RQ, preguntale al usuario en qué proyecto y repo de la lista (o si es otro proyecto) y trabajá desde la raíz de ese repo; lo ideal es abrir la sesión ahí.',
       `CLI del RQ: node "${rutaCli(pluginRoot)}" (corrélo desde la raíz del repo; es el $RQ de la skill ciclo-rq).`,
     ];
     return contexto('SessionStart', lineas.join('\n\n'));
