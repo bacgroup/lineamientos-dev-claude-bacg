@@ -12,6 +12,10 @@ import { spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, configEnRepo, dirLineamientos, nombreRepo, ajustesLocales } from './config.mjs';
 import { reposHermanos } from './multi-repo.mjs';
 import { PLUGINS_REQUERIDOS } from './hooks/session-start.mjs';
+import { estadoSkillsOdoo, ramaSkills, usaOdoo, tieneAddons } from './odoo-skills.mjs';
+import { fileURLToPath } from 'node:url';
+
+const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'rq.mjs');
 
 const REPO_CENTRAL = 'bacgroup/lineamientos-dev-claude-bacg';
 const lista = (x) => (Array.isArray(x) ? x : []);
@@ -152,6 +156,19 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
       id: 'tests-script', titulo: 'El comando de tests encuentra su script', obligatorio: true,
       estado: !script || usaPlaceholder ? 'na' : fs.existsSync(abs) ? 'ok' : 'falta', detalle: script ?? 'sin script que verificar',
       como: `No existe ${abs}: corregí la ruta en ~/.claude/bacg-dev.json (proyectos.${repo.proyectoId}.tests.unit).`,
+    });
+  }
+
+  // Skills oficiales de Odoo (PLG-ODOO): obligatorias en un proyecto Odoo cuyos repos tienen addons, porque la CLI
+  // las exige al tocar un addon.
+  if (usaOdoo(proyecto) && [repo.raiz, ...reposHermanos(repo.raiz, repo.proyectoId, proyecto)].some(tieneAddons)) {
+    const { faltan, origen } = estadoSkillsOdoo(home);
+    const rama = ramaSkills(proyecto);
+    sumar({
+      id: 'odoo-skills', titulo: `Skills oficiales de Odoo (odoo/odoo ${rama})`, obligatorio: true,
+      estado: faltan.length ? 'falta' : 'ok',
+      detalle: faltan.length ? `faltan: ${faltan.join(', ')}` : origen?.commit ? `commit ${String(origen.commit).slice(0, 10)} del ${String(origen.fecha ?? '').slice(0, 10)}` : 'instaladas a mano',
+      como: `Instalalas en ~/.claude/skills (se bajan con gh desde github.com/odoo/odoo/tree/${rama}/skills): \`node "${CLI}" odoo-skills\`. Después reiniciá la sesión de Claude Code.`,
     });
   }
 

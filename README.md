@@ -22,10 +22,11 @@ Después de instalar el plugin, abrí Claude Code en un repo del proyecto y corr
 | 7 | Repos del proyecto clonados uno junto al otro | Recomendado |
 | 8 | Tests del proyecto en esta PC (`~/.claude/bacg-dev.json`) | Sí |
 | 9 | El comando de tests encuentra su script | Sí |
-| 10 | E2E en esta PC | Recomendado |
-| 11 | Ajustes de esta PC | Recomendado |
+| 10 | Skills oficiales de Odoo (`rq.mjs odoo-skills`; sólo en proyectos Odoo con addons) | Sí |
+| 11 | E2E en esta PC | Recomendado |
+| 12 | Ajustes de esta PC | Recomendado |
 
-Mientras falte un paso obligatorio, el arranque de sesión lo avisa y `rq.mjs abrir` no abre RQ. El agente te guía de a un paso hasta "Todo listo".
+Mientras falte un paso obligatorio, el arranque de sesión lo avisa y `rq.mjs abrir` no abre RQ. El agente te guía de a un paso hasta "Todo listo". Los pasos 6 en adelante son del proyecto del repo donde abriste la sesión: en un repo de otro proyecto se vuelven a verificar para ese proyecto.
 
 ## Instalación en otra cuenta
 
@@ -95,8 +96,8 @@ Opcional: `.bacg-lineamientos` en un repo (`proyecto: <id>`) manda sobre el remo
 
 ## Flujo diario
 
-1. Abrís Claude Code en el repo: el arranque inyecta los lineamientos, el RQ activo y la ruta del CLI `rq.mjs`.
-2. Pedís el cambio (o `/bacg-rq <código>`): el agente lo clasifica y abre o retoma el RQ con la skill `ciclo-rq`.
+1. Abrís Claude Code en el repo: el proyecto sale de ese repo (marcador o remoto origin). El arranque inyecta los lineamientos, el RQ activo y la ruta del CLI `rq.mjs`. Si abrís la sesión en una carpeta que no es un repo, el agente te pregunta en qué proyecto y repo vas a trabajar.
+2. Pedís el cambio (o `/bacg-rq <código>`): el agente lo clasifica y abre o retoma el RQ con la skill `ciclo-rq`. Antes de abrir, la validación previa trae origin y te muestra el atraso contra la rama de DEV, las ramas y PR abiertos de otros y el backlog remoto; no abre un código que ya está tomado (`rq.mjs previa [<código>]` lo muestra sin abrir).
 3. Diseño (y plan, si no es bounded): aprobás con tus palabras en la sesión y el agente las registra.
 4. Desarrollo con TDD: cada commit registra la suite en verde sobre lo que está en stage.
 5. Verificación: tests y revisión registrados destraban push y merge; DEV/Preview antes de PROD.

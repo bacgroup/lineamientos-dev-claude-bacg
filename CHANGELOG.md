@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.0: validación previa, proyecto explícito y skills de Odoo (2026-11-04)
+
+- PLG-PREVIA: `rq.mjs abrir` corre antes una validación previa: `git fetch` de los repos del proyecto en la PC, atraso contra la rama de DEV (`rama_dev` del repo, `entornos.dev.rama` o `ramas_solo_pr`), ramas remotas activas (30 días) y PR abiertos contra DEV con sus módulos, y el backlog remoto (upstream de la copia de lineamientos o `docs/backlog.md` de origin). Un RQ nuevo no se abre si el código ya figura En curso o Hecho en el backlog remoto, o lo nombra una rama o un PR; `--sin-previa` sólo si el usuario lo pide. `rq.mjs previa [<código>]` muestra el informe sin abrir nada.
+- PLG-PROY: `abrir` dice qué proyecto y repo detectó y cómo. Un repo declarado en dos proyectos frena hasta desambiguar con `.bacg-lineamientos`. Fuera de un repo, el arranque lista los repos con su proyecto y pide preguntarle al usuario en cuál va a trabajar; `ciclo-rq` confirma el proyecto antes de abrir.
+- PLG-ODOO: skills oficiales de Odoo (`github.com/odoo/odoo/tree/20.0/skills`). `rq.mjs odoo-skills` las instala en `~/.claude/skills` (vía `gh api`, al commit de la rama, con registro en `.odoo-skills.json`); el alta lo pide en proyectos Odoo con addons. La CLI exige `odoo-guidelines` / `odoo-web-guidelines` (etapa 3), `odoo-review` y, con rutas sensibles o `controllers/`, `odoo-security` (etapa 4) según lo que el RQ toca dentro de un addon. `odoo_skills: false` lo apaga; `odoo_skills.rama` cambia la rama.
+
 ## 3.1.0: stepper de alta (2026-11-04)
 
 - `/bacg-alta` y `rq.mjs alta`: pasos en orden (Node, gh, lineamientos, al día, plugins, repo del proyecto, repos hermanos, tests de la PC, script de los tests, E2E, ajustes locales), con ✅/❌/⚠️ y qué hacer en el próximo. Sale 1 si falta algo obligatorio.

@@ -98,12 +98,23 @@ export function indiceRemotos(dirLin) {
     for (const r of Array.isArray(py.repos) ? py.repos : []) {
       const gh = typeof r?.github === 'string' && r.github.includes('/') ? r.github.trim()
         : cuenta && typeof r?.nombre === 'string' && r.nombre.trim() ? `${cuenta}/${r.nombre.trim()}` : '';
-      if (gh && !idx.has(gh.toLowerCase())) idx.set(gh.toLowerCase(), id);
+      if (!gh) continue;
+      const k = gh.toLowerCase();
+      if (!idx.has(k)) idx.set(k, id);
+      else if (idx.get(k) !== id) {
+        const ya = cacheAmbiguos.get(dirLin) ?? new Map();
+        ya.set(k, [...new Set([...(ya.get(k) ?? [idx.get(k)]), id])]);
+        cacheAmbiguos.set(dirLin, ya);
+      }
     }
   }
   cacheIndice.set(dirLin, idx);
   return idx;
 }
+
+// Repos declarados en más de un proyecto: "owner/repo" -> [ids]. La detección por remoto toma el primero y
+// `rq.mjs abrir` pide desambiguar con el marcador .bacg-lineamientos.
+const cacheAmbiguos = new Map();
 
 function repoPorRemoto(cwd, dirLin) {
   if (!dirLin) return null;
@@ -113,7 +124,9 @@ function repoPorRemoto(cwd, dirLin) {
   if (!top) return null;
   const gh = remotoGh(top);
   const id = gh ? idx.get(gh) : undefined;
-  return id ? { raiz: top, proyectoId: id, porRemoto: true } : null;
+  if (!id) return null;
+  const ambiguos = cacheAmbiguos.get(dirLin)?.get(gh);
+  return ambiguos ? { raiz: top, proyectoId: id, porRemoto: true, ambiguos } : { raiz: top, proyectoId: id, porRemoto: true };
 }
 
 /** ¿El repo trae su propia configuración en .bacg-dev/? */

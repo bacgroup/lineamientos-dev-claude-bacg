@@ -19,6 +19,8 @@ import { seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
 import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
+import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
+import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 const CLASIFICACIONES = ['spike', 'bounded', 'arquitectonico'];
@@ -29,7 +31,9 @@ const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige entre varios RQ activos; sin --rq, el más reciente)
   alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
-  abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta]
+  odoo-skills [--rama <rama>]              (instala en ~/.claude/skills las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
+  previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
+  abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
   etapa <n>                          (0-7; opcional: estado deriva la etapa de la evidencia)
   aprobar <etapa> "<frase>"          (etapa 0-7; la frase es texto literal del usuario)
   autonomia <hasta> "<frase>"        (hasta 1-5)
@@ -174,10 +178,23 @@ function anotarBacklog(repo, env, codigo, campos, io) {
   }
 }
 
+/** Un repo declarado en varios proyectos frena hasta que el marcador lo desambigüe (aun con --sin-previa). */
+function exigirProyectoUnico(repo) {
+  if (lista(repo.ambiguos).length > 1) {
+    throw new ErrorCli(`El repo ${nombreRepo(repo.raiz)} figura en varios proyectos (${repo.ambiguos.join(', ')}): no sé en cuál vas a trabajar. Confirmalo con el usuario y dejá en la raíz del repo un .bacg-lineamientos con "proyecto: <id>" (sumalo a .git/info/exclude para no commitearlo).`);
+  }
+}
+
+function previa(repo, env, codigo, nuevo) {
+  exigirProyectoUnico(repo);
+  return validacionPrevia({ repo, proyecto: proyectoDe(repo, env), codigo, nuevo, env, dirLin: dirLineamientos({ env }) });
+}
+
 function abrir(repo, args, env, io) {
   const raiz = repo.raiz;
-  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta']);
+  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta', 'sin-previa']);
   if (posicionales.length !== 1 || !res.tipo || !res.clasificacion) throw new ErrorUso();
+  exigirProyectoUnico(repo);
   // Alta de la PC: sin los pasos obligatorios (tests, lineamientos…) no se abre un RQ. --sin-alta sólo si el usuario
   // lo pide con sus palabras (p. ej. un RQ de sólo documentación).
   if (res['sin-alta'] !== true && env.BACG_DEV_SIN_ALTA !== '1') {
@@ -196,6 +213,13 @@ function abrir(repo, args, env, io) {
     existente = cargarEstado(raiz, codigo);
   } catch (e) {
     if (!String(e.message).startsWith('ESTADO_INEXISTENTE')) throw e;
+  }
+  // Validación previa (PLG-PREVIA): dónde está parado el trabajo antes de empezar. --sin-previa sólo si el usuario
+  // lo pide con sus palabras.
+  if (res['sin-previa'] !== true && env.BACG_DEV_SIN_PREVIA !== '1') {
+    const { lineas, bloqueos } = previa(repo, env, codigo, !existente);
+    io.stdout.write(`Validación previa:\n${lineas.join('\n')}\n\n`);
+    if (bloqueos.length) throw new ErrorCli(mensajeBloqueo(codigo, bloqueos));
   }
   let vinculo = null;
   if (!existente) {
@@ -1035,13 +1059,26 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       io.stdout.write(`${formatoAlta(pasos)}\n`);
       return bloqueante(pasos) ? 1 : 0;
     }
-    const SUBS = ['alta', 'abrir', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
+    if (sub === 'odoo-skills') {
+      // Corre en cualquier carpeta: la rama sale de --rama, del proyecto de cwd (odoo_skills.rama) o 20.0.
+      const { res } = opciones(args, ['rama']);
+      let rama = res.rama;
+      if (!rama) {
+        const r = buscarRepo(cwd, { dirLin: dirLineamientos({ env }) });
+        rama = ramaSkills(r ? proyectoDe(r, env) : null);
+      }
+      io.stdout.write(`Bajando skills/ de odoo/odoo (rama ${rama})…\n`);
+      const x = instalarSkillsOdoo({ rama });
+      io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
+      return 0;
+    }
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0 };
     if (sub === 'paso' && (args[0] === 'no-aplica' || args[0] === 'hecho')) uso(n === 3);
     else if (sub === 'paso' && args[0] === 'reabrir') uso(n === 2);
-    else if (sub === 'desplegar') uso(n <= 1);
+    else if (sub === 'desplegar' || sub === 'previa') uso(n <= 1);
     else if (sub === 'commit') uso(n >= 2);
     else if (sub === 'auditar') uso(n === 0 || (n === 2 && args[0] === '--cerrar'));
     else if (!['abrir', 'cerrar', 'verificar'].includes(sub)) uso(n === aridad[sub]);
@@ -1056,6 +1093,26 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
     }
 
     switch (sub) {
+      case 'previa': {
+        const codigo = args[0] ?? null;
+        if (codigo && !RE_CODIGO.test(codigo)) throw new ErrorCli(`Código inválido: "${codigo}".`);
+        let nuevo = true;
+        if (codigo) {
+          try {
+            cargarEstado(raiz, codigo);
+            nuevo = false;
+          } catch {
+            // no existe en este repo
+          }
+        }
+        const { lineas, bloqueos } = previa(repo, env, codigo, nuevo);
+        io.stdout.write(`Validación previa:\n${lineas.join('\n')}\n`);
+        if (bloqueos.length) {
+          io.stdout.write(`\n${mensajeBloqueo(codigo, bloqueos)}\n`);
+          return 1;
+        }
+        break;
+      }
       case 'abrir':
         abrir(repo, args, env, io);
         break;
