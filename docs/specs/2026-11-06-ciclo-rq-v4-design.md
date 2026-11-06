@@ -3,7 +3,7 @@
 - Fecha: 2026-11-06
 - Estado: diseño aprobado en conversación; spec pendiente de revisión
 - Base: plugin 3.2.0 (`main` a24c3a7). Rama de trabajo: `plg-ciclo-ui`
-- Incorpora el handoff `docs/mejoras/2026-11-05-handoff-ciclo-rq-bounded-ui-powerfy.md` (M1–M7), con el M3 reemplazado por la etapa 1 de esta spec
+- Absorbe el handoff ciclo-rq/UI del 2026-11-05 (M1–M7; borrado, queda en el commit 07f4640), con el M3 reemplazado por la etapa 1 de esta spec
 - Versión objetivo: 4.0.0 (cambia la numeración de etapas y el contrato de `aprobar`)
 
 ## 1. Objetivo
