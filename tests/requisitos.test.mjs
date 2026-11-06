@@ -99,3 +99,12 @@ test('etapa 2 v4: Exploración pide brainstorming y nada de tareas ni plan', () 
   const raiz = crearRepoTemporal({});
   assert.deepEqual(faltaParaEtapa(estadoBase({ clasificacion: 'spike' }), 2, raiz, {}), ['superpowers:brainstorming']);
 });
+
+test('tareas y plan dependen de la clasificación también en BUG', () => {
+  const sin = crearRepoTemporal({ archivos: { 'docs/rq/R-1/spec.md': '# R-1\n\n## Causa\nx\n' } });
+  const bb = faltaParaEtapa({ ...estadoBase(), tipo: 'bug' }, 2, sin, {});
+  assert.ok(bb.includes('las tareas en docs/rq/R-1/spec.md (## Tareas)'), bb.join('|'));
+  const ba = faltaParaEtapa({ ...estadoBase({ clasificacion: 'arquitectonico' }), tipo: 'bug' }, 2, sin, {});
+  assert.ok(ba.includes('superpowers:writing-plans') && ba.includes('el plan en docs/rq/R-1/plan.md'), ba.join('|'));
+  assert.ok(ba.includes('superpowers:systematic-debugging'));
+});

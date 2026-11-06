@@ -66,7 +66,7 @@ test('commit: sólo docs no corre tests; BUG sin systematic-debugging no commite
   const env = lin(`tests:\n  unit: ${JSON.stringify(UNIT)}\n`);
   const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'src/a.ts': 'ok' } });
   await correr(raiz, ['abrir', 'B-1', '--tipo', 'bug', '--clasificacion', 'bounded'], env);
-  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'B-1', 'spec.md'), '# B-1 · x\n## Causa\nun off-by-one\n');
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'B-1', 'spec.md'), '# B-1 · x\n## Causa\nun off-by-one\n## Tareas\n- [ ] arreglar\n');
   let r = await correr(raiz, ['commit', 'docs(B-1): encuadre', 'docs/rq/B-1'], env);
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /sólo docs y tests: sin correr tests/);
@@ -255,4 +255,19 @@ test('etapa 6 sobre un RQ abierto con 3.x se registra como 5 con aviso; sobre un
   r = await correr(raiz, ['etapa', '6'], env);
   assert.equal(r.out, 'Etapa 6.\n');
   assert.equal(cargarEstado(raiz, 'R-12').etapa, 6);
+});
+
+test('commit: Exploración sólo commitea docs/rq/<código>/ (libre o no), salvo lo de la CLI', async () => {
+  const env = lin('');
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'S-1', '--tipo', 'rq', '--clasificacion', 'spike'], env);
+  fs.writeFileSync(path.join(raiz, 'nota.md'), 'x');
+  let r = await correr(raiz, ['commit', 'docs: nota', 'nota.md'], env);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /Exploración: el código de la sonda va a docs\/rq\/S-1\/sonda\/; construirlo es un RQ nuevo\./);
+  git(raiz, 'reset', '-q');
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'S-1', 'sonda'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'S-1', 'sonda', 'a.md'), 'x');
+  r = await correr(raiz, ['commit', 'docs(S-1): sonda', 'docs/rq/S-1'], env);
+  assert.equal(r.code, 0, r.err + r.out);
 });

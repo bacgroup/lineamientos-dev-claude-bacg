@@ -985,3 +985,23 @@ test('Exploración: el commit de código fuera de docs/rq/<código>/ se niega; l
   git(raiz, 'add', 'docs/rq/R-1/sonda/a.js');
   assert.equal(evaluar('git commit -m x', raiz).decision, 'allow');
 });
+
+test('Exploración: también se niegan los archivos libres fuera de la carpeta del RQ; lo de la CLI y la sonda pasan', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const msg = 'Exploración: el código de la sonda va a docs/rq/R-1/sonda/; construirlo es un RQ nuevo.';
+  activar(raiz, base({ codigo: 'R-1', clasificacion: 'spike' }));
+  for (const f of ['tests/probe.test.js', 'docs/otra.md']) {
+    fs.mkdirSync(path.join(raiz, path.dirname(f)), { recursive: true });
+    fs.writeFileSync(path.join(raiz, f), 'x');
+    git(raiz, 'add', f);
+    const r = evaluar('git commit -m x', raiz);
+    assert.equal(r.decision, 'deny', f);
+    assert.equal(r.motivo, msg, f);
+    git(raiz, 'reset', '-q');
+  }
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda', 'a.js'), 'x');
+  fs.writeFileSync(path.join(raiz, 'docs', 'backlog.md'), 'x');
+  git(raiz, 'add', 'docs/rq/R-1/sonda/a.js', 'docs/rq/R-1/estado.yml', 'docs/backlog.md');
+  assert.equal(evaluar('git commit -m x', raiz).decision, 'allow');
+});

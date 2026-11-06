@@ -910,6 +910,14 @@ function evaluarCommit(op, ctx, dirLin) {
   const rels = relativasARaiz(op.dir, repo.raiz, enStage);
   const iNoLibre = rels.findIndex((rel) => rel === null || tipoArchivo(rel, proyecto) !== 'libre');
   const stageLibre = iNoLibre === -1;
+  // Exploración: todo lo que va a stage (libre o no) queda en docs/rq/<código>/, salvo lo que escribe la CLI.
+  if (enStage.length) {
+    for (const codigo of rqsActivos(repo.raiz)) {
+      let estado;
+      try { estado = cargarEstado(repo.raiz, codigo); } catch { continue; }
+      if (fueraDeSonda(estado, rels) !== null) return deny(MSG_EXPLORACION_FUERA(estado.codigo));
+    }
+  }
   if (op.agregados) {
     const traba = stageLibre ? primerAgregadoNoLibre(op, repo.raiz, proyecto) : `${enStage[iNoLibre]} (ya estaba en stage)`;
     return traba === null ? null : deny(MSG_PREVIO(traba));
@@ -923,11 +931,6 @@ function evaluarCommit(op, ctx, dirLin) {
   if (protegida && !r.rqs.some(({ estado }) => saltoValido(estado, 'rama'))) {
     const codigo = r.rqs[0]?.codigo ?? '<código>';
     return deny(`${protegida} sólo recibe cambios por PR: el código del RQ va en su rama. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}; los cambios en stage viajan con el switch) y commiteá ahí.`);
-  }
-  // Exploración: el código de la sonda va a docs/rq/<código>/; nada de producto fuera de ahí.
-  const noLibres = rels.filter((rel) => rel === null || tipoArchivo(rel, proyecto) !== 'libre');
-  for (const { estado } of r.rqs) {
-    if (fueraDeSonda(estado, noLibres) !== null) return deny(MSG_EXPLORACION_FUERA(estado.codigo));
   }
   for (const { estado } of r.rqs) {
     if (saltoValido(estado, 'commit')) return null;

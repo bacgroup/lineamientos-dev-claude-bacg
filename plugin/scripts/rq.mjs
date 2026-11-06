@@ -295,6 +295,17 @@ function cambiarVinculado(repo, env, elegido, io, fn) {
   if (tocados.length) io.stdout.write(`RQ multi-repo: también en ${tocados.join(', ')}.\n`);
 }
 
+/** Todo lo que hay en stage (libre o no), relativo a la raíz. */
+function todoEnStage(raiz) {
+  try {
+    return execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=d', '-z', '--relative'], {
+      cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).split('\0').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 /** Archivos en stage, relativos a la raíz, que no son libres (los que tienen tests relacionados). */
 function enStageDeProducto(raiz, proyecto) {
   let out;
@@ -418,7 +429,7 @@ function commit(repo, elegido, args, env, io) {
   rebasarSiNoEmpezo(raiz, codigo, estado);
   const producto = enStageDeProducto(raiz, proyecto);
   let tests = 'sólo docs y tests: sin correr tests';
-  if (fueraDeSonda(estado, producto)) throw new ErrorCli(MSG_EXPLORACION_FUERA(codigo));
+  if (fueraDeSonda(estado, todoEnStage(raiz))) throw new ErrorCli(MSG_EXPLORACION_FUERA(codigo));
   if (producto.length && saltoValido(estado, 'commit')) tests = 'tests salteados (saltar commit)';
   else if (producto.length) {
     exigirDesarrollo(estado, raiz);

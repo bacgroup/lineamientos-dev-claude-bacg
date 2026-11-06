@@ -19,6 +19,7 @@ import { proyectoRegistrado } from './contexto.mjs';
 import { rutasDelRq } from './circuito.mjs';
 import { exigenciasOdoo, usaOdoo } from './odoo-skills.mjs';
 import { ETAPA, etapaProyectoAV4 } from './etapas.mjs';
+import { esPropioDeLaCli } from './arbol.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x : []);
 
@@ -78,7 +79,7 @@ export const MSG_EXPLORACION_FUERA = (codigo) =>
 export function fueraDeSonda(estado, rels) {
   if (estado?.clasificacion !== 'spike') return null;
   const pref = `docs/rq/${estado.codigo}/`;
-  return lista(rels).find((r) => r === null || !String(r).replace(/\\/g, '/').startsWith(pref)) ?? null;
+  return lista(rels).find((r) => r === null || (!esPropioDeLaCli(r) && !String(r).replace(/\\/g, '/').startsWith(pref))) ?? null;
 }
 
 /** proyecto.yml del repo de `raiz`, o null (sin repo registrado o ilegible). */
@@ -140,7 +141,7 @@ export function exigencias(estado) {
   const { DESARROLLO, VERIFICACION, PROD } = ETAPA;
   l.push({ etapa: DESARROLLO, skill: 'superpowers:brainstorming' });
   if (bug) l.push({ etapa: DESARROLLO, skill: 'superpowers:systematic-debugging' }, { etapa: DESARROLLO, causa: true });
-  else if (estado?.clasificacion === 'bounded') l.push({ etapa: DESARROLLO, tareas: true });
+  if (estado?.clasificacion === 'bounded') l.push({ etapa: DESARROLLO, tareas: true });
   else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: DESARROLLO, skill: 'superpowers:writing-plans' }, { etapa: DESARROLLO, plan: true });
   l.push({ etapa: VERIFICACION, skill: 'superpowers:test-driven-development' });
   if (!bug) l.push({ etapa: PROD, skill: 'superpowers:verification-before-completion' });
