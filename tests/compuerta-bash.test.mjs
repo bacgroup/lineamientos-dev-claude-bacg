@@ -1076,3 +1076,25 @@ test('red de frases: sólo mira el subcomando de rq.mjs; --clasificacion y los m
     assert.match(d.motivo, red, cmd);
   }
 });
+
+test('red de frases: falla cerrada ante rq.mjs en una variable o sin subcomando legible', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  // La variable no se llama RQ: el parser no la lee y la frase no puede pasar sin validar.
+  let r = evaluar('X=/ruta/rq.mjs; node $X aprobar 5 "dale"', raiz, []);
+  assert.equal(r.decision, 'deny');
+  r = evaluar('X=/ruta/rq.mjs; node "${X}" --rq R-1 autonomia 4 "dale"', raiz, []);
+  assert.equal(r.decision, 'deny');
+  // Asignada y usada desde código que el parser no lee.
+  r = evaluar('X=/ruta/rq.mjs; node -e "import(process.env.X).then((m) => m.main([\'aprobar\', \'5\', \'dale\']))"', raiz, []);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /en una forma que la compuerta no puede leer/);
+  // Con $RQ el parser lee la frase y la valida contra los mensajes del usuario.
+  r = evaluar('RQ=/ruta/rq.mjs && node "$RQ" clasificacion confirmar "si"', raiz, ['otra cosa']);
+  assert.equal(r.decision, 'deny');
+  assert.deepEqual(evaluar('RQ=/ruta/rq.mjs && node "$RQ" clasificacion confirmar "si"', raiz, ['si']), { decision: 'allow', critica: false });
+  // Sólo la asignación, sin ninguna de las palabras: no hay nada que validar.
+  assert.deepEqual(evaluar('RQ=/ruta/rq.mjs', raiz, []), { decision: 'allow', critica: false });
+  // Asignación en el mismo comando y una de las palabras fuera de un subcomando: falla cerrada (sin la
+  // asignación, como lo indica SKILL.md, `abrir … --clasificacion` pasa; ver el test anterior).
+  assert.equal(evaluar('RQ=/ruta/rq.mjs; node "$RQ" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"', raiz, []).decision, 'deny');
+});

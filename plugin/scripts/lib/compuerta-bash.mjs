@@ -1176,25 +1176,27 @@ function evaluarFrase(op, ctx) {
 
 const resumirError = (e) => String(e?.message ?? e).replace(/\s+/g, ' ').trim().slice(0, 300);
 
-// Red de seguridad para las frases. Cada mención del CLI del RQ (rq.mjs, $RQ o ${RQ}, con o sin comillas) se
-// clasifica por el subcomando que le sigue (salteando --rq <X>): uno literal sin frase (abrir, commit, estado…)
-// no cuenta, así que ni `--clasificacion acotado` ni un mensaje de commit la disparan; uno con frase (aprobar,
-// autonomia, saltar, clasificacion, ejecucion) tiene que haberlo leído el parser; cualquier otra cosa
-// (una variable, una opción, el código de node -e o de un import) es una forma ilegible y, si el texto nombra
-// alguna de esas palabras, se niega. Un rq.mjs al final de la palabra (una asignación, un grep) no invoca nada.
-const RE_CLI_RQ = /(?:rq\.mjs|\$\{?RQ\b\}?)['"]?/gi;
-const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion)\b/i;
+// Red de seguridad para las frases (falla cerrada). Se miran las menciones del CLI del RQ (rq.mjs, $RQ o ${RQ})
+// y toda variable ($X, ${X}), con o sin comillas, y el subcomando que les sigue (salteando --rq <X>):
+// - subcomando con frase (aprobar, autonomia, saltar, clasificacion, ejecucion) detrás de una mención o de una
+//   variable: tiene que haberlo leído el parser (op frase); si hay más que las leídas, se niega.
+// - mención con un subcomando literal sin frase (abrir, commit, estado…): no cuenta, así que ni
+//   `--clasificacion acotado` ni un mensaje de commit la disparan.
+// - mención con cualquier otra cosa (una variable, una opción, el código de node -e o de un import) o sin
+//   subcomando (una asignación `X=/ruta/rq.mjs`, un grep): ilegible. Si el texto nombra alguna de esas palabras
+//   fuera de una posición de subcomando ya contada, se niega.
+const RE_INVOCACION = /(rq\.mjs|\$\{?RQ\b\}?)['"]?|\$\{?[A-Za-z_]\w*\}?['"]?/gi;
+const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion)\b/gi;
 
 function mencionesDeRq(texto) {
   let frases = 0;
   let ilegibles = 0;
-  for (const m of texto.matchAll(RE_CLI_RQ)) {
-    let resto = texto.slice(m.index + m[0].length);
-    if (/^\s*(?:$|[;&|])/.test(resto)) continue;
-    resto = resto.replace(/^\s+--rq(?:=|\s+)\S+/, '');
+  for (const m of texto.matchAll(RE_INVOCACION)) {
+    const deRq = m[1] !== undefined;
+    const resto = texto.slice(m.index + m[0].length).replace(/^\s+--rq(?:=|\s+)\S+/, '');
     const sub = /^\s+(['"]?)([A-Za-z][\w-]*)\1(?=$|[\s;&|])/.exec(resto)?.[2];
-    if (!sub) ilegibles++;
-    else if (SUBS_CON_FRASE.has(sub.toLowerCase())) frases++;
+    if (sub && SUBS_CON_FRASE.has(sub.toLowerCase())) frases++;
+    else if (deRq && !sub) ilegibles++;
   }
   return { frases, ilegibles };
 }
@@ -1202,7 +1204,10 @@ function mencionesDeRq(texto) {
 function redDeFrases(texto, ops) {
   const { frases, ilegibles } = mencionesDeRq(texto);
   const leidas = ops.filter((o) => o.op === 'frase').length;
-  return frases > leidas || (ilegibles > 0 && RE_SUB_FRASE.test(texto));
+  if (frases > leidas) return true;
+  // Con una mención ilegible, cada palabra tiene que ser un subcomando ya contado (y leído por el parser).
+  const palabras = (texto.match(RE_SUB_FRASE) ?? []).length;
+  return ilegibles > 0 && palabras > frases;
 }
 
 /**
