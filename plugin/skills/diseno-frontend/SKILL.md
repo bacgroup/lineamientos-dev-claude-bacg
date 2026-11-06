@@ -66,4 +66,4 @@ Antes de editar, `docs/rq/<código>/spec.md` tiene una sección `## Diseño` (la
 - **móvil:** cómo se ve a ≤ 400 px de ancho (qué se apila, qué se oculta, que nada salte a una segunda línea sin querer). Si el framework usa plantillas distintas para escritorio y móvil, se revisan las dos;
 - **alineación con los vecinos:** los componentes de la misma barra o fila comparten alto, radio, tamaño de letra y línea base. Anotá los valores que tomaste del vecino.
 
-En la etapa 3, los componentes llevan sus tests (en la herramienta de componentes del proyecto). Las pantallas y flujos llevan E2E con captura en escritorio y en móvil (≤ 400 px) en `docs/rq/<código>/qa/`. Antes de dar el diseño por bueno, mirá las capturas contra cada punto de la sección `## Diseño`.
+En la etapa 2 (desarrollo), los componentes llevan sus tests (en la herramienta de componentes del proyecto). Las pantallas y flujos llevan E2E con captura en escritorio y en móvil (≤ 400 px) en `docs/rq/<código>/qa/`. Antes de dar el diseño por bueno, mirá las capturas contra cada punto de la sección `## Diseño`.

@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { basesProd, globsMigraciones } from './stack.mjs';
+import { NOMBRE_ETAPA } from './etapas.mjs';
 
 export const INICIO = '<!-- bacg-dev:inicio (lo genera `rq.mjs agents` desde .bacg-dev/; no editar a mano) -->';
 export const FIN = '<!-- bacg-dev:fin -->';
@@ -26,6 +27,8 @@ export function seccionAgents(proyecto) {
     '## Cómo trabajamos (lineamientos-dev-claude-bacg): vale para cualquier agente, Lovable incluido',
     '',
     `Proyecto ${p.nombre ?? p.id ?? ''} (${codigo(p.id ?? '?')}). Antes de cambiar código leé ${codigo('.bacg-dev/reglas.md')}${canon ? ` y, si tocás pantallas, el canon de UI ${codigo(canon)}` : ''}. Si una regla de abajo choca con una del proyecto, manda la del proyecto.`,
+    '',
+    `Etapas del ciclo (la numeración que usan el plugin, el backlog y los RQ): ${Object.entries(NOMBRE_ETAPA).map(([n, nombre]) => `${n} ${nombre}`).join(' · ')}.`,
     '',
     '### Antes de cambiar código',
     '1. Decidí si es **RQ** (funcionalidad nueva o cambio de comportamiento) o **BUG** (algo que anda mal respecto de lo acordado). Consultas, docs y tests sueltos no necesitan nada de esto.',

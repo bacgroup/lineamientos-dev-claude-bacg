@@ -74,6 +74,12 @@ test('AGENTS.md nombra las bases y las migraciones del stack declarado', () => {
   assert.doesNotMatch(s, /supabase\/migrations/);
 });
 
+test('AGENTS.md nombra las etapas con la numeración v4', () => {
+  const s = seccionAgents({ id: 'erp', ...ODOO });
+  assert.match(s, /0 Arranque y clasificación · 1 Diseño y plan · 2 Desarrollo · 3 Verificación · 4 DEV \/ Preview · 5 PROD y entrega · 6 Cierre/);
+  assert.doesNotMatch(s, /\b7 Cierre\b/);
+});
+
 // ---------- P1: PROD por rama destino ----------
 
 /** Repo con remoto y la rama `rama` con upstream origin/<rama>. */
