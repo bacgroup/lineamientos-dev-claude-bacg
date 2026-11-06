@@ -1034,3 +1034,45 @@ test('ejecucion sin frase literal se niega; con la frase se permite', () => {
   assert.equal(ilegible.decision, 'deny');
   assert.match(ilegible.motivo, /aprobar, autonomia, saltar, clasificacion o ejecucion/);
 });
+
+test('red de frases: sólo mira el subcomando de rq.mjs; --clasificacion y los mensajes de commit no la disparan', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const red = /en una forma que la compuerta no puede leer/;
+  // abrir con --clasificacion, como lo indica SKILL.md.
+  for (const cmd of [
+    'node "$RQ" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"',
+    'node "C:/x/rq.mjs" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"',
+    'node "${RQ}" --rq R-9 abrir R-9 --tipo bug --clasificacion exploracion --tarea "y"',
+  ]) {
+    assert.deepEqual(evaluar(cmd, raiz, []), { decision: 'allow', critica: false }, cmd);
+  }
+  // Mensajes de commit con las palabras de las frases: la red no se mete (otras compuertas pueden).
+  for (const cmd of [
+    'node "$RQ" commit "feat: ejecucion del cierre" src/a.js',
+    'node "$RQ" commit "fix: clasificacion al aprobar" src/a.js',
+    'node /x/rq.mjs commit "feat: saltar y autonomia" src/a.js && git status',
+  ]) {
+    const r = evaluar(cmd, raiz, []);
+    assert.doesNotMatch(r.motivo ?? '', red, cmd);
+  }
+  // clasificacion confirmar: la frase tiene que ser texto literal del usuario.
+  const frase = 'Sí, acotado está bien';
+  const conf = `node "$RQ" clasificacion confirmar "${frase}"`;
+  const r = evaluar(conf, raiz, ['otra cosa']);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /tiene que ser texto literal del usuario/);
+  assert.deepEqual(evaluar(conf, raiz, [frase]), { decision: 'allow', critica: false });
+  // Las formas que el parser no lee siguen negadas.
+  for (const cmd of [
+    'node -e "require(\'/x/rq.mjs\').main([\'aprobar\', \'1\', \'Dale\'])"',
+    'node -e "x" /x/rq.mjs aprobar 1 "Dale"',
+    'S=aprobar; node "$RQ" $S 1 "Dale"',
+    'S=aprobar; node /x/rq.mjs --$S 1 "Dale"',
+    'S=aprobar; eval "node /x/rq.mjs \$S 1 Dale"',
+    'node --import /x/rq.mjs -e "main([\'aprobar\'])"',
+  ]) {
+    const d = evaluar(cmd, raiz, ['Dale']);
+    assert.equal(d.decision, 'deny', cmd);
+    assert.match(d.motivo, red, cmd);
+  }
+});

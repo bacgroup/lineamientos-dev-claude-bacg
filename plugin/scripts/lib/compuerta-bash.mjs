@@ -1176,19 +1176,43 @@ function evaluarFrase(op, ctx) {
 
 const resumirError = (e) => String(e?.message ?? e).replace(/\s+/g, ' ').trim().slice(0, 300);
 
+// Red de seguridad para las frases. Cada mención del CLI del RQ (rq.mjs, $RQ o ${RQ}, con o sin comillas) se
+// clasifica por el subcomando que le sigue (salteando --rq <X>): uno literal sin frase (abrir, commit, estado…)
+// no cuenta, así que ni `--clasificacion acotado` ni un mensaje de commit la disparan; uno con frase (aprobar,
+// autonomia, saltar, clasificacion, ejecucion) tiene que haberlo leído el parser; cualquier otra cosa
+// (una variable, una opción, el código de node -e o de un import) es una forma ilegible y, si el texto nombra
+// alguna de esas palabras, se niega. Un rq.mjs al final de la palabra (una asignación, un grep) no invoca nada.
+const RE_CLI_RQ = /(?:rq\.mjs|\$\{?RQ\b\}?)['"]?/gi;
+const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion)\b/i;
+
+function mencionesDeRq(texto) {
+  let frases = 0;
+  let ilegibles = 0;
+  for (const m of texto.matchAll(RE_CLI_RQ)) {
+    let resto = texto.slice(m.index + m[0].length);
+    if (/^\s*(?:$|[;&|])/.test(resto)) continue;
+    resto = resto.replace(/^\s+--rq(?:=|\s+)\S+/, '');
+    const sub = /^\s+(['"]?)([A-Za-z][\w-]*)\1(?=$|[\s;&|])/.exec(resto)?.[2];
+    if (!sub) ilegibles++;
+    else if (SUBS_CON_FRASE.has(sub.toLowerCase())) frases++;
+  }
+  return { frases, ilegibles };
+}
+
+function redDeFrases(texto, ops) {
+  const { frases, ilegibles } = mencionesDeRq(texto);
+  const leidas = ops.filter((o) => o.op === 'frase').length;
+  return frases > leidas || (ilegibles > 0 && RE_SUB_FRASE.test(texto));
+}
+
 /**
  * Decide si un comando Bash (o PowerShell) puede correr.
  * ctx = { textosUsuario, real?, sedes? } (real y sedes, inyectables en los tests). Devuelve { decision, motivo?, critica }.
  */
-// Red de seguridad para las frases: si el texto nombra el CLI del RQ (rq.mjs o $RQ) junto a aprobar, autonomia,
-// saltar, clasificacion o ejecucion y el parser no armó la operación (node -e, un script que lo importa, variables), se niega.
-const RE_CLI_RQ = /rq\.mjs|\$\{?RQ\b/i;
-const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion)\b/i;
-
 export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
   const ops = operacionesGit(comando, cwd);
   const texto = String(comando ?? '');
-  if (RE_CLI_RQ.test(texto) && RE_SUB_FRASE.test(texto) && !ops.some((o) => o.op === 'frase') && buscarRepo(cwd)) {
+  if (redDeFrases(texto, ops) && buscarRepo(cwd)) {
     return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar, clasificacion o ejecucion en una forma que la compuerta no puede leer: corrélo como ${cli()} <subcomando> "<frase>".`), critica: false };
   }
   // `critica` se calcula para todas las operaciones antes de evaluar ninguna.

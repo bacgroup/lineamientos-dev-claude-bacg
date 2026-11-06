@@ -311,10 +311,10 @@ function cambiarVinculado(repo, env, elegido, io, fn) {
   if (tocados.length) io.stdout.write(`RQ multi-repo: también en ${tocados.join(', ')}.\n`);
 }
 
-/** Todo lo que hay en stage (libre o no), relativo a la raíz. */
+/** Todo lo que hay en stage (libre o no, con los borrados; una movida cuenta como borrado y alta), relativo a la raíz. */
 function todoEnStage(raiz) {
   try {
-    return execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=d', '-z', '--relative'], {
+    return execFileSync('git', ['diff', '--cached', '--name-only', '--no-renames', '-z', '--relative'], {
       cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
     }).split('\0').filter(Boolean);
   } catch {

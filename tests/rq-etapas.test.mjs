@@ -276,3 +276,23 @@ test('commit: Exploración sólo commitea docs/rq/<código>/ (libre o no), salvo
   r = await correr(raiz, ['commit', 'docs(S-1): sonda', 'docs/rq/S-1'], env);
   assert.equal(r.code, 0, r.err + r.out);
 });
+
+test('commit: Exploración también controla borrados y movidas fuera de docs/rq/<código>/', async () => {
+  const env = lin('');
+  const msg = /Exploración: el código de la sonda va a docs\/rq\/S-1\/sonda\/; construirlo es un RQ nuevo\./;
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'src/x.js': 'x\n' } });
+  await correr(raiz, ['abrir', 'S-1', '--tipo', 'rq', '--clasificacion', 'exploracion'], env);
+  // Borrado de src/x.js.
+  fs.rmSync(path.join(raiz, 'src', 'x.js'));
+  let r = await correr(raiz, ['commit', 'docs(S-1): borro', 'src/x.js'], env);
+  assert.equal(r.code, 1, r.out + r.err);
+  assert.match(r.err, msg);
+  git(raiz, 'reset', '-q');
+  git(raiz, 'checkout', '--', 'src/x.js');
+  // Movida de src/x.js a la sonda: el rename sólo mostraría la ruta nueva.
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'S-1', 'sonda'), { recursive: true });
+  git(raiz, 'mv', 'src/x.js', 'docs/rq/S-1/sonda/x.js');
+  r = await correr(raiz, ['commit', 'docs(S-1): muevo', 'docs/rq/S-1'], env);
+  assert.equal(r.code, 1, r.out + r.err);
+  assert.match(r.err, msg);
+});

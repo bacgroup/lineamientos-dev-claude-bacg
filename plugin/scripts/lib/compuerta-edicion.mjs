@@ -8,6 +8,7 @@ import { cli } from './cli.mjs';
 import { skillsDe } from './requisitos.mjs';
 import { dentroDeAddon, usaOdoo } from './odoo-skills.mjs';
 import { ETAPA } from './etapas.mjs';
+import { nombreDe } from './clasificacion.mjs';
 
 const allow = () => ({ decision: 'allow' });
 const deny = (motivo) => ({ decision: 'deny', motivo });
@@ -114,7 +115,7 @@ export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
     if (saltoValido(estado, 'edicion')) return allow();
     if (clasificacionPendiente(estado)) {
       ultimo = ultimo ?? deny(
-        `La clasificación del RQ ${codigo} (${estado.clasificacion}) espera la confirmación del usuario: proponésela con su motivo y lo que implica, y registrá su respuesta con ${cli()} clasificacion confirmar "<su frase>" (o clasificacion cambiar <spike|bounded|arquitectonico> "<su frase>").`,
+        `La clasificación del RQ ${codigo} (${nombreDe(estado.clasificacion)}) espera la confirmación del usuario: proponésela con su motivo y lo que implica, y registrá su respuesta con ${cli()} clasificacion confirmar "<su frase>" (o clasificacion cambiar <exploracion|acotado|arquitectonico> "<su frase>").`,
       );
       continue;
     }

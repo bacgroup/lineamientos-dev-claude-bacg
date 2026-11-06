@@ -216,6 +216,10 @@ test('M2: clasificación pendiente -> deny nombrando clasificacion confirmar; do
   const d = evaluar(raiz, 'src/x.js');
   assert.equal(d.decision, 'deny');
   assert.match(d.motivo, /clasificacion confirmar/);
+  // Nombres visibles, que la CLI acepta; nunca los valores internos de estado.yml.
+  assert.match(d.motivo, /\(Acotado\)/);
+  assert.match(d.motivo, /clasificacion cambiar <exploracion\|acotado\|arquitectonico>/);
+  assert.doesNotMatch(d.motivo, /spike|bounded/);
   assert.equal(evaluar(raiz, 'docs/rq/R-T1/spec.md').decision, 'allow');
   assert.equal(evaluar(raiz, 'docs/rq/R-T1/sonda/x.js').decision, 'allow');
 });
