@@ -244,7 +244,7 @@ test('estado imprime código, tipo, clasificación, etapa, aprobaciones, autonom
   assert.equal(r.code, 0);
   assert.match(r.out, /R-1/);
   assert.match(r.out, /rq/);
-  assert.match(r.out, /Clasificación: Acotado (pendiente de confirmar)/);
+  assert.match(r.out, /Clasificación: Acotado \(pendiente de confirmar\)/);
   assert.match(r.out, /1: Spec aprobada/);
   assert.match(r.out, /tests.*ok/i);
   assert.match(r.out, /revisi/i);
