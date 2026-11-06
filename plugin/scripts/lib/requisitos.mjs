@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { saltoValido } from './estado.mjs';
-import { globARegExp } from './rutas.mjs';
+import { globARegExp, tipoArchivo } from './rutas.mjs';
 import { buscarRepo, dirLineamientos } from './config.mjs';
 import { proyectoRegistrado } from './contexto.mjs';
 import { rutasDelRq } from './circuito.mjs';
@@ -51,6 +51,26 @@ function proyectoDeRaiz(raiz) {
     return null;
   }
 }
+
+// Verificación local (M1 del handoff ciclo-rq/UI): un RQ o BUG que toca UI no llega a la etapa 4 sólo con el E2E
+// aislado; hace falta recorrerlo en el entorno local (o la preview de DEV) con un usuario del rol real.
+const RE_TOCA_UI = /^\s*(?:#{1,6}\s*|[-*]\s+)?\**toca\b[^\n]*?\bui\s*\[\s*x\s*\]/im;
+
+/** ¿El RQ toca UI? Lo marca el encuadre (`Toca: UI [x]` en spec.md) o lo dice su diff (algún archivo de UI). */
+export function tocaUi(estado, raiz, proyecto, rutasRq) {
+  try {
+    if (raiz && RE_TOCA_UI.test(fs.readFileSync(path.join(raiz, 'docs', 'rq', estado.codigo, 'spec.md'), 'utf8'))) return true;
+  } catch {
+    // sin spec.md: decide el diff
+  }
+  return lista(rutasRq).some((r) => tipoArchivo(r, proyecto) === 'ui');
+}
+
+/** ¿Está registrada la verificación local (o la salteó el usuario)? */
+export const verificacionLocalOk = (estado) =>
+  typeof estado?.verificacion_local?.fecha === 'string' || saltoValido(estado, 'verificacion-local');
+
+export const FALTA_VERIFICACION_LOCAL = 'la verificación local con el rol real ($RQ verificar --local "<qué se recorrió>" <capturas>)';
 
 /** Skills que exige el proyecto (`skills_requeridas`) para este RQ: [{ etapa, skill }]. */
 export function exigenciasDelProyecto(estado, proyecto, rutasRq) {
@@ -97,6 +117,11 @@ export function faltaParaEtapa(estado, etapa, raiz, proyecto = undefined) {
     if (x.skill && !sinSkills && !tieneSkill(estado, x.skill)) out.push(x.skill);
     if (x.causa && !causaEnSpec(raiz, estado.codigo)) out.push(`la causa raíz en docs/rq/${estado.codigo}/spec.md (## Causa)`);
     if (x.revision && estado?.revision?.ok !== true) out.push('la revisión ($RQ revision ok)');
+  }
+  if (etapa >= 4 && !verificacionLocalOk(estado) && tocaUi(estado, raiz, py, rutasRq())) {
+    // Antes que la revisión: la verificación local es evidencia de la etapa 4, la revisión la cierra.
+    const i = out.indexOf('la revisión ($RQ revision ok)');
+    out.splice(i === -1 ? out.length : i, 0, FALTA_VERIFICACION_LOCAL);
   }
   return out;
 }

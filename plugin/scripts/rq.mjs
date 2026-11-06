@@ -9,7 +9,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
 import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, cola, conSpecs, shellDeTests } from './lib/cli.mjs';
-import { faltaParaEtapa, sensibleSinRevisar, skillsDe } from './lib/requisitos.mjs';
+import { faltaParaEtapa, sensibleSinRevisar, skillsDe, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, rutaBacklog, leerBacklog } from './lib/backlog.mjs';
@@ -25,8 +25,9 @@ import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/od
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 const CLASIFICACIONES = ['spike', 'bounded', 'arquitectonico'];
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
+// verificacion-local: omite el recorrido local con el rol real en un RQ que toca UI.
 // ui: omite el refuerzo de UI del plugin (diseno-frontend, redesign y ## Diseño) en un cambio menor; el canon sigue.
-const COMPUERTAS = ['edicion', 'commit', 'push', 'e2e', 'skills', 'seguridad', 'ui'];
+const COMPUERTAS = ['edicion', 'commit', 'push', 'e2e', 'skills', 'seguridad', 'ui', 'verificacion-local'];
 const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige entre varios RQ activos; sin --rq, el más reciente)
@@ -37,10 +38,11 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   etapa <n>                          (0-7; opcional: estado deriva la etapa de la evidencia)
   aprobar <etapa> "<frase>"          (etapa 0-7; la frase es texto literal del usuario)
   autonomia <hasta> "<frase>"        (hasta 1-5)
-  saltar <compuerta> "<frase>" "<motivo>"   (compuerta: edicion|commit|push|e2e|skills|seguridad)
+  saltar <compuerta> "<frase>" "<motivo>"   (compuerta: edicion|commit|push|e2e|skills|seguridad|ui|verificacion-local)
   commit "<mensaje>" <rutas>…        (git add de las rutas, tests relacionados, registro y commit en un paso)
   registrar-tests                    (tests de commit sobre lo que está en stage; sin E2E)
   verificar [--completo] [<specs>…]  (E2E contra la app levantada; con {specs} en tests.e2e, sólo los del RQ salvo --completo)
+  verificar --local "<qué se recorrió con el rol real>" <capturas…>   (RQ que toca UI: capturas existentes en docs/rq/<código>/qa/)
   revision ok|bloqueante "<nota>"
   paso manual:<texto>|sync-lineamientos   (pasos manuales de circuito_prod)
   paso hecho <paso> "<evidencia>"    (paso hecho por fuera: merge desde GitHub, migración que ya estaba aplicada)
@@ -434,14 +436,41 @@ function specsDelRq(raiz, estado) {
   return (rutasDelRq(raiz, estado) ?? []).filter((r) => esSpec(r) && fs.existsSync(path.join(raiz, r)));
 }
 
+/** Verificación local con el rol real (M1): qué se recorrió y capturas que existan bajo docs/rq/<código>/qa/. */
+function verificarLocal(repo, elegido, que, capturas, env, io) {
+  const raiz = repo.raiz;
+  const { codigo } = activo(raiz, elegido);
+  textoNoVacio(que, 'Lo que se recorrió');
+  if (capturas.length === 0) {
+    throw new ErrorCli(`La verificación local necesita al menos una captura, guardada en docs/rq/${codigo}/qa/ ($RQ verificar --local "<qué se recorrió>" docs/rq/${codigo}/qa/<archivo>.png).`);
+  }
+  const carpeta = path.join(raiz, 'docs', 'rq', codigo, 'qa');
+  const rel = [];
+  for (const c of capturas) {
+    const abs = path.resolve(raiz, c);
+    const dentro = path.relative(carpeta, abs);
+    if (dentro === '' || dentro.startsWith('..') || path.isAbsolute(dentro)) {
+      throw new ErrorCli(`La captura "${c}" no está en docs/rq/${codigo}/qa/: guardala ahí.`);
+    }
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw new ErrorCli(`La captura "${c}" no existe.`);
+    rel.push(path.relative(raiz, abs).split(path.sep).join('/'));
+  }
+  cambiarVinculado(repo, env, elegido, io, (s) => {
+    s.verificacion_local = { que: que.trim(), capturas: rel, fecha: ahora() };
+    return `Verificación local de ${codigo} registrada (${rel.length} captura(s)).`;
+  });
+  return 0;
+}
+
 /**
  * Corre tests.e2e del proyecto y registra el resultado contra HEAD. Si el comando trae {specs}, corre los specs dados
  * o los del RQ; --completo (o ningún spec) corre la suite entera, que es la que exige publicar en PROD.
  */
 function verificar(repo, elegido, args, env, io) {
   const raiz = repo.raiz;
-  const { res, posicionales } = opciones(args, [], ['completo']);
+  const { res, posicionales } = opciones(args, ['local'], ['completo']);
   const { codigo: rq, estado } = activo(raiz, elegido);
+  if (res.local !== undefined) return verificarLocal(repo, elegido, res.local, posicionales, env, io);
   const proyecto = proyectoDe(repo, env);
   const base = comandoE2e(proyecto);
   if (!base) {
@@ -535,6 +564,9 @@ function entregar(repo, elegido, env, io) {
   const saltoE2e = lista(estado.saltos).some((s) => s?.compuerta === 'e2e');
   const parcial = e?.ok && e.completo === false ? ' (sólo specs del RQ: antes de PROD, $RQ verificar --completo)' : '';
   l.push(`E2E: ${e ? (e.ok ? `ok${parcial}` : 'falló') : saltoE2e ? 'salteado por el usuario' : 'sin correr ($RQ verificar)'}.`);
+  if (tocaUi(estado, raiz, proyectoDe(repo, env), rutasDelRq(raiz, estado)) && !verificacionLocalOk(estado)) {
+    l.push('Verificación local: sin registrar ($RQ verificar --local "<qué se recorrió>" <capturas>).');
+  }
   const falta6 = faltaParaEtapa(estado, 6, raiz);
   if (falta6.length) l.push(`Falta para PROD: ${falta6.join('; ')}.`);
   const rv = estado.revision;
@@ -882,7 +914,7 @@ function desplegar(repo, elegido, args, env, io) {
   io.stdout.write(`${l.join('\n')}\n`);
 }
 
-function imprimirEstado(repo, codigo, estado, io) {
+function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   const l = [];
   l.push(`Código: ${estado.codigo}`);
   l.push(`Tipo: ${estado.tipo}`);
@@ -904,6 +936,10 @@ function imprimirEstado(repo, codigo, estado, io) {
   l.push(t ? `Tests: ${t.ok ? 'ok' : 'fallaron'} (${t.fecha})${rojos ? `, con ${rojos} rojos conocidos` : ''}` : 'Tests: sin registrar');
   const e = estado.e2e;
   l.push(e ? `E2E: ${e.ok ? 'ok' : 'falló'} (${e.fecha})` : 'E2E: sin correr');
+  if (tocaUi(estado, repo.raiz, proyectoDe(repo, env), rutasDelRq(repo.raiz, estado))) {
+    const v = estado.verificacion_local;
+    l.push(verificacionLocalOk(estado) ? `Verificación local: ok${v ? ` (${v.fecha}, ${lista(v.capturas).length} captura(s))` : ' (salteada por el usuario)'}` : 'Verificación local: sin registrar');
+  }
   const r = estado.revision;
   l.push(r ? `Revisión: ${r.ok ? 'ok' : 'bloqueante'}${r.nota ? ` — ${r.nota}` : ''}` : 'Revisión: sin registrar');
   const circuito = lista(estado.circuito);
@@ -1200,7 +1236,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         if (!elegido && rqsActivos(raiz).length === 0) io.stdout.write('RQ activo: ninguno.\n');
         else {
           const { codigo, estado } = activo(raiz, elegido);
-          imprimirEstado(repo, codigo, estado, io);
+          imprimirEstado(repo, codigo, estado, io, env);
           for (const a of avisosDeAtraso(raiz, codigo, estado)) io.stdout.write(`${a}\n`);
         }
         for (const c of cerrados) io.stdout.write(`Cerrado con pendientes: ${c.codigo} (falta: ${c.pendientes.join(', ')}; al hacerlos, $RQ paso … --rq ${c.codigo}).\n`);

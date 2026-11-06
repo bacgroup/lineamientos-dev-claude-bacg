@@ -832,3 +832,58 @@ test('auditar: lista commits de Lovable con marcas y --cerrar mueve la marca y a
   r = await correr(raiz, ['auditar']);
   assert.match(r.out, /1 commit\(s\)/);
 });
+
+// Verificación local con el rol real (M1): RQ que toca UI.
+const SPEC_UI = '# R-1\n\n## Toca: UI [x] · sensible [ ]\n';
+const rqConUi = async (extra = {}) => {
+  const raiz = repoDemo({ 'docs/rq/R-1/qa/a.png': 'png', 'docs/rq/R-1/spec.md': SPEC_UI, 'docs/otro/b.png': 'png', ...extra });
+  await abrirR1(raiz);
+  return raiz;
+};
+
+test('verificar --local registra qué y capturas', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['verificar', '--local', 'Recorrí X como gerente', 'docs/rq/R-1/qa/a.png']);
+  assert.equal(r.code, 0, r.err);
+  const v = cargarEstado(raiz, 'R-1').verificacion_local;
+  assert.equal(v.que, 'Recorrí X como gerente');
+  assert.deepEqual(v.capturas, ['docs/rq/R-1/qa/a.png']);
+  assert.equal(typeof v.fecha, 'string');
+});
+
+test('verificar --local sin capturas falla', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['verificar', '--local', 'Recorrí X como gerente']);
+  assert.notEqual(r.code, 0);
+  assert.match(r.err, /al menos una captura/);
+  assert.equal(cargarEstado(raiz, 'R-1').verificacion_local, undefined);
+});
+
+test('verificar --local con captura fuera de qa/ falla', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['verificar', '--local', 'Recorrí X', 'docs/otro/b.png']);
+  assert.notEqual(r.code, 0);
+  assert.match(r.err, /docs\/rq\/R-1\/qa\//);
+  const r2 = await correr(raiz, ['verificar', '--local', 'Recorrí X', 'docs/rq/R-1/qa/../../../otro/b.png']);
+  assert.notEqual(r2.code, 0);
+  const r3 = await correr(raiz, ['verificar', '--local', 'Recorrí X', 'docs/rq/R-1/qa/no-existe.png']);
+  assert.notEqual(r3.code, 0);
+  assert.match(r3.err, /no existe/);
+});
+
+test('estado muestra "Verificación local: sin registrar" en un RQ que toca UI', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['estado']);
+  assert.match(r.out, /Verificación local: sin registrar/);
+  await correr(raiz, ['verificar', '--local', 'Recorrí X', 'docs/rq/R-1/qa/a.png']);
+  assert.match((await correr(raiz, ['estado'])).out, /Verificación local: ok/);
+  const sinUi = repoDemo();
+  await abrirR1(sinUi);
+  assert.doesNotMatch((await correr(sinUi, ['estado'])).out, /Verificación local/);
+});
+
+test('saltar verificacion-local es una compuerta válida', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['saltar', 'verificacion-local', 'sin entorno local', 'no hay datos']);
+  assert.equal(r.code, 0, r.err);
+});
