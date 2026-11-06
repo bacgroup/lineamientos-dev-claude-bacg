@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.0.0: ciclo RQ v4, el ciclo humano (2026-11-06)
+
+Cambia la numeración de etapas: los RQ y `proyecto.yml` viejos se convierten solos (ver más abajo). El circuito autómata llega en 4.1.
+- Etapas 0 a 6: Arranque y clasificación, Diseño y plan (antes dos etapas), Desarrollo, Verificación, DEV / Preview, PROD y entrega, Cierre. `aprobar 1` aprueba siempre el diseño y plan; un `aprobar 6` sobre un RQ de versión 3 se traduce a 5 con aviso.
+- Arranque que distingue inicio de reanudación: `rq.mjs arranque` dice si hay un RQ abierto en el repo (y su etapa) o si hay que empezar uno, también desde la carpeta padre de los repos y sin escribir nada en ellos.
+- Clasificación confirmada por el usuario, con los nombres Exploración / Acotado / Arquitectónico; el diseño y el plan (brainstorming) valen para todo RQ y BUG. La exploración sólo commitea su carpeta.
+- Elección de ejecución: antes del primer commit el usuario elige entre `executing-plans` y subagentes, y queda en `estado.yml`.
+- Odoo detectado, no supuesto: las skills y reglas de Odoo aplican sólo si el proyecto lo declara o tiene addons.
+- Verificación local con el rol real en los RQ que tocan UI (etapa 3).
+- Una rama por RQ: se abre sin necesidad de upstream, `estado.yml` va en el mismo commit y los archivos de la CLI quedan ignorados; el árbol testeado los excluye.
+- Conversión automática: un `estado.yml` sin `version_ciclo` se lee como v3 (etapas registradas y aprobaciones ≥ 2 se corren una) y no se reescribe hasta el próximo comando que escriba; los RQ abiertos con 3.x conservan su diseño. `proyecto.yml` viejos siguen valiendo sin cambios.
+- Textos, plantilla y `AGENTS.md` sin supuestos de un proyecto, con la numeración nueva.
+
+
 ## 3.2.0: validación previa, proyecto explícito y skills de Odoo (2026-11-04)
 
 - PLG-PREVIA: `rq.mjs abrir` corre antes una validación previa: `git fetch` de los repos del proyecto en la PC, atraso contra la rama de DEV (`rama_dev` del repo, `entornos.dev.rama` o `ramas_solo_pr`), ramas remotas activas (30 días) y PR abiertos contra DEV con sus módulos, y el backlog remoto (upstream de la copia de lineamientos o `docs/backlog.md` de origin). Un RQ nuevo no se abre si el código ya figura En curso o Hecho en el backlog remoto, o lo nombra una rama o un PR; `--sin-previa` sólo si el usuario lo pide. `rq.mjs previa [<código>]` muestra el informe sin abrir nada.
