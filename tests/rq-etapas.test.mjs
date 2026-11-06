@@ -92,20 +92,21 @@ test('etapa: la base de un RQ abierto sólo para el backlog pasa a HEAD al empez
 
 test('etapa derivada de la evidencia y skills exigidas por tipo', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'docs/rq/R-3/spec.md': '# R-3' } });
-  const e = { codigo: 'R-3', tipo: 'rq', clasificacion: 'bounded', etapa: 0 };
+  const e = { codigo: 'R-3', tipo: 'rq', clasificacion: 'bounded', etapa: 0, aprobaciones: [{ etapa: 1, frase: 'Diseño ok' }] };
   assert.equal(etapaDerivada(e, raiz), 1);
-  assert.equal(etapaDerivada({ ...e, tests: { ok: true }, revision: { ok: true } }, raiz), 4);
-  assert.equal(etapaDerivada({ ...e, tests: { ok: true }, revision: { ok: true }, e2e: { ok: true } }, raiz), 5);
-  assert.equal(etapaDerivada({ ...e, circuito: [{ paso: 'push:x' }] }, raiz), 6);
-  assert.equal(etapaDerivada({ ...e, etapa: 7 }, raiz), 7);
-  assert.deepEqual(faltaParaEtapa(e, 3, raiz), []);
-  assert.deepEqual(faltaParaEtapa({ ...e, clasificacion: 'arquitectonico' }, 3, raiz), ['superpowers:writing-plans']);
-  assert.deepEqual(faltaParaEtapa({ ...e, skills: ['test-driven-development'] }, 6, raiz), [
+  assert.equal(etapaDerivada({ ...e, tests: { ok: true } }, raiz), 2);
+  assert.equal(etapaDerivada({ ...e, tests: { ok: true }, revision: { ok: true } }, raiz), 3);
+  assert.equal(etapaDerivada({ ...e, tests: { ok: true }, revision: { ok: true }, e2e: { ok: true } }, raiz), 4);
+  assert.equal(etapaDerivada({ ...e, circuito: [{ paso: 'push:x' }] }, raiz), 5);
+  assert.equal(etapaDerivada({ ...e, etapa: 6 }, raiz), 6);
+  assert.deepEqual(faltaParaEtapa(e, 2, raiz), []);
+  assert.deepEqual(faltaParaEtapa({ ...e, clasificacion: 'arquitectonico' }, 2, raiz), ['superpowers:writing-plans']);
+  assert.deepEqual(faltaParaEtapa({ ...e, skills: ['test-driven-development'] }, 5, raiz), [
     'superpowers:verification-before-completion',
     'la revisión ($RQ revision ok)',
   ]);
   const bug = { codigo: 'R-3', tipo: 'bug', skills: ['superpowers:systematic-debugging'] };
-  assert.deepEqual(faltaParaEtapa(bug, 3, raiz), ['la causa raíz en docs/rq/R-3/spec.md (## Causa)']);
+  assert.deepEqual(faltaParaEtapa(bug, 2, raiz), ['la causa raíz en docs/rq/R-3/spec.md (## Causa)']);
   const p = { sensible: { rutas: ['src/lib/billing*'] } };
   assert.equal(sensibleSinRevisar({}, ['src/lib/billing.ts'], p), 'src/lib/billing.ts');
   assert.equal(sensibleSinRevisar({ skills: [{ skill: 'claude-security:claude-security' }] }, ['src/lib/billing.ts'], p), null);
@@ -116,7 +117,7 @@ test('paso después de cerrar recalcula pendientes, backlog y log (E3); estado l
   const env = lin('circuito_prod:\n  - { paso: "manual:publicar-en-lovable" }\n');
   const raiz = crearRepoTemporal({ proyectoId: 'demo' });
   await correr(raiz, ['abrir', 'R-4', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
-  await correr(raiz, ['etapa', '6'], env);
+  await correr(raiz, ['etapa', '4'], env);
   let r = await correr(raiz, ['cerrar', '--resumen', 'Algo nuevo.'], env);
   assert.equal(r.code, 0, r.err);
   assert.deepEqual(cargarEstado(raiz, 'R-4').pendientes, ['manual:publicar-en-lovable']);
@@ -157,4 +158,78 @@ test('subcomando mal invocado: muestra sólo su sintaxis (E6)', async () => {
   assert.equal(r.code, 2);
   assert.ok(r.err.trim().split(/\r?\n/).length <= 6, r.err);
   assert.match(r.err, /paso hecho <paso> "<evidencia>"/);
+});
+
+// ---------- 4.0.0: numeración v4 en el CLI ----------
+
+/** Deja el estado.yml del RQ como lo escribía 3.x: sin `version_ciclo`. */
+function comoV3(raiz, codigo) {
+  const f = path.join(raiz, 'docs', 'rq', codigo, 'estado.yml');
+  fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/^version_ciclo: 4\r?\n/m, ''));
+}
+
+test('aprobar 6 sobre un RQ abierto con 3.x se registra como 5 con aviso; sobre uno v4 es el cierre', async () => {
+  const env = lin('');
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'R-6', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  comoV3(raiz, 'R-6');
+  let r = await correr(raiz, ['aprobar', '6', 'Publicalo a producción'], env);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(r.out, 'Etapa 6 de la numeración vieja: registrada como 5 (PROD y entrega).\nAprobación de la etapa 5 registrada.\n');
+  let e = cargarEstado(raiz, 'R-6');
+  assert.equal(e._v3, undefined, 'guardado en v4');
+  assert.deepEqual(e.aprobaciones.map((a) => [a.etapa, a.frase]), [[5, 'Publicalo a producción']]);
+  r = await correr(raiz, ['aprobar', '6', 'Cerralo'], env);
+  assert.equal(r.out, 'Aprobación de la etapa 6 registrada.\n');
+  e = cargarEstado(raiz, 'R-6');
+  assert.deepEqual(e.aprobaciones.map((a) => a.etapa), [5, 6]);
+  // Otra etapa de un RQ v3 no se traduce: el usuario ya escribe en la numeración nueva.
+  comoV3(raiz, 'R-6');
+  r = await correr(raiz, ['aprobar', '4', 'DEV ok'], env);
+  assert.equal(r.out, 'Aprobación de la etapa 4 registrada.\n');
+  for (const n of ['7', '8']) {
+    r = await correr(raiz, ['aprobar', n, 'x'], env);
+    assert.equal(r.code, 1, n);
+    assert.match(r.err, /de 0 a 6/);
+  }
+});
+
+test('etapa y autonomia: 0 a 6 y hasta 1 a 4', async () => {
+  const env = lin('');
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'R-8', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  assert.equal((await correr(raiz, ['etapa', '6'], env)).code, 0);
+  assert.equal((await correr(raiz, ['etapa', '7'], env)).code, 1);
+  assert.equal(cargarEstado(raiz, 'R-8').etapa, 6);
+  assert.equal((await correr(raiz, ['autonomia', '4', 'Seguí hasta DEV'], env)).code, 0);
+  const r = await correr(raiz, ['autonomia', '5', 'Hasta PROD'], env);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /de 1 a 4/);
+  assert.equal(cargarEstado(raiz, 'R-8').autonomia.hasta, 4);
+});
+
+test('etapa: un RQ con tests en verde (etapa 2) ya empezó y no rebasa la base', async () => {
+  const env = lin('');
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'R-9', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  const e = cargarEstado(raiz, 'R-9');
+  e.tests = { ok: true, fecha: 'f' };
+  guardarEstado(raiz, e);
+  fs.writeFileSync(path.join(raiz, 'ajeno.md'), 'x');
+  git(raiz, 'add', 'ajeno.md');
+  git(raiz, 'commit', '-q', '-m', 'otro trabajo');
+  await correr(raiz, ['etapa', '2'], env);
+  assert.equal(cargarEstado(raiz, 'R-9').base, e.base);
+});
+
+test('estado: autonomía por defecto hasta la 4 y lo que falta para la próxima etapa en v4', async () => {
+  const env = lin('');
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'R-10', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  let r = await correr(raiz, ['estado'], env);
+  assert.match(r.out, /^Autonomía: hasta etapa 4 \(por defecto\)$/m);
+  await correr(raiz, ['abrir', 'R-11', '--tipo', 'rq', '--clasificacion', 'arquitectonico'], env);
+  r = await correr(raiz, ['estado', '--rq', 'R-11'], env);
+  assert.match(r.out, /^Falta para la etapa 2: superpowers:writing-plans$/m);
+  assert.match(r.out, /^Autonomía: ninguna$/m);
 });

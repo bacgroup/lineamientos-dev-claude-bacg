@@ -21,6 +21,7 @@ import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
 import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
+import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 const CLASIFICACIONES = ['spike', 'bounded', 'arquitectonico'];
@@ -35,9 +36,9 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   odoo-skills [--rama <rama>]              (instala en ~/.claude/skills las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
   previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
   abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
-  etapa <n>                          (0-7; opcional: estado deriva la etapa de la evidencia)
-  aprobar <etapa> "<frase>"          (etapa 0-7; la frase es texto literal del usuario)
-  autonomia <hasta> "<frase>"        (hasta 1-5)
+  etapa <n>                          (0-6; opcional: estado deriva la etapa de la evidencia)
+  aprobar <etapa> "<frase>"          (etapa 0-6: 1 diseño y plan, 4 DEV en arquitectónico, 5 PROD; la frase es texto literal del usuario)
+  autonomia <hasta> "<frase>"        (hasta 1-4: cubre desarrollo (2) y DEV (4), nunca el diseño ni PROD)
   saltar <compuerta> "<frase>" "<motivo>"   (compuerta: edicion|commit|push|e2e|skills|seguridad|ui|verificacion-local)
   commit "<mensaje>" <rutas>…        (git add de las rutas, tests relacionados, registro y commit en un paso)
   registrar-tests                    (tests de commit sobre lo que está en stage; sin E2E)
@@ -82,9 +83,13 @@ function textoNoVacio(valor, nombre) {
 
 function etapaValida(s, nombre = 'etapa') {
   const n = entero(s);
-  if (n === null || n > 7) throw new ErrorCli(`${nombre} inválida: "${s}" (tiene que ser un entero de 0 a 7).`);
+  if (n === null || n > ETAPA.CIERRE) throw new ErrorCli(`${nombre} inválida: "${s}" (tiene que ser un entero de 0 a ${ETAPA.CIERRE}).`);
   return n;
 }
+
+// En 3.x el OK de PROD era la etapa 6 (hoy Cierre): `aprobar 6` sobre un RQ abierto con 3.x (cargado con `_v3`) se
+// registra como 5, con aviso. Una vez guardado en v4, 6 es el cierre.
+const AVISO_PROD_V3 = `Etapa 6 de la numeración vieja: registrada como ${ETAPA.PROD} (${NOMBRE_ETAPA[ETAPA.PROD]}).`;
 
 // `nombres`: opciones con valor (--x <valor>); `banderas`: opciones sin valor (--x queda en true).
 function opciones(args, nombres, banderas = []) {
@@ -303,8 +308,8 @@ function hayCambiosSinStage(raiz) {
 }
 
 /** BUG sin causa o sin systematic-debugging (y RQ arquitectónico sin writing-plans): no se commitea código. */
-function exigirEtapa3(estado, raiz) {
-  const falta = faltaParaEtapa(estado, 3, raiz);
+function exigirDesarrollo(estado, raiz) {
+  const falta = faltaParaEtapa(estado, ETAPA.DESARROLLO, raiz);
   if (falta.length) throw new ErrorCli(`Antes de commitear código del ${estado.codigo} falta: ${falta.join('; ')}. Si el usuario decide saltearlo: $RQ saltar skills "<frase>" "<motivo>".`);
 }
 
@@ -359,7 +364,7 @@ function registrarTests(repo, elegido, env, io) {
   if (hayCambiosSinStage(raiz)) {
     throw new ErrorCli('Hay cambios sin stagear en archivos trackeados: usá $RQ commit "<mensaje>" <rutas> (los deja aparte mientras corren los tests) o hacé git add antes.');
   }
-  if (enStageDeProducto(raiz, proyecto).length) exigirEtapa3(estado, raiz);
+  if (enStageDeProducto(raiz, proyecto).length) exigirDesarrollo(estado, raiz);
   const r = correrTests(raiz, estado, proyecto, io);
   guardar(raiz, estado);
   return r;
@@ -375,7 +380,7 @@ function conCodigo(mensaje, codigo) {
 // Un RQ abierto sólo para tener la fila en el backlog guarda una base vieja: al empezar el trabajo (primer commit o
 // paso de etapa desde 0) sin commits propios, la base pasa a HEAD para que el diff del RQ no traiga commits ajenos.
 function rebasarSiNoEmpezo(raiz, codigo, estado) {
-  if (etapaDerivada(estado, raiz) > 2 || commitsDelRq(raiz, codigo, estado).length > 0) return;
+  if (etapaDerivada(estado, raiz) > ETAPA.DISENO || commitsDelRq(raiz, codigo, estado).length > 0) return;
   const head = commitHead(raiz);
   if (head && head !== estado.base) estado.base = head;
 }
@@ -398,7 +403,7 @@ function commit(repo, elegido, args, env, io) {
   let tests = 'sólo docs y tests: sin correr tests';
   if (producto.length && saltoValido(estado, 'commit')) tests = 'tests salteados (saltar commit)';
   else if (producto.length) {
-    exigirEtapa3(estado, raiz);
+    exigirDesarrollo(estado, raiz);
     const aparte = hayCambiosSinStage(raiz);
     if (aparte) {
       const st = spawnSync('git', ['stash', 'push', '-q', '--keep-index', '-m', `rq.mjs commit ${codigo}`], { cwd: raiz, encoding: 'utf8' });
@@ -514,7 +519,7 @@ const gitOk = (raiz, args) => spawnSync('git', args, { cwd: raiz, stdio: 'ignore
 const detrasDe = (raiz, ref) => Number(salida(raiz, ['rev-list', '--count', `HEAD..${ref}`]) ?? 0);
 
 // Un worktree atrasado lee su docs/rq/ACTIVO y su estado.yml viejos (pasó con R-VTA-FUT2: 175 commits atrás,
-// mostraba etapa 6 de un RQ que en main ya estaba cerrado). Avisos para estado y entregar.
+// mostraba la etapa de PROD de un RQ que en main ya estaba cerrado). Avisos para estado y entregar.
 function avisosDeAtraso(raiz, codigo, estado) {
   const avisos = [];
   const principal = refPrincipal(raiz);
@@ -523,8 +528,8 @@ function avisosDeAtraso(raiz, codigo, estado) {
     if (n > 0) avisos.push(`Aviso: la rama está ${n} commit(s) detrás de ${ref} (según el último fetch): actualizala (git merge ${ref}) antes de seguir; lo que se lee acá puede estar viejo.`);
   }
   const remoto = principal ? estadoCommiteado(raiz, codigo, principal) : null;
-  if (remoto?.etapa === 7 && estado?.etapa !== 7) {
-    avisos.push(`Aviso: en ${principal} el RQ ${codigo} figura cerrado (etapa 7). Este docs/rq/ACTIVO es local: actualizá la rama antes de seguir.`);
+  if (remoto?.etapa === ETAPA.CIERRE && estado?.etapa !== ETAPA.CIERRE) {
+    avisos.push(`Aviso: en ${principal} el RQ ${codigo} figura cerrado (etapa ${ETAPA.CIERRE}). Este docs/rq/ACTIVO es local: actualizá la rama antes de seguir.`);
   }
   return avisos;
 }
@@ -567,8 +572,8 @@ function entregar(repo, elegido, env, io) {
   if (tocaUi(estado, raiz, proyectoDe(repo, env), rutasDelRq(raiz, estado)) && !verificacionLocalOk(estado)) {
     l.push('Verificación local: sin registrar ($RQ verificar --local "<qué se recorrió>" <capturas>).');
   }
-  const falta6 = faltaParaEtapa(estado, 6, raiz);
-  if (falta6.length) l.push(`Falta para PROD: ${falta6.join('; ')}.`);
+  const faltaProd = faltaParaEtapa(estado, ETAPA.PROD, raiz);
+  if (faltaProd.length) l.push(`Falta para PROD: ${faltaProd.join('; ')}.`);
   const rv = estado.revision;
   l.push(`Revisión: ${rv ? (rv.ok ? 'ok' : 'bloqueante') : 'sin registrar'}.`);
   // Commits ya integrados en la rama principal (merge hecho, o commiteados directo en main): no hay PR que abrir.
@@ -923,13 +928,13 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   l.push(`Etapa: ${derivada}${derivada !== estado.etapa ? ` (según la evidencia; registrada: ${estado.etapa})` : ''}`);
   const sk = skillsDe(estado);
   l.push(`Skills del RQ: ${sk.length ? sk.join(', ') : 'ninguna'}`);
-  const proxima = [3, 4, 6].find((n) => n > derivada - 1 && faltaParaEtapa(estado, n, repo.raiz).length);
+  const proxima = [ETAPA.DESARROLLO, ETAPA.VERIFICACION, ETAPA.PROD].find((n) => n > derivada - 1 && faltaParaEtapa(estado, n, repo.raiz).length);
   if (proxima) l.push(`Falta para la etapa ${proxima}: ${faltaParaEtapa(estado, proxima, repo.raiz).join('; ')}`);
   const aps = lista(estado.aprobaciones);
   l.push(aps.length ? 'Aprobaciones:' : 'Aprobaciones: ninguna');
   for (const a of aps) l.push(`  ${a.etapa}: ${a.frase}`);
   const au = estado.autonomia;
-  const porDefecto = ['spike', 'bounded'].includes(estado.clasificacion) ? 'hasta etapa 5 (por defecto)' : 'ninguna';
+  const porDefecto = ['spike', 'bounded'].includes(estado.clasificacion) ? `hasta etapa ${ETAPA.DEV} (por defecto)` : 'ninguna';
   l.push(au ? `Autonomía: hasta etapa ${au.hasta} ("${au.frase}")` : `Autonomía: ${porDefecto}`);
   const t = estado.tests;
   const rojos = lista(t?.rojos_conocidos).length;
@@ -952,7 +957,7 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
 /** Pasos del circuito que le faltan al RQ (en una sede, sólo los de esa sede). Sin despliegue empezado, ninguno. */
 function pendientesDel(repo, estado, proyecto, env) {
   const raiz = repo.raiz;
-  const desplego = (Number(estado.etapa) || 0) >= 5 || etapaDerivada(estado, raiz) >= 5 || lista(estado.circuito).length > 0;
+  const desplego = (Number(estado.etapa) || 0) >= ETAPA.DEV || etapaDerivada(estado, raiz) >= ETAPA.DEV || lista(estado.circuito).length > 0;
   if (!proyecto || !desplego) return [];
   const sedes = env.BACG_DEV_SIN_GH !== '1' ? migracionesEnSync(proyecto) : {};
   let pend = pendientes({ proyecto, estado, raiz, rutas: rutasDelRq(raiz, estado), sedes });
@@ -972,7 +977,7 @@ function pendientesDel(repo, estado, proyecto, env) {
 // y los lleva a estado.yml, a la fila del backlog y al log (línea pendiente-resuelto).
 function trasPasoDeCerrado(repo, elegido, env, io) {
   const { codigo, estado } = activo(repo.raiz, elegido);
-  if (estado.etapa !== 7) return;
+  if (estado.etapa !== ETAPA.CIERRE) return;
   let proyecto = null;
   try {
     proyecto = exigirProyecto(repo, env);
@@ -1015,7 +1020,7 @@ function cerrar(repo, elegido, args, env, io) {
   const previa = filaDelBacklog(repo, env, codigo);
   const spec = datosDelSpec(raiz, codigo);
   if (!estado.tarea && (previa.Tarea || spec.Tarea)) estado.tarea = previa.Tarea || spec.Tarea;
-  estado.etapa = 7;
+  estado.etapa = ETAPA.CIERRE;
   if (pend.length) estado.pendientes = pend;
   else delete estado.pendientes;
   guardar(raiz, estado);
@@ -1158,15 +1163,18 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         const falta = faltaParaEtapa(estado, e, raiz);
         // Aviso, no bloqueo: la etapa es opcional; lo exigen revision, el commit de código y la publicación a PROD.
         if (falta.length) io.stderr.write(`Aviso: para la etapa ${e} del ${codigo} falta: ${falta.join('; ')}.\n`);
-        if (e >= 1) rebasarSiNoEmpezo(raiz, codigo, estado);
+        if (e >= ETAPA.DISENO) rebasarSiNoEmpezo(raiz, codigo, estado);
         estado.etapa = e;
         guardar(raiz, estado);
         io.stdout.write(`Etapa ${e}.\n`);
         break;
       }
       case 'aprobar': {
-        const e = etapaValida(args[0]);
+        const pedida = etapaValida(args[0]);
         const frase = textoNoVacio(args[1], 'La frase');
+        // ETAPA.CIERRE es el 6 de hoy; en un RQ abierto con 3.x, ese número era el OK de PROD.
+        const e = pedida === ETAPA.CIERRE && activo(raiz, elegido).estado._v3 === true ? ETAPA.PROD : pedida;
+        if (e !== pedida) io.stdout.write(`${AVISO_PROD_V3}\n`);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.aprobaciones = [...lista(s.aprobaciones), { etapa: e, frase, fecha: ahora() }];
           return `Aprobación de la etapa ${e} registrada.`;
@@ -1175,7 +1183,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       }
       case 'autonomia': {
         const h = entero(args[0]);
-        if (h === null || h < 1 || h > 5) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de 1 a 5).`);
+        if (h === null || h < ETAPA.DISENO || h > ETAPA.DEV) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de ${ETAPA.DISENO} a ${ETAPA.DEV}).`);
         const frase = textoNoVacio(args[1], 'La frase');
         cambiarVinculado(repo, env, elegido, io, (s) => { s.autonomia = { hasta: h, frase, fecha: ahora() }; return `Autonomía hasta la etapa ${h} registrada.`; });
         break;
@@ -1196,7 +1204,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         if (veredicto !== 'ok' && veredicto !== 'bloqueante') throw new ErrorCli(`Veredicto inválido: "${veredicto}" (ok | bloqueante).`);
         const { codigo, estado } = activo(raiz, elegido);
         if (veredicto === 'ok') {
-          const falta = faltaParaEtapa(estado, 4, raiz);
+          const falta = faltaParaEtapa(estado, ETAPA.VERIFICACION, raiz);
           if (falta.length) throw new ErrorCli(`Antes de la revisión del ${codigo} falta: ${falta.join('; ')}. Si el usuario decide saltearlo: $RQ saltar skills "<frase>" "<motivo>".`);
           const sensible = sensibleSinRevisar(estado, rutasDelRq(raiz, estado), proyectoDe(repo, env));
           if (sensible) throw new ErrorCli(`El ${codigo} toca ${sensible} (ruta sensible): falta claude-security (Skill "claude-security:claude-security") o, si el usuario lo decide, $RQ saltar seguridad "<frase>" "<motivo>".`);

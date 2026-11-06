@@ -55,7 +55,7 @@ function proyectoDeRaiz(raiz) {
   }
 }
 
-// Verificación local (M1 del handoff ciclo-rq/UI): un RQ o BUG que toca UI no llega a la etapa 4 sólo con el E2E
+// Verificación local (M1 del handoff ciclo-rq/UI): un RQ o BUG que toca UI no cumple la verificación (etapa 3) sólo con el E2E
 // aislado; hace falta recorrerlo en el entorno local (o la preview de DEV) con un usuario del rol real.
 const RE_TOCA_UI = /^\s*(?:#{1,6}\s*|[-*]\s+)?\**toca\b[^\n]*?\bui\s*\[\s*x\s*\]/im;
 

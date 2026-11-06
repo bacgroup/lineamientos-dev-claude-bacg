@@ -105,12 +105,12 @@ test('sin RQ activo los subcomandos de estado fallan con exit 1', async () => {
   assert.match(r.out, /RQ activo: ninguno\./);
 });
 
-test('etapa: actualiza y valida 0-7 entero', async () => {
+test('etapa: actualiza y valida 0-6 entero', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
   assert.equal((await correr(raiz, ['etapa', '3'])).code, 0);
   assert.equal(cargarEstado(raiz, 'R-1').etapa, 3);
-  for (const n of ['8', '-1', '1.5', 'x']) {
+  for (const n of ['7', '8', '-1', '1.5', 'x']) {
     assert.equal((await correr(raiz, ['etapa', n])).code, 1, n);
   }
   assert.equal(cargarEstado(raiz, 'R-1').etapa, 3);
@@ -127,25 +127,26 @@ test('aprobar 1 "Spec aprobada" deja la aprobación; valida etapa y frase', asyn
   assert.equal(a[0].frase, 'Spec aprobada');
   assert.ok(!Number.isNaN(Date.parse(a[0].fecha)));
   assert.equal((await correr(raiz, ['aprobar', '9', 'x'])).code, 1);
+  assert.equal((await correr(raiz, ['aprobar', '7', 'x'])).code, 1);
   assert.equal((await correr(raiz, ['aprobar', '1', ''])).code, 1);
   assert.equal((await correr(raiz, ['aprobar', '1', '   '])).code, 1);
   assert.equal(cargarEstado(raiz, 'R-1').aprobaciones.length, 1);
 });
 
-test('autonomia: hasta 1-5, nunca 6 o más', async () => {
+test('autonomia: hasta 1-4, nunca 5 o más', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
-  const r = await correr(raiz, ['autonomia', '5', 'Dale, hasta el final']);
+  const r = await correr(raiz, ['autonomia', '4', 'Dale, hasta el final']);
   assert.equal(r.code, 0);
   const au = cargarEstado(raiz, 'R-1').autonomia;
-  assert.equal(au.hasta, 5);
+  assert.equal(au.hasta, 4);
   assert.equal(au.frase, 'Dale, hasta el final');
   assert.ok(au.fecha);
-  for (const n of ['6', '7', '0', 'x']) {
+  for (const n of ['5', '6', '7', '0', 'x']) {
     assert.equal((await correr(raiz, ['autonomia', n, 'f'])).code, 1, n);
   }
   assert.equal((await correr(raiz, ['autonomia', '3', ''])).code, 1);
-  assert.equal(cargarEstado(raiz, 'R-1').autonomia.hasta, 5);
+  assert.equal(cargarEstado(raiz, 'R-1').autonomia.hasta, 4);
 });
 
 test('saltar: compuerta válida con frase y motivo', async () => {
@@ -250,13 +251,13 @@ test('estado imprime código, tipo, clasificación, etapa, aprobaciones, autonom
   assert.match(r.out, /circuito/i);
 });
 
-test('cerrar: etapa 7 y borra ACTIVO', async () => {
+test('cerrar: etapa 6 y borra ACTIVO', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
   const r = await correr(raiz, ['cerrar']);
   assert.equal(r.code, 0);
   assert.match(r.out, /RQ R-1 cerrado\./);
-  assert.equal(cargarEstado(raiz, 'R-1').etapa, 7);
+  assert.equal(cargarEstado(raiz, 'R-1').etapa, 6);
   assert.equal(rqActivo(raiz), null);
   assert.equal(fs.existsSync(path.join(raiz, 'docs', 'rq', 'ACTIVO')), false);
 });
@@ -379,7 +380,7 @@ test('abrir y cerrar llevan la fila del RQ en el backlog del proyecto', async ()
     { c: filas[0]['Código'], t: filas[0].Tarea, p: filas[0].Prioridad, e: filas[0].Estado, l: filas[0].Link },
     { c: 'R-7', t: 'Aviso / corto', p: 'Alta', e: 'En curso', l: 'docs/rq/R-7/' },
   );
-  r = await correr(raiz, ['etapa', '6'], env);
+  r = await correr(raiz, ['etapa', '5'], env);
   r = await correr(raiz, ['cerrar'], env);
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /Quedan pendientes .*push:demo-app, manual:publicar-en-lovable/);
@@ -782,7 +783,7 @@ test('sede (RQ espejo): no escribe backlog y al cerrar sólo deja pendientes sus
   assert.match(r.out, /sede; el backlog vive en el repo padre/);
   assert.equal(fs.existsSync(path.join(raiz, 'docs', 'backlog.md')), false);
   assert.equal(fs.existsSync(path.join(lin, 'proyectos', 'demo', 'backlog.md')), false);
-  await correr(raiz, ['etapa', '6'], env);
+  await correr(raiz, ['etapa', '5'], env);
   r = await correr(raiz, ['cerrar'], env);
   assert.equal(r.code, 0, r.err);
   assert.deepEqual(cargarEstado(raiz, 'R-1').pendientes, ['push:demo-sede']);

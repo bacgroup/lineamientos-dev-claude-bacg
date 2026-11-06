@@ -14,6 +14,7 @@ import { contexto } from '../salida.mjs';
 import { rutaCli } from '../cli.mjs';
 import { avisoAuditoria } from '../auditoria.mjs';
 import { etapaDerivada, cerradosConPendientes } from '../estado.mjs';
+import { NOMBRE_ETAPA } from '../etapas.mjs';
 import { lineaStack } from '../stack.mjs';
 
 export { rutaCli };
@@ -210,7 +211,9 @@ export async function handler(
       partes.push(`RQ activo: ${rq.codigo}, pero su estado.yml falta o no se puede leer.`);
       continue;
     }
-    partes.push(`RQ activo: ${rq.codigo} (${rq.estado.tipo ?? '?'}), etapa ${etapaDerivada(rq.estado, repo.raiz)}. Detalle: rq.mjs estado / entregar.`);
+    const etapa = etapaDerivada(rq.estado, repo.raiz);
+    const nombre = NOMBRE_ETAPA[etapa] ? ` (${NOMBRE_ETAPA[etapa]})` : '';
+    partes.push(`RQ activo: ${rq.codigo} (${rq.estado.tipo ?? '?'}), etapa ${etapa}${nombre}. Detalle: rq.mjs estado / entregar.`);
     partes.push(encuadre(repo.raiz, rq.codigo, porRq));
   }
   const cerrados = cerradosConPendientes(repo.raiz);

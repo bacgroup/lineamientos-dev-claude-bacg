@@ -85,16 +85,16 @@ test('dentroDeAddon: ruta dentro del addon más cercano con __manifest__.py', ()
   assert.equal(dentroDeAddon(raiz, 'docs/x.md'), null);
 });
 
-test('exigenciasOdoo: guidelines o web por etapa 3, review en 4, security con rutas sensibles o controllers', () => {
+test('exigenciasOdoo: guidelines o web por etapa 2, review en 3, security con rutas sensibles o controllers', () => {
   const raiz = repoAddons();
   const py = { sensible: { rutas: ['**/security/**'] } };
   const skills = (rutas) => exigenciasOdoo(py, raiz, rutas).map((x) => `${x.etapa}:${x.skill}`);
-  assert.deepEqual(skills(['mod_a/models/x.py']), ['3:odoo-guidelines', '4:odoo-review']);
-  assert.deepEqual(skills(['grupo/mod_b/static/src/a.js']), ['3:odoo-web-guidelines', '4:odoo-review']);
-  assert.deepEqual(skills(['mod_a/security/ir.model.access.csv']), ['3:odoo-guidelines', '4:odoo-review', '4:odoo-security']);
-  assert.deepEqual(skills(['mod_a/controllers/main.py']), ['3:odoo-guidelines', '4:odoo-review', '4:odoo-security']);
+  assert.deepEqual(skills(['mod_a/models/x.py']), ['2:odoo-guidelines', '3:odoo-review']);
+  assert.deepEqual(skills(['grupo/mod_b/static/src/a.js']), ['2:odoo-web-guidelines', '3:odoo-review']);
+  assert.deepEqual(skills(['mod_a/security/ir.model.access.csv']), ['2:odoo-guidelines', '3:odoo-review', '3:odoo-security']);
+  assert.deepEqual(skills(['mod_a/controllers/main.py']), ['2:odoo-guidelines', '3:odoo-review', '3:odoo-security']);
   assert.deepEqual(skills(['docs/x.md', 'n8n/wf.json']), [], 'fuera de un addon no exige');
-  assert.deepEqual(skills(null), ['3:odoo-guidelines', '4:odoo-review'], 'sin saber qué toca, en un repo con addons: falla cerrada');
+  assert.deepEqual(skills(null), ['2:odoo-guidelines', '3:odoo-review'], 'sin saber qué toca, en un repo con addons: falla cerrada');
   assert.deepEqual(exigenciasOdoo(py, tmp('sin-addons-'), null), [], 'sin addons en el repo, nada');
   assert.deepEqual(exigenciasOdoo({ datos: { motor: 'supabase' } }, raiz, ['mod_a/models/x.py']), []);
 });
@@ -103,11 +103,19 @@ test('faltaParaEtapa: suma las skills de Odoo del proyecto (y se cumplen con el 
   const raiz = repoAddons();
   const estado = { codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', skills: [] };
   // Sin base ni upstream, rutasDelRq es null: falla cerrada en un repo con addons.
-  let falta = faltaParaEtapa(estado, 4, raiz, {});
+  let falta = faltaParaEtapa(estado, 3, raiz, {});
   assert.ok(falta.includes('odoo-guidelines'));
   assert.ok(falta.includes('odoo-review'));
-  falta = faltaParaEtapa({ ...estado, skills: ['odoo-guidelines', 'odoo-review'] }, 4, raiz, {});
+  falta = faltaParaEtapa({ ...estado, skills: ['odoo-guidelines', 'odoo-review'] }, 3, raiz, {});
   assert.ok(!falta.includes('odoo-guidelines') && !falta.includes('odoo-review'));
-  falta = faltaParaEtapa(estado, 4, raiz, { odoo_skills: false });
+  falta = faltaParaEtapa(estado, 3, raiz, { odoo_skills: false });
   assert.ok(!falta.includes('odoo-guidelines'));
+});
+
+test('faltaParaEtapa v4: odoo-guidelines se pide para el desarrollo (2) y odoo-review recién para la verificación (3)', () => {
+  const raiz = repoAddons();
+  const estado = { codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', skills: [] };
+  const falta = faltaParaEtapa(estado, 2, raiz, {});
+  assert.ok(falta.includes('odoo-guidelines'));
+  assert.ok(!falta.includes('odoo-review'));
 });

@@ -118,7 +118,7 @@ test('publicaEnProd: sólo las ramas de ramas_prod; sin ramas_prod, todo push a 
   assert.equal(publicaEnProd({ op: 'merge-pr' }, raiz, proyecto, entrada, { basePr: () => '18.0' }), true);
 });
 
-test('compuerta: push a la rama de DEV pide la etapa 4 pero no el OK de PROD; a la de PROD, sí', () => {
+test('compuerta: push a la rama de DEV pide la etapa 3 pero no el OK de PROD; a la de PROD, sí', () => {
   const dirLin = fs.mkdtempSync(path.join(os.tmpdir(), 'lin '));
   fs.mkdirSync(path.join(dirLin, 'proyectos', 'erp'), { recursive: true });
   fs.writeFileSync(path.join(dirLin, 'proyectos', 'erp', 'proyecto.yml'), PROY());
@@ -127,7 +127,7 @@ test('compuerta: push a la rama de DEV pide la etapa 4 pero no el OK de PROD; a 
   git(raiz, 'add', 'a.py');
   git(raiz, 'commit', '-q', '-m', 'R-1: a');
   const estado = {
-    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 4, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
+    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 3, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
     tests: { ok: true, arbol: 'x' }, revision: { ok: true },
   };
   guardarEstado(raiz, estado);
@@ -137,9 +137,9 @@ test('compuerta: push a la rama de DEV pide la etapa 4 pero no el OK de PROD; a 
   const prod = ev('git push origin HEAD:18.0');
   assert.equal(prod.decision, 'deny');
   assert.equal(prod.critica, true);
-  assert.match(prod.motivo, /es PROD: falta el OK del usuario para PROD \(etapa 6\)/);
+  assert.match(prod.motivo, /es PROD: falta el OK del usuario para PROD \(etapa 5\)/);
   guardarEstado(raiz, { ...estado, tests: { ok: false } , revision: null });
-  assert.equal(ev('git push').decision, 'deny', 'la rama de DEV sigue pidiendo la etapa 4');
+  assert.equal(ev('git push').decision, 'deny', 'la rama de DEV sigue pidiendo la etapa 3');
 });
 
 // ---------- P3: shell de los tests ----------
@@ -162,7 +162,9 @@ const PROY_SCSS = { ui: { patrones: ['**/*.scss', '**/views/**/*.xml'], skills: 
 
 function repoUi({ spec = '# R-U1\n## Diseño\nCanon, dirección, estados, móvil.\n', archivos = {} } = {}) {
   const raiz = crearRepoTemporal({ archivos });
-  guardarEstado(raiz, { codigo: 'R-U1', tipo: 'rq', clasificacion: 'bounded', etapa: 3, autonomia: null, aprobaciones: [], saltos: [] });
+  // Diseño aprobado (etapa 1): sin eso la compuerta de edición niega antes de mirar el refuerzo de UI.
+  const diseno = [{ etapa: 1, frase: 'Diseño ok', fecha: '2026-11-06T12:00:00Z' }];
+  guardarEstado(raiz, { codigo: 'R-U1', tipo: 'rq', clasificacion: 'bounded', etapa: 2, autonomia: null, aprobaciones: diseno, saltos: [] });
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-U1\n');
   if (spec !== null) fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-U1', 'spec.md'), spec);
   return raiz;
@@ -294,7 +296,7 @@ test('ramas_solo_pr: push directo a 18.0-dev se niega y pide PR; push de la rama
   fs.writeFileSync(path.join(dirLin, 'proyectos', 'erp', 'proyecto.yml'), PROY('ramas_solo_pr: ["18.0-dev"]\n'));
   const raiz = repoConUpstream('erp-app', '18.0-dev');
   const estado = {
-    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 4, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
+    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 3, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
     tests: { ok: true, arbol: 'x' }, revision: { ok: true },
   };
   guardarEstado(raiz, estado);
@@ -305,6 +307,6 @@ test('ramas_solo_pr: push directo a 18.0-dev se niega y pide PR; push de la rama
   assert.match(r.motivo, /18\.0-dev sólo recibe cambios por PR.*gh pr create --base 18\.0-dev/);
   assert.equal(ev('git push origin HEAD:18.0-dev').decision, 'deny');
   assert.deepEqual(ev('git push -u origin HEAD:rq/R-1'), { decision: 'allow', critica: false }, 'rama propia del RQ');
-  assert.equal(ev('gh pr merge 12 --merge', { basePr: () => '18.0-dev' }).decision, 'allow', 'el merge del PR a DEV sigue la etapa 4');
+  assert.equal(ev('gh pr merge 12 --merge', { basePr: () => '18.0-dev' }).decision, 'allow', 'el merge del PR a DEV sigue la etapa 3');
   assert.deepEqual(ramasSoloPr({ ramas_solo_pr: ['18.0-dev'] }, { nombre: 'x', ramas_solo_pr: [] }), [], 'el repo manda');
 });

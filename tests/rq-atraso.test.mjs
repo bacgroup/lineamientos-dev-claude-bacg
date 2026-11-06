@@ -76,14 +76,14 @@ test('estado: avisa si la rama está detrás del upstream y si el RQ figura cerr
   let r = await correr(raiz, ['estado']);
   assert.equal(r.code, 0, r.err);
   assert.doesNotMatch(r.out, /Aviso/, 'al día: sin avisos');
-  // En main otra sesión cerró R-1 (etapa 7) y siguió: este checkout quedó atrás, con un ACTIVO local.
-  const cerrado = fs.readFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'estado.yml'), 'utf8').replace(/^etapa: 0$/m, 'etapa: 7');
+  // En main otra sesión cerró R-1 (etapa 6) y siguió: este checkout quedó atrás, con un ACTIVO local.
+  const cerrado = fs.readFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'estado.yml'), 'utf8').replace(/^etapa: 0$/m, 'etapa: 6');
   empujarAMain(raiz, origen, { 'docs/rq/R-1/estado.yml': cerrado, 'b.txt': 'b' });
   r = await correr(raiz, ['estado']);
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /Etapa: 0/);
   assert.match(r.out, /Aviso: la rama está 1 commit\(s\) detrás de origin\/main/);
-  assert.match(r.out, /Aviso: en origin\/main el RQ R-1 figura cerrado \(etapa 7\)/);
+  assert.match(r.out, /Aviso: en origin\/main el RQ R-1 figura cerrado \(etapa 6\)/);
 });
 
 test('entregar: si HEAD ya está en origin/main, dice que la rama está integrada y no pide PR', async () => {

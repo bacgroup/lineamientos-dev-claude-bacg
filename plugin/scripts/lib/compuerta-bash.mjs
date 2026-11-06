@@ -39,6 +39,7 @@ import { norm } from './contexto.mjs';
 import { rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad, migracionesEnSync } from './circuito.mjs';
 import { faltaParaEtapa } from './requisitos.mjs';
+import { ETAPA } from './etapas.mjs';
 import { ramasProd, ramasSoloPr } from './stack.mjs';
 import { testsValenParaStage } from './arbol.mjs';
 import { enRamaProtegida, ramaDelRq } from './ramas.mjs';
@@ -1057,21 +1058,21 @@ function pushSoloLibres(op, dest) {
 
 /** Evalúa la publicación contra un RQ. Devuelve el deny o null. */
 function publicacionDeRq(op, dest, codigo, estado, ctxEtapa, real, ctx) {
-  // El salto de push saltea sólo la etapa 4: nunca la 6 ni el circuito de un destino PROD.
-  if (!saltoValido(estado, 'push') && !etapaCumplida(estado, 4, ctxEtapa)) {
-    return deny(`Falta la etapa 4 (tests en verde y revisión sin bloqueantes) del RQ ${codigo}.`);
+  // El salto de push saltea sólo la verificación (etapa 3): nunca el OK de PROD (5) ni el circuito de un destino PROD.
+  if (!saltoValido(estado, 'push') && !etapaCumplida(estado, ETAPA.VERIFICACION, ctxEtapa)) {
+    return deny(`Falta la etapa ${ETAPA.VERIFICACION} (tests en verde y revisión sin bloqueantes) del RQ ${codigo}.`);
   }
   // E2E obligatorio si el proyecto lo declara: verde registrado con rq.mjs verificar, o salto e2e del usuario.
   if (comandoE2e(dest.proyecto) && estado.e2e?.ok !== true && !saltoValido(estado, 'e2e') && !saltoValido(estado, 'push')) {
     return deny(`Falta el E2E en verde del RQ ${codigo}: corré ${cli()} verificar con la app levantada.`);
   }
   if (!dest.prod) return null;
-  if (!etapaCumplida(estado, 6, ctxEtapa)) {
-    return deny(`Publicar ${dest.nombre} es PROD: falta el OK del usuario para PROD (etapa 6) en el RQ ${codigo}.`);
+  if (!etapaCumplida(estado, ETAPA.PROD, ctxEtapa)) {
+    return deny(`Publicar ${dest.nombre} es PROD: falta el OK del usuario para PROD (etapa ${ETAPA.PROD}) en el RQ ${codigo}.`);
   }
   // Skills de proceso por etapa (requisitos.mjs) y, si el E2E corrió sólo los specs del RQ, la suite completa.
-  // El salto de push (etapa 4 salteada por el usuario) también saltea lo que exige la verificación.
-  const faltan = saltoValido(estado, 'push') ? [] : faltaParaEtapa(estado, 6, dest.raiz);
+  // El salto de push (verificación salteada por el usuario) también saltea lo que exige la verificación.
+  const faltan = saltoValido(estado, 'push') ? [] : faltaParaEtapa(estado, ETAPA.PROD, dest.raiz);
   if (faltan.length) return deny(`PROD del RQ ${codigo}: falta ${faltan.join('; ')}. Si el usuario decide saltearlo: ${cli()} saltar skills "<frase>" "<motivo>".`);
   if (estado.e2e?.ok === true && estado.e2e.completo === false && !saltoValido(estado, 'e2e') && !saltoValido(estado, 'push')) {
     return deny(`PROD del RQ ${codigo}: el E2E corrió sólo los specs del RQ; corré ${cli()} verificar --completo.`);

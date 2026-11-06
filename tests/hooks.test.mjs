@@ -34,13 +34,14 @@ const ENV = { BACG_LINEAMIENTOS_DIR: DIR_LIN, CLAUDE_PLUGIN_ROOT: PLUGIN, HOME, 
 
 const repoDemo = (archivos = {}) => crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app', archivos });
 
-function abrirRq(raiz, estado = {}) {
+// Con `v3: true`, un estado.yml como lo escribía 3.x (sin version_ciclo): se lee convertido a v4.
+function abrirRq(raiz, { v3 = false, ...estado } = {}) {
   const codigo = estado.codigo ?? 'R-T1';
   fs.mkdirSync(path.join(raiz, 'docs', 'rq', codigo), { recursive: true });
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), `${codigo}\n`);
   const completo = {
-    codigo, tipo: 'rq', clasificacion: 'bounded', etapa: 3, autonomia: null,
-    aprobaciones: [], saltos: [], circuito: [], actualizado: new Date().toISOString(), ...estado,
+    codigo, tipo: 'rq', clasificacion: 'bounded', etapa: 2, autonomia: null,
+    aprobaciones: [], saltos: [], circuito: [], actualizado: new Date().toISOString(), ...(v3 ? {} : { version_ciclo: 4 }), ...estado,
   };
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', codigo, 'estado.yml'), yaml.dump(completo));
   return codigo;
@@ -171,9 +172,10 @@ test('pre-tool MCP desde cwd no registrado: escritura a refprod1 → deny; lectu
   assert.notEqual(decision(lectura), 'deny');
 });
 
-test('pre-tool MCP desde cwd no registrado usa el estado del repo padre (ruta_local)', () => {
+test('pre-tool MCP desde cwd no registrado usa el estado del repo padre (ruta_local), también de un RQ abierto con 3.x', () => {
   const raiz = repoDemo();
-  abrirRq(raiz, { etapa: 6, aprobaciones: [{ etapa: 6, frase: 'Spec aprobada, seguí', fecha: '2026-10-23T12:00:00Z' }] });
+  // 3.x: el OK de PROD era la etapa 6; se lee como 5 y se sigue comprobando contra la sesión.
+  abrirRq(raiz, { v3: true, etapa: 6, aprobaciones: [{ etapa: 6, frase: 'Spec aprobada, seguí', fecha: '2026-10-23T12:00:00Z' }] });
   const lin = tmp('lin como-');
   fs.cpSync(DIR_LIN, lin, { recursive: true });
   const archivo = path.join(lin, 'proyectos', 'demo', 'proyecto.yml');
@@ -290,7 +292,7 @@ test('herramientas de ramas sin proyecto resuelto: PROD si algún proyecto tiene
 
 test('ruta_local de otro proyecto no aporta estado → deny', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'otro', nombre: 'demo-app' });
-  abrirRq(raiz, { etapa: 6, aprobaciones: [{ etapa: 6, frase: 'Spec aprobada, seguí', fecha: '2026-10-23T12:00:00Z' }] });
+  abrirRq(raiz, { etapa: 5, aprobaciones: [{ etapa: 5, frase: 'Spec aprobada, seguí', fecha: '2026-10-23T12:00:00Z' }] });
   const lin = tmp('lin como-');
   fs.cpSync(DIR_LIN, lin, { recursive: true });
   const archivo = path.join(lin, 'proyectos', 'demo', 'proyecto.yml');
@@ -475,6 +477,7 @@ test('session-start con dos RQ activos muestra los dos encuadres', () => {
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'spec.md'), '# R-T1 · uno');
   const ctx = sessionStart(raiz).hookSpecificOutput.additionalContext;
   assert.match(ctx, /RQ activo: R-T2[\s\S]*R-T2 · dos[\s\S]*RQ activo: R-T1[\s\S]*R-T1 · uno/);
+  assert.match(ctx, /RQ activo: R-T1 \(rq\), etapa 2 \(Desarrollo\)\./);
   assert.doesNotMatch(ctx, /relevo/i);
 });
 
@@ -575,7 +578,7 @@ test('user-prompt: sin RQ activo recuerda una sola vez por sesión; con RQ activ
     'Proyecto demo, sin RQ activo. Para cambiar código o base: skill lineamientos-dev-claude-bacg:ciclo-rq. Docs, tests y consultas no necesitan RQ.',
   );
   assert.equal(userPrompt(raiz, sesion), null, 'segunda vez en la misma sesión');
-  abrirRq(raiz, { etapa: 3 });
+  abrirRq(raiz, { etapa: 2 });
   assert.equal(userPrompt(raiz), null);
 });
 

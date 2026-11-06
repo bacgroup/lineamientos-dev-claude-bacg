@@ -2,8 +2,8 @@
 // Se instalan juntas (se referencian entre sí) en ~/.claude/skills/ con `rq.mjs odoo-skills`; no se copian a este
 // repo. En un proyecto Odoo (datos.motor odoo, salvo `odoo_skills: false` en proyecto.yml) la CLI las exige según
 // lo que toca el RQ dentro de un addon (carpeta con __manifest__.py):
-//   - etapa 3: odoo-guidelines (Python, XML, datos, seguridad) y odoo-web-guidelines (static/);
-//   - etapa 4: odoo-review y, si toca rutas sensibles o controllers/, odoo-security.
+//   - etapa 2 (desarrollo): odoo-guidelines (Python, XML, datos, seguridad) y odoo-web-guidelines (static/);
+//   - etapa 3 (verificación): odoo-review y, si toca rutas sensibles o controllers/, odoo-security.
 // odoo-git no se exige: sus convenciones de commits y ramas son las de odoo/odoo; en BACG mandan las del proyecto.
 
 import fs from 'node:fs';
@@ -12,6 +12,9 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { motorDatos } from './stack.mjs';
 import { globARegExp } from './rutas.mjs';
+import { ETAPA } from './etapas.mjs';
+
+const { DESARROLLO, VERIFICACION } = ETAPA;
 
 export const REPO_ODOO = 'odoo/odoo';
 export const RAMA_SKILLS_ODOO = '20.0';
@@ -120,7 +123,7 @@ export function tieneAddons(raiz) {
  */
 export function exigenciasOdoo(proyecto, raiz, rutasRq) {
   if (!usaOdoo(proyecto)) return [];
-  if (!rutasRq) return tieneAddons(raiz) ? [{ etapa: 3, skill: 'odoo-guidelines' }, { etapa: 4, skill: 'odoo-review' }] : [];
+  if (!rutasRq) return tieneAddons(raiz) ? [{ etapa: DESARROLLO, skill: 'odoo-guidelines' }, { etapa: VERIFICACION, skill: 'odoo-review' }] : [];
   const sensibles = [...lista(proyecto?.sensible?.rutas), '**/controllers/**'].filter((g) => typeof g === 'string').map(globARegExp);
   const cache = new Map();
   let py = false;
@@ -134,9 +137,9 @@ export function exigenciasOdoo(proyecto, raiz, rutasRq) {
     if (sensibles.some((re) => re.test(r))) seg = true;
   }
   const out = [];
-  if (py) out.push({ etapa: 3, skill: 'odoo-guidelines' });
-  if (web) out.push({ etapa: 3, skill: 'odoo-web-guidelines' });
-  if (py || web) out.push({ etapa: 4, skill: 'odoo-review' });
-  if (seg) out.push({ etapa: 4, skill: 'odoo-security' });
+  if (py) out.push({ etapa: DESARROLLO, skill: 'odoo-guidelines' });
+  if (web) out.push({ etapa: DESARROLLO, skill: 'odoo-web-guidelines' });
+  if (py || web) out.push({ etapa: VERIFICACION, skill: 'odoo-review' });
+  if (seg) out.push({ etapa: VERIFICACION, skill: 'odoo-security' });
   return out;
 }

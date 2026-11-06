@@ -21,10 +21,10 @@ test('skills_requeridas: por tipo y por rutas tocadas', () => {
 });
 
 test('faltaParaEtapa suma las del proyecto y las da por cumplidas si están cargadas o con saltar skills', () => {
-  const falta = faltaParaEtapa({ ...rq, revision: { ok: true } }, 6, null, proyecto);
+  const falta = faltaParaEtapa({ ...rq, revision: { ok: true } }, 5, null, proyecto);
   assert.ok(falta.includes('anthropic-skills:bacg-n8n-pasaje-prod'));
   const cargadas = { ...rq, skills: ['bacg-n8n-guidelines', 'bacg-n8n-pasaje-prod', 'test-driven-development', 'verification-before-completion'], revision: { ok: true } };
-  assert.deepEqual(faltaParaEtapa(cargadas, 6, null, proyecto), []);
+  assert.deepEqual(faltaParaEtapa(cargadas, 5, null, proyecto), []);
   const salto = { ...rq, revision: { ok: true }, saltos: [{ compuerta: 'skills', frase: 'x', motivo: 'm', fecha: 'f' }] };
-  assert.deepEqual(faltaParaEtapa(salto, 6, null, proyecto), []);
+  assert.deepEqual(faltaParaEtapa(salto, 5, null, proyecto), []);
 });
