@@ -1112,3 +1112,18 @@ test('abrir en una rama sólo-PR sin upstream crea rq/<código> desde HEAD', asy
   assert.equal(gitEn(raiz, 'rev-parse', '--abbrev-ref', 'HEAD'), 'rq/R-1');
   assert.equal(cargarEstado(raiz, 'R-1').codigo, 'R-1');
 });
+
+test('arranque: inicio sin RQ, reanudación con RQ y no escribe nada', async () => {
+  const raiz = repoDemo();
+  const antes = execFileSync('git', ['status', '--porcelain'], { cwd: raiz, encoding: 'utf8' });
+  const inicio = await correr(raiz, ['arranque']);
+  assert.equal(inicio.code, 0);
+  assert.match(inicio.out, /Arranque: inicio/);
+  assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: raiz, encoding: 'utf8' }), antes);
+  assert.equal((await abrirR1(raiz)).code, 0);
+  const rean = await correr(raiz, ['arranque']);
+  assert.equal(rean.code, 0);
+  assert.match(rean.out, /Dónde nos quedamos/);
+  assert.match(rean.out, /R-1/);
+  assert.equal((await correr(raiz, ['arranque', 'x'])).code, 2);
+});

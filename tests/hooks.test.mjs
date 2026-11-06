@@ -635,3 +635,14 @@ test('session-start avisa los commits de Lovable sin auditar', () => {
   spawnSync('git', ['-c', 'user.name=gpt-engineer-app[bot]', '-c', 'user.email=bot@x.dev', 'commit', '-qm', 'Changes'], { cwd: raiz });
   assert.match(sessionStart(raiz).hookSpecificOutput.additionalContext, /Auditoría: 1 commit\(s\) de Lovable sin revisar .*1 con migraciones/);
 });
+
+test('session-start incluye el texto de arranque (inicio y reanudación)', () => {
+  const raiz = repoDemo();
+  let ctx = sessionStart(raiz).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /Arranque: inicio/);
+  assert.match(ctx, /Lo último/);
+  abrirRq(raiz);
+  ctx = sessionStart(raiz).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /Dónde nos quedamos/);
+  assert.match(ctx, /RQ activo: R-T1/); // lo anterior sigue
+});

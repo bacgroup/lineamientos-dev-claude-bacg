@@ -20,6 +20,7 @@ import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
 import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
+import { textoArranque } from './lib/arranque.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
 import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs';
@@ -1199,10 +1200,10 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
-    const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0 };
+    const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
     if (sub === 'paso' && (args[0] === 'no-aplica' || args[0] === 'hecho')) uso(n === 3);
     else if (sub === 'paso' && args[0] === 'reabrir') uso(n === 2);
     else if (sub === 'desplegar' || sub === 'previa') uso(n <= 1);
@@ -1351,6 +1352,10 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         break;
       case 'desplegar':
         desplegar(repo, elegido, args, env, io);
+        break;
+      case 'arranque':
+        io.stdout.write(`${textoArranque({ raiz, proyecto: proyectoDe(repo, env), dirLin: dirLineamientos({ env }) })}
+`);
         break;
       case 'estado': {
         const cerrados = cerradosConPendientes(raiz).filter((c) => c.codigo !== elegido);

@@ -16,6 +16,7 @@ import { avisoAuditoria } from '../auditoria.mjs';
 import { etapaDerivada, cerradosConPendientes } from '../estado.mjs';
 import { NOMBRE_ETAPA } from '../etapas.mjs';
 import { lineaStack } from '../stack.mjs';
+import { reposDebajo, textoArranque } from '../arranque.mjs';
 
 export { rutaCli };
 
@@ -63,31 +64,7 @@ export const PLUGINS_REQUERIDOS = [
   'claude-md-management@claude-plugins-official',
 ];
 
-/**
- * Repos registrados debajo de dir (hasta dos niveles): con .bacg-lineamientos o, sin marcador, por su remoto origin
- * (proyecto.repos del proyecto registrado). Sin entrar a node_modules ni a carpetas ocultas.
- */
-export function reposDebajo(dir, niveles = 2, dirLin = dirLineamientos()) {
-  const out = [];
-  const visitar = (d, n) => {
-    let entradas;
-    try {
-      entradas = fs.readdirSync(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entradas) {
-      if (!e.isDirectory() || e.name.startsWith('.') || e.name === 'node_modules') continue;
-      const sub = path.join(d, e.name);
-      const esGit = fs.existsSync(path.join(sub, '.git'));
-      if (fs.existsSync(path.join(sub, '.bacg-lineamientos'))) out.push(sub);
-      else if (esGit && buscarRepo(sub, { dirLin })?.raiz === path.resolve(sub)) out.push(sub);
-      else if (n > 1) visitar(sub, n - 1);
-    }
-  };
-  visitar(dir, niveles);
-  return out;
-}
+export { reposDebajo };
 
 function leer(ruta) {
   try {
@@ -226,6 +203,11 @@ export async function handler(
     proyecto = proyectoRegistrado(repo.proyectoId, dirLin, repo.raiz);
   } catch {
     // proyecto.yml inválido: lo reportan las compuertas
+  }
+  try {
+    partes.push(textoArranque({ raiz: repo.raiz, proyecto, dirLin }));
+  } catch {
+    // el arranque sólo orienta: si falla, el resto del contexto sigue
   }
   const stack = lineaStack(proyecto);
   if (stack) partes.push(stack);
