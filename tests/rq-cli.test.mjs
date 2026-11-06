@@ -1102,3 +1102,13 @@ test('commit de código en una rama sólo-PR da error con git switch -c', async 
   assert.equal(r.code, 1);
   assert.match(r.err, /git switch -c rq\/R-1/);
 });
+
+test('abrir en una rama sólo-PR sin upstream crea rq/<código> desde HEAD', async () => {
+  const raiz = repoEn180();
+  gitEn(raiz, 'branch', '--unset-upstream');
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], linSoloPr());
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /Rama del RQ: rq\/R-1 \(desde HEAD\)\./);
+  assert.equal(gitEn(raiz, 'rev-parse', '--abbrev-ref', 'HEAD'), 'rq/R-1');
+  assert.equal(cargarEstado(raiz, 'R-1').codigo, 'R-1');
+});

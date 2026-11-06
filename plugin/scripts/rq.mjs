@@ -331,13 +331,13 @@ function enStageDeProducto(raiz, proyecto) {
     return [];
   }
   return out.split('\0').filter(Boolean).filter((r) => tipoArchivo(r, proyecto) !== 'libre');
-
+}
 
 /** ¿Hay cambios sin stagear en archivos trackeados? Lo que escribe la propia CLI (estado.yml, ACTIVO, backlog) no cuenta. */
 function hayCambiosSinStage(raiz) {
   const r = spawnSync('git', ['diff', '--name-only', '-z'], { cwd: raiz, encoding: 'utf8' });
   if (r.status !== 0) throw new ErrorCli(`git diff falló: ${String(r.stderr || r.error?.message).trim()}`);
-  return r.stdout.split(' ').filter(Boolean).some((f) => !esPropioDeLaCli(f));
+  return r.stdout.split('\0').filter(Boolean).some((f) => !esPropioDeLaCli(f));
 }
 
 /** Deja en stage lo que escribe la CLI (estado.yml del RQ, ACTIVO y backlog) si existe y cambió. */
@@ -345,7 +345,9 @@ function stagearPropiosDeLaCli(raiz, codigo) {
   const rutas = [`docs/rq/${codigo}/estado.yml`, 'docs/rq/ACTIVO', 'docs/backlog.md'].filter((p) => fs.existsSync(path.join(raiz, p)));
   for (const p of rutas) {
     const st = spawnSync('git', ['status', '--porcelain', '--', p], { cwd: raiz, encoding: 'utf8' });
-    if (st.status === 0 && st.stdout.trim()) spawnSync('git', ['add', '--', p], { cwd: raiz });
+    if (st.status !== 0 || !st.stdout.trim()) continue;
+    const add = spawnSync('git', ['add', '--', p], { cwd: raiz, encoding: 'utf8' });
+    if (add.status !== 0) throw new ErrorCli(`No pude dejar ${p} en stage (git add): ${String(add.stderr || add.error?.message).trim()}`);
   }
 }
 
