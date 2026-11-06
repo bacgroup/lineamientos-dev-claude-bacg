@@ -1005,3 +1005,18 @@ test('Exploración: también se niegan los archivos libres fuera de la carpeta d
   git(raiz, 'add', 'docs/rq/R-1/sonda/a.js', 'docs/rq/R-1/estado.yml', 'docs/backlog.md');
   assert.equal(evaluar('git commit -m x', raiz).decision, 'allow');
 });
+
+test('Exploración: lo que agrega el mismo comando del commit también queda en la carpeta del RQ', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  activar(raiz, base({ codigo: 'R-1', clasificacion: 'spike' }));
+  for (const f of ['docs/otro.md', 'tests/probe.test.js']) {
+    fs.mkdirSync(path.join(raiz, path.dirname(f)), { recursive: true });
+    fs.writeFileSync(path.join(raiz, f), 'x');
+    assert.equal(evaluar(`git add ${f} && git commit -m x`, raiz).decision, 'deny', f);
+  }
+  assert.equal(evaluar('git add -A && git commit -m x', raiz).decision, 'deny', 'add amplio');
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda', 'a.js'), 'x');
+  const r = evaluar('git add docs/rq/R-1/sonda/a.js && git commit -m x', raiz);
+  assert.equal(r.decision, 'allow', r.motivo);
+});

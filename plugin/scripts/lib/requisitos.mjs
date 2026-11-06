@@ -75,11 +75,15 @@ function planEnDisco(raiz, codigo) {
 export const MSG_EXPLORACION_FUERA = (codigo) =>
   `Exploración: el código de la sonda va a docs/rq/${codigo}/sonda/; construirlo es un RQ nuevo.`;
 
-/** Exploración (spike): la primera ruta relativa a la raíz que queda fuera de docs/rq/<código>/, o null. */
+/** Exploración (spike): la primera ruta que queda fuera de docs/rq/<código>/ ('<fuera del repo>' si es null), o null. */
 export function fueraDeSonda(estado, rels) {
   if (estado?.clasificacion !== 'spike') return null;
   const pref = `docs/rq/${estado.codigo}/`;
-  return lista(rels).find((r) => r === null || (!esPropioDeLaCli(r) && !String(r).replace(/\\/g, '/').startsWith(pref))) ?? null;
+  for (const r of lista(rels)) {
+    if (r === null) return '<fuera del repo>';
+    if (!esPropioDeLaCli(r) && !String(r).replace(/\\/g, '/').startsWith(pref)) return r;
+  }
+  return null;
 }
 
 /** proyecto.yml del repo de `raiz`, o null (sin repo registrado o ilegible). */

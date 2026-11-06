@@ -893,6 +893,29 @@ function primerAgregadoNoLibre(op, raiz, proyecto) {
   return null;
 }
 
+// Rutas (relativas a la raíz; null = fuera del repo) que agrega el git add del mismo comando; una carpeta se expande.
+function rutasAgregadas(op, raiz) {
+  const out = [];
+  for (const { dir, ruta } of op.agregados ?? []) {
+    const abs = path.resolve(dir, ruta);
+    const rel = relativaAlRepo(raiz, abs);
+    if (rel === null || rel === '') { out.push(null); continue; }
+    let esCarpeta = false;
+    try {
+      esCarpeta = fs.statSync(abs).isDirectory();
+    } catch {
+      // no existe: un borrado, se toma la ruta
+    }
+    if (!esCarpeta) { out.push(rel); continue; }
+    try {
+      out.push(...relativasARaiz(raiz, raiz, git(raiz, ['ls-files', '-m', '-d', '-o', '--exclude-standard', '-z', '--', rel]).split('\0').filter(Boolean)));
+    } catch {
+      out.push(null);
+    }
+  }
+  return out;
+}
+
 function evaluarCommit(op, ctx, dirLin) {
   const repo = buscarRepo(op.dir);
   if (!repo) return null;
@@ -911,11 +934,12 @@ function evaluarCommit(op, ctx, dirLin) {
   const iNoLibre = rels.findIndex((rel) => rel === null || tipoArchivo(rel, proyecto) !== 'libre');
   const stageLibre = iNoLibre === -1;
   // Exploración: todo lo que va a stage (libre o no) queda en docs/rq/<código>/, salvo lo que escribe la CLI.
-  if (enStage.length) {
+  const todas = [...rels, ...(op.agregados ? rutasAgregadas(op, repo.raiz) : [])];
+  if (todas.length) {
     for (const codigo of rqsActivos(repo.raiz)) {
       let estado;
       try { estado = cargarEstado(repo.raiz, codigo); } catch { continue; }
-      if (fueraDeSonda(estado, rels) !== null) return deny(MSG_EXPLORACION_FUERA(estado.codigo));
+      if (fueraDeSonda(estado, todas) !== null) return deny(MSG_EXPLORACION_FUERA(estado.codigo));
     }
   }
   if (op.agregados) {
