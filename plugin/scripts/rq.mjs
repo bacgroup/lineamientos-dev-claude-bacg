@@ -23,12 +23,14 @@ import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
 import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs';
+import { enRamaProtegida, pasarARamaDelRq, ramaDelRq } from './lib/ramas.mjs';
+import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
 // verificacion-local: omite el recorrido local con el rol real en un RQ que toca UI.
 // ui: omite el refuerzo de UI del plugin (diseno-frontend, redesign y ## Diseño) en un cambio menor; el canon sigue.
-const COMPUERTAS = ['edicion', 'commit', 'push', 'e2e', 'skills', 'seguridad', 'ui', 'verificacion-local'];
+const COMPUERTAS = ['edicion', 'commit', 'push', 'e2e', 'skills', 'seguridad', 'ui', 'verificacion-local', 'rama'];
 const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige entre varios RQ activos; sin --rq, el más reciente)
@@ -232,6 +234,15 @@ function abrir(repo, args, env, io) {
     io.stdout.write(`Validación previa:\n${lineas.join('\n')}\n\n`);
     if (bloqueos.length) throw new ErrorCli(mensajeBloqueo(codigo, bloqueos));
   }
+  // M7: en una rama que sólo recibe PR (o de PROD) el RQ trabaja en rq/<código>. Si no se puede, se abre igual.
+  let avisoRama = null;
+  if (enRamaProtegida(raiz, proyectoDe(repo, env))) {
+    const p = pasarARamaDelRq(raiz, codigo);
+    avisoRama = p.error
+      ? `No pude pasar a ${ramaDelRq(codigo)}: ${p.error}
+Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codigo)} si no existe; los cambios en stage viajan con el switch).`
+      : `Rama del RQ: ${p.rama} (desde ${p.desde}).`;
+  }
   let vinculo = null;
   if (!existente) {
     const nuevo = {
@@ -257,6 +268,8 @@ function abrir(repo, args, env, io) {
   const otros = rqsActivos(raiz).filter((c) => c !== codigo);
   guardarActivos(raiz, [...otros, codigo]);
   io.stdout.write(existente ? `RQ ${codigo} retomado (etapa ${existente.etapa}).\n` : `RQ ${codigo} abierto.\n`);
+  if (avisoRama) io.stdout.write(`${avisoRama}
+`);
   if (!existente) imprimirClasificacion(cargarEstado(raiz, codigo), io);
   if (vinculo) io.stdout.write(`RQ multi-repo: vinculado con ${vinculo} (hereda aprobaciones, autonomía, saltos y skills; los cambios nuevos se replican).\n`);
   if (otros.length) io.stdout.write(`Otros RQ activos: ${otros.join(', ')} (usá --rq para elegir).\n`);
@@ -318,22 +331,22 @@ function enStageDeProducto(raiz, proyecto) {
     return [];
   }
   return out.split('\0').filter(Boolean).filter((r) => tipoArchivo(r, proyecto) !== 'libre');
+
+
+/** ¿Hay cambios sin stagear en archivos trackeados? Lo que escribe la propia CLI (estado.yml, ACTIVO, backlog) no cuenta. */
+function hayCambiosSinStage(raiz) {
+  const r = spawnSync('git', ['diff', '--name-only', '-z'], { cwd: raiz, encoding: 'utf8' });
+  if (r.status !== 0) throw new ErrorCli(`git diff falló: ${String(r.stderr || r.error?.message).trim()}`);
+  return r.stdout.split(' ').filter(Boolean).some((f) => !esPropioDeLaCli(f));
 }
 
-const arbolEnStage = (raiz) => {
-  try {
-    return execFileSync('git', ['write-tree'], { cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  } catch (e) {
-    throw new ErrorCli(`No pude calcular el árbol (git write-tree): ${String(e.stderr || e.message).trim()}`);
+/** Deja en stage lo que escribe la CLI (estado.yml del RQ, ACTIVO y backlog) si existe y cambió. */
+function stagearPropiosDeLaCli(raiz, codigo) {
+  const rutas = [`docs/rq/${codigo}/estado.yml`, 'docs/rq/ACTIVO', 'docs/backlog.md'].filter((p) => fs.existsSync(path.join(raiz, p)));
+  for (const p of rutas) {
+    const st = spawnSync('git', ['status', '--porcelain', '--', p], { cwd: raiz, encoding: 'utf8' });
+    if (st.status === 0 && st.stdout.trim()) spawnSync('git', ['add', '--', p], { cwd: raiz });
   }
-};
-
-/** ¿Hay cambios sin stagear en archivos trackeados? */
-function hayCambiosSinStage(raiz) {
-  const r = spawnSync('git', ['diff', '--quiet'], { cwd: raiz, encoding: 'utf8' });
-  if (r.status === 0) return false;
-  if (r.status === 1) return true;
-  throw new ErrorCli(`git diff falló: ${String(r.stderr || r.error?.message).trim()}`);
 }
 
 const MODOS_EJECUCION = { inline: 'inline', 'executing-plans': 'inline', subagentes: 'subagentes', 'subagent-driven-development': 'subagentes' };
@@ -365,7 +378,7 @@ function correrTests(raiz, estado, proyecto, io, { silencioso = false } = {}) {
   if (comandos.length === 0) {
     throw new ErrorCli(`El proyecto no declara comandos de tests en proyecto.yml. ${PISTA_SIN_TESTS}`);
   }
-  const arbol = arbolEnStage(raiz);
+  const arbol = arbolTesteado(raiz);
   const archivos = enStageDeProducto(raiz, proyecto);
   const conocidos = rojosConocidos(proyecto);
   const corridos = [];
@@ -410,6 +423,7 @@ function registrarTests(repo, elegido, env, io) {
   if (enStageDeProducto(raiz, proyecto).length) exigirDesarrollo(estado, raiz, proyecto);
   const r = correrTests(raiz, estado, proyecto, io);
   guardar(raiz, estado);
+  stagearPropiosDeLaCli(raiz, estado.codigo);
   return r;
 }
 
@@ -429,6 +443,25 @@ function rebasarSiNoEmpezo(raiz, codigo, estado) {
 }
 
 /**
+ * git add -A de las rutas. Si alguna está en .gitignore, git no agrega nada: se reintenta ruta por ruta y de las
+ * ignoradas se toman los cambios de lo ya trackeado (git add -u); una ignorada y sin trackear es un error.
+ */
+function agregarRutas(raiz, rutas) {
+  const add = spawnSync('git', ['add', '-A', '--', ...rutas], { cwd: raiz, encoding: 'utf8' });
+  if (add.status === 0) return;
+  for (const ruta of rutas) {
+    const una = spawnSync('git', ['add', '-A', '--', ruta], { cwd: raiz, encoding: 'utf8' });
+    if (una.status === 0) continue;
+    const ignorada = spawnSync('git', ['check-ignore', '-q', '--no-index', '--', ruta], { cwd: raiz }).status === 0;
+    if (!ignorada) throw new ErrorCli(`git add falló: ${String(una.stderr).trim()}`);
+    const trackeada = spawnSync('git', ['ls-files', '--', ruta], { cwd: raiz, encoding: 'utf8' }).stdout.trim() !== '';
+    if (!trackeada) throw new ErrorCli(`${ruta} está en .gitignore y no está trackeada: sacala de las rutas o forzala a mano con git add -f.`);
+    const u = spawnSync('git', ['add', '-u', '--', ruta], { cwd: raiz, encoding: 'utf8' });
+    if (u.status !== 0) throw new ErrorCli(`git add falló: ${String(u.stderr).trim()}`);
+  }
+}
+
+/**
  * git add de las rutas, tests relacionados sobre lo que queda en stage (los cambios sin stagear se guardan aparte con
  * git stash mientras corren), registro y commit, todo en un paso. Docs y tests solos no corren tests.
  */
@@ -439,10 +472,13 @@ function commit(repo, elegido, args, env, io) {
   if (rutas.length === 0) throw new ErrorUso();
   const { codigo, estado } = activo(raiz, elegido);
   const proyecto = proyectoDe(repo, env);
-  const add = spawnSync('git', ['add', '-A', '--', ...rutas], { cwd: raiz, encoding: 'utf8' });
-  if (add.status !== 0) throw new ErrorCli(`git add falló: ${String(add.stderr).trim()}`);
+  agregarRutas(raiz, rutas);
   rebasarSiNoEmpezo(raiz, codigo, estado);
   const producto = enStageDeProducto(raiz, proyecto);
+  const protegida = enRamaProtegida(raiz, proyecto);
+  if (protegida && producto.length && !saltoValido(estado, 'rama')) {
+    throw new ErrorCli(`${protegida} sólo recibe cambios por PR: el código del RQ va en su rama. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}; los cambios en stage viajan con el switch) y volvé a commitear.`);
+  }
   let tests = 'sólo docs y tests: sin correr tests';
   if (fueraDeSonda(estado, todoEnStage(raiz))) throw new ErrorCli(MSG_EXPLORACION_FUERA(codigo));
   if (producto.length && saltoValido(estado, 'commit')) tests = 'tests salteados (saltar commit)';
@@ -601,6 +637,8 @@ function entregar(repo, elegido, env, io) {
   const { codigo, estado } = activo(raiz, elegido);
   const l = [`Entrega de ${codigo}`, ...avisosDeAtraso(raiz, codigo, estado)];
   const rama = salida(raiz, ['rev-parse', '--abbrev-ref', 'HEAD']) ?? '?';
+  const protegida = enRamaProtegida(raiz, proyectoDe(repo, env));
+  if (protegida) l.push(`Rama equivocada: ${protegida} sólo recibe cambios por PR. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}).`);
   const cuenta = salida(raiz, ['rev-list', '--left-right', '--count', '@{u}...HEAD']);
   if (cuenta === null) l.push(`Rama: ${rama}, sin upstream (git push -u origin ${rama}).`);
   else {
@@ -968,6 +1006,8 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   l.push(`Código: ${estado.codigo}`);
   l.push(`Tipo: ${estado.tipo}`);
   l.push(`Clasificación: ${nombreDe(estado.clasificacion)}${estado.clasificacion_pendiente === true ? ' (pendiente de confirmar)' : ''}`);
+  const protegida = enRamaProtegida(repo.raiz, proyectoDe(repo, env));
+  if (protegida) l.push(`Rama equivocada: ${protegida} sólo recibe cambios por PR. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}).`);
   const derivada = etapaDerivada(estado, repo.raiz);
   l.push(`Etapa: ${derivada}${derivada !== estado.etapa ? ` (según la evidencia; registrada: ${estado.etapa})` : ''}`);
   const sk = skillsDe(estado);

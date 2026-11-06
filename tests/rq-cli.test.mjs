@@ -9,6 +9,7 @@ import { main, bloquesHandoff } from '../plugin/scripts/rq.mjs';
 import { cargarEstado, rqActivo, rqsActivos, guardarEstado as guardarEstadoTest } from '../plugin/scripts/lib/estado.mjs';
 import { leerBacklog } from '../plugin/scripts/lib/backlog.mjs';
 import { crearRepoTemporal } from './helpers.mjs';
+import { arbolTesteado } from '../plugin/scripts/lib/arbol.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 // Copia temporal del fixture: abrir y cerrar escriben el backlog del proyecto.
@@ -987,4 +988,117 @@ test('ejecucion: el primer commit de código en Acotado se niega sin ejecución;
   execFileSync('git', ['add', 'src/a.ts'], { cwd: sp });
   r = await correr(sp, ['registrar-tests']);
   assert.doesNotMatch(r.err, /cómo ejecutar el plan/);
+});
+
+// ---------- M4, M5 y M7: rama por RQ, estado.yml en el mismo commit y archivos ignorados ----------
+
+// Lineamientos con ramas_solo_pr: ["18.0-dev"] en el proyecto demo.
+function linSoloPr() {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-solo-pr-'));
+  fs.cpSync(DIR_LIN, d, { recursive: true });
+  fs.appendFileSync(path.join(d, 'proyectos', 'demo', 'proyecto.yml'), 'ramas_solo_pr: ["18.0-dev"]\n');
+  return { BACG_LINEAMIENTOS_DIR: d, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' };
+}
+
+// Repo en 18.0-dev con upstream en un origin bare.
+function repoEn180(archivos = {}) {
+  const raiz = repoDemo(archivos);
+  const remoto = fs.mkdtempSync(path.join(os.tmpdir(), 'remoto-'));
+  gitEn(remoto, 'init', '-q', '--bare');
+  gitEn(raiz, 'branch', '-M', '18.0-dev');
+  gitEn(raiz, 'remote', 'add', 'origin', remoto);
+  gitEn(raiz, 'push', '-q', '-u', 'origin', '18.0-dev');
+  return raiz;
+}
+
+test('abrir en una rama sólo-PR pasa a rq/<código> desde el upstream', async () => {
+  const raiz = repoEn180();
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], linSoloPr());
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /Rama del RQ: rq\/R-1 \(desde origin\/18\.0-dev\)\./);
+  assert.equal(gitEn(raiz, 'rev-parse', '--abbrev-ref', 'HEAD'), 'rq/R-1');
+  assert.equal(rqActivo(raiz), 'R-1');
+});
+
+test('abrir: si no puede pasar a la rama del RQ lo abre igual y da el comando a mano', async () => {
+  const raiz = repoEn180({ 'a.txt': 'uno\n' });
+  gitEn(raiz, 'switch', '-q', '-c', 'rq/R-1');
+  commitear(raiz, { 'a.txt': 'otro\n' });
+  gitEn(raiz, 'switch', '-q', '18.0-dev');
+  fs.writeFileSync(path.join(raiz, 'a.txt'), 'sin commitear\n');
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], linSoloPr());
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /RQ R-1 abierto\./);
+  assert.match(r.out, /No pude pasar a rq\/R-1/);
+  assert.match(r.out, /git switch rq\/R-1/);
+  assert.equal(rqActivo(raiz), 'R-1');
+});
+
+test('abrir en detached HEAD con ramas_solo_pr abre el RQ sin excepción', async () => {
+  const raiz = repoEn180();
+  gitEn(raiz, 'switch', '-q', '--detach');
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], linSoloPr());
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /RQ R-1 abierto\./);
+});
+
+test('commit de un archivo trackeado bajo .gitignore se commitea; uno ignorado y no trackeado da error', async () => {
+  const raiz = repoDemo({ '.gitignore': 'dist/\n' });
+  fs.mkdirSync(path.join(raiz, 'dist'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'dist', 'a.txt'), 'uno\n');
+  gitEn(raiz, 'add', '-f', 'dist/a.txt');
+  gitEn(raiz, 'commit', '-q', '-m', 'dist trackeado');
+  await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
+  fs.writeFileSync(path.join(raiz, 'dist', 'a.txt'), 'dos\n');
+  const r = await correr(raiz, ['commit', 'fix: toca dist', 'dist/a.txt']);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(gitEn(raiz, 'show', '--name-only', '--format=', 'HEAD').split('\n').includes('dist/a.txt'), true);
+
+  fs.writeFileSync(path.join(raiz, 'dist', 'b.txt'), 'nuevo\n');
+  const e = await correr(raiz, ['commit', 'fix: otro', 'dist/b.txt']);
+  assert.equal(e.code, 1);
+  assert.match(e.err, /dist\/b\.txt está en \.gitignore y no está trackeada: sacala de las rutas o forzala a mano con git add -f\./);
+});
+
+test('registrar-tests deja estado.yml en stage y el commit lo incluye sin invalidar los tests', async () => {
+  const raiz = repoDemo();
+  await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
+  escribir(raiz, { 'src/a.js': 'x\n' });
+  gitEn(raiz, 'add', 'src/a.js');
+  const r = await correr(raiz, ['registrar-tests']);
+  assert.equal(r.code, 0, r.err);
+  const enStage = gitEn(raiz, 'diff', '--cached', '--name-only').split('\n');
+  assert.ok(enStage.includes('docs/rq/R-1/estado.yml'), enStage.join(','));
+  assert.ok(enStage.includes('docs/rq/ACTIVO'));
+  const t = cargarEstado(raiz, 'R-1').tests;
+  assert.equal(t.arbol, arbolTesteado(raiz));
+  // Una segunda corrida no queda frenada por "cambios sin stagear" de lo que escribe la CLI.
+  assert.equal((await correr(raiz, ['registrar-tests'])).code, 0);
+  gitEn(raiz, 'commit', '-q', '-m', 'R-1: a');
+  assert.ok(gitEn(raiz, 'show', '--name-only', '--format=', 'HEAD').includes('docs/rq/R-1/estado.yml'));
+});
+
+test('entregar e imprimirEstado en una rama sólo-PR dicen "Rama equivocada"', async () => {
+  const raiz = repoEn180();
+  const env = linSoloPr();
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded', '--sin-previa'], { ...env, BACG_DEV_SIN_PREVIA: '1' });
+  gitEn(raiz, 'switch', '-q', '18.0-dev');
+  const r = await correr(raiz, ['entregar'], env);
+  assert.match(r.out, /Rama equivocada: 18\.0-dev sólo recibe cambios por PR\./);
+  const s = await correr(raiz, ['estado'], env);
+  assert.match(s.out, /Rama equivocada: 18\.0-dev sólo recibe cambios por PR\./);
+});
+
+test('commit de código en una rama sólo-PR da error con git switch -c', async () => {
+  const raiz = repoEn180();
+  const env = linSoloPr();
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  listoParaDesarrollo(raiz);
+  gitEn(raiz, 'switch', '-q', '18.0-dev');
+  escribir(raiz, { 'src/a.js': 'x\n' });
+  const r = await correr(raiz, ['commit', 'feat: a', 'src/a.js'], env);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /git switch -c rq\/R-1/);
 });
