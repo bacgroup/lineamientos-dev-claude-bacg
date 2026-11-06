@@ -244,7 +244,7 @@ test('estado imprime código, tipo, clasificación, etapa, aprobaciones, autonom
   assert.equal(r.code, 0);
   assert.match(r.out, /R-1/);
   assert.match(r.out, /rq/);
-  assert.match(r.out, /bounded/);
+  assert.match(r.out, /Clasificación: Acotado (pendiente de confirmar)/);
   assert.match(r.out, /1: Spec aprobada/);
   assert.match(r.out, /tests.*ok/i);
   assert.match(r.out, /revisi/i);
@@ -887,4 +887,45 @@ test('saltar verificacion-local es una compuerta válida', async () => {
   const raiz = await rqConUi();
   const r = await correr(raiz, ['saltar', 'verificacion-local', 'sin entorno local', 'no hay datos']);
   assert.equal(r.code, 0, r.err);
+});
+
+test('M2: abrir con nombre nuevo guarda el valor interno, queda pendiente e imprime nombre e implicancias', async () => {
+  const raiz = repoDemo();
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'acotado']);
+  assert.equal(r.code, 0, r.err);
+  const e = cargarEstado(raiz, 'R-1');
+  assert.equal(e.clasificacion, 'bounded');
+  assert.equal(e.clasificacion_pendiente, true);
+  assert.match(r.out, /Acotado/);
+  assert.match(r.out, /\/prototype/);
+  assert.match(r.out, /clasificacion confirmar/);
+});
+
+test('M2: clasificacion confirmar libera; cambiar cambia y libera; estado la muestra', async () => {
+  const raiz = repoDemo();
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'acotado']);
+  assert.match((await correr(raiz, ['estado'])).out, /Clasificación: Acotado \(pendiente de confirmar\)/);
+  const c = await correr(raiz, ['clasificacion', 'confirmar', 'Sí, acotado']);
+  assert.equal(c.code, 0, c.err);
+  let e = cargarEstado(raiz, 'R-1');
+  assert.equal(e.clasificacion_pendiente, false);
+  assert.equal(e.clasificacion_confirmada.frase, 'Sí, acotado');
+  assert.ok(e.clasificacion_confirmada.fecha);
+  assert.match((await correr(raiz, ['estado'])).out, /Clasificación: Acotado\n/);
+
+  const k = await correr(raiz, ['clasificacion', 'cambiar', 'arquitectonico', 'mejor arquitectónico']);
+  assert.equal(k.code, 0, k.err);
+  e = cargarEstado(raiz, 'R-1');
+  assert.equal(e.clasificacion, 'arquitectonico');
+  assert.equal(e.clasificacion_pendiente, false);
+  assert.equal(e.clasificacion_confirmada.frase, 'mejor arquitectónico');
+});
+
+test('M2: clasificacion valida acción, valor y frase', async () => {
+  const raiz = repoDemo();
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'acotado']);
+  assert.equal((await correr(raiz, ['clasificacion', 'confirmar'])).code, 2);
+  assert.equal((await correr(raiz, ['clasificacion', 'otra', 'x'])).code, 2);
+  assert.equal((await correr(raiz, ['clasificacion', 'cambiar', 'enorme', 'frase'])).code, 1);
+  assert.equal(cargarEstado(raiz, 'R-1').clasificacion_pendiente, true);
 });

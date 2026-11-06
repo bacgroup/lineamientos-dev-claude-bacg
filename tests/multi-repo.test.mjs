@@ -113,3 +113,15 @@ test('PLG-NUBE: commit corre los tests con la ruta del repo hermano', async () =
   const r2 = await rq(a, dirLin, ['registrar-tests']);
   assert.match(r2.err + r2.out, /No encuentro el repo pf-bi/);
 });
+
+test('M2: RQ confirmado en el principal, abierto en el secundario: sale confirmado y con la misma clasificación', async () => {
+  const { dirLin, a, b } = montar();
+  await rq(a, dirLin, ['abrir', 'PF-C', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal((await rq(a, dirLin, ['clasificacion', 'cambiar', 'arquitectonico', 'es arquitectónico'])).code, 0);
+  const r = await rq(b, dirLin, ['abrir', 'PF-C', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal(r.code, 0, r.err);
+  const e = cargarEstado(b, 'PF-C');
+  assert.equal(e.clasificacion, 'arquitectonico');
+  assert.equal(e.clasificacion_pendiente, false);
+  assert.equal(e.clasificacion_confirmada.frase, 'es arquitectónico');
+});

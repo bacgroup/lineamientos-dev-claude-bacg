@@ -89,6 +89,11 @@ export function heredar(raiz, proyectoId, proyecto, estado) {
   estado.aprobaciones = unir(estado.aprobaciones, o.aprobaciones);
   estado.saltos = unir(estado.saltos, o.saltos);
   estado.skills = unir(estado.skills, o.skills);
+  if (o.clasificacion) {
+    estado.clasificacion = o.clasificacion;
+    estado.clasificacion_pendiente = o.clasificacion_pendiente === true;
+    if (o.clasificacion_confirmada) estado.clasificacion_confirmada = o.clasificacion_confirmada;
+  }
   if (!estado.autonomia && o.autonomia) estado.autonomia = o.autonomia;
   if (!estado.tarea && o.tarea) estado.tarea = o.tarea;
   estado.vinculado = [...new Set([...lista(estado.vinculado), path.basename(origen.raiz)])];

@@ -22,9 +22,9 @@ import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
+import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
-const CLASIFICACIONES = ['spike', 'bounded', 'arquitectonico'];
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
 // verificacion-local: omite el recorrido local con el rol real en un RQ que toca UI.
 // ui: omite el refuerzo de UI del plugin (diseno-frontend, redesign y ## Diseño) en un cambio menor; el canon sigue.
@@ -35,7 +35,9 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
   odoo-skills [--rama <rama>]              (instala en ~/.claude/skills las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
   previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
-  abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
+  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
+  clasificacion confirmar "<frase>"   (el usuario confirma la clasificación propuesta; hasta entonces no se edita código)
+  clasificacion cambiar <exploracion|acotado|arquitectonico> "<frase>"   (cambia y confirma; la frase es texto literal del usuario)
   etapa <n>                          (0-6; opcional: estado deriva la etapa de la evidencia)
   aprobar <etapa> "<frase>"          (etapa 0-6: 1 diseño y plan, 4 DEV en arquitectónico, 5 PROD; la frase es texto literal del usuario)
   autonomia <hasta> "<frase>"        (hasta 1-4: cubre desarrollo (2) y DEV (4), nunca el diseño ni PROD)
@@ -211,8 +213,9 @@ function abrir(repo, args, env, io) {
   const [codigo] = posicionales;
   if (!RE_CODIGO.test(codigo)) throw new ErrorCli(`Código inválido: "${codigo}" (letras, números, "_" y "-"; empieza con letra o número).`);
   if (!TIPOS.includes(res.tipo)) throw new ErrorCli(`--tipo inválido: "${res.tipo}" (rq | bug).`);
-  if (!CLASIFICACIONES.includes(res.clasificacion)) {
-    throw new ErrorCli(`--clasificacion inválida: "${res.clasificacion}" (spike | bounded | arquitectonico).`);
+  const clasificacion = clasificacionDe(res.clasificacion);
+  if (!clasificacion) {
+    throw new ErrorCli(`--clasificacion inválida: "${res.clasificacion}" (exploracion | acotado | arquitectonico).`);
   }
   const dir = path.join(raiz, 'docs', 'rq', codigo);
   let existente = null;
@@ -233,7 +236,8 @@ function abrir(repo, args, env, io) {
     const nuevo = {
       codigo,
       tipo: res.tipo,
-      clasificacion: res.clasificacion,
+      clasificacion,
+      clasificacion_pendiente: true,
       ...(res.tarea ? { tarea: res.tarea } : {}),
       etapa: 0,
       autonomia: null,
@@ -252,6 +256,7 @@ function abrir(repo, args, env, io) {
   const otros = rqsActivos(raiz).filter((c) => c !== codigo);
   guardarActivos(raiz, [...otros, codigo]);
   io.stdout.write(existente ? `RQ ${codigo} retomado (etapa ${existente.etapa}).\n` : `RQ ${codigo} abierto.\n`);
+  if (!existente) imprimirClasificacion(cargarEstado(raiz, codigo), io);
   if (vinculo) io.stdout.write(`RQ multi-repo: vinculado con ${vinculo} (hereda aprobaciones, autonomía, saltos y skills; los cambios nuevos se replican).\n`);
   if (otros.length) io.stdout.write(`Otros RQ activos: ${otros.join(', ')} (usá --rq para elegir).\n`);
   anotarBacklog(repo, env, codigo, {
@@ -261,6 +266,18 @@ function abrir(repo, args, env, io) {
     Estado: 'En curso',
     Link: `docs/rq/${codigo}/`,
   }, io);
+}
+
+/** Clasificación propuesta, lo que implica y cómo confirmarla (M2). */
+function imprimirClasificacion(estado, io) {
+  const c = estado.clasificacion;
+  const pendiente = estado.clasificacion_pendiente === true;
+  const l = [`Clasificación propuesta: ${nombreDe(c)}${pendiente ? ' (pendiente de confirmar por el usuario)' : ''}.`];
+  for (const x of implicancias(c, estado.tipo)) l.push(`  - ${x}`);
+  if (pendiente) {
+    l.push('Proponésela al usuario con su motivo; hasta que la confirme no se edita código. Con su respuesta: $RQ clasificacion confirmar "<su frase>" o $RQ clasificacion cambiar <exploracion|acotado|arquitectonico> "<su frase>".');
+  }
+  io.stdout.write(`${l.join('\n')}\n`);
 }
 
 function cambiar(raiz, elegido, io, fn) {
@@ -923,7 +940,7 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   const l = [];
   l.push(`Código: ${estado.codigo}`);
   l.push(`Tipo: ${estado.tipo}`);
-  l.push(`Clasificación: ${estado.clasificacion}`);
+  l.push(`Clasificación: ${nombreDe(estado.clasificacion)}${estado.clasificacion_pendiente === true ? ' (pendiente de confirmar)' : ''}`);
   const derivada = etapaDerivada(estado, repo.raiz);
   l.push(`Etapa: ${derivada}${derivada !== estado.etapa ? ` (según la evidencia; registrada: ${estado.etapa})` : ''}`);
   const sk = skillsDe(estado);
@@ -1113,13 +1130,14 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0 };
     if (sub === 'paso' && (args[0] === 'no-aplica' || args[0] === 'hecho')) uso(n === 3);
     else if (sub === 'paso' && args[0] === 'reabrir') uso(n === 2);
     else if (sub === 'desplegar' || sub === 'previa') uso(n <= 1);
+    else if (sub === 'clasificacion') uso((args[0] === 'confirmar' && n === 2) || (args[0] === 'cambiar' && n === 3));
     else if (sub === 'commit') uso(n >= 2);
     else if (sub === 'auditar') uso(n === 0 || (n === 2 && args[0] === '--cerrar'));
     else if (!['abrir', 'cerrar', 'verificar'].includes(sub)) uso(n === aridad[sub]);
@@ -1189,6 +1207,22 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         if (h === null || h < ETAPA.DISENO || h > ETAPA.DEV) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de ${ETAPA.DISENO} a ${ETAPA.DEV}).`);
         const frase = textoNoVacio(args[1], 'La frase');
         cambiarVinculado(repo, env, elegido, io, (s) => { s.autonomia = { hasta: h, frase, fecha: ahora() }; return `Autonomía hasta la etapa ${h} registrada.`; });
+        break;
+      }
+      case 'clasificacion': {
+        const accion = args[0];
+        let nueva = null;
+        if (accion === 'cambiar') {
+          nueva = clasificacionDe(args[1]);
+          if (!nueva) throw new ErrorCli(`Clasificación inválida: "${args[1]}" (exploracion | acotado | arquitectonico).`);
+        }
+        const frase = textoNoVacio(args[accion === 'cambiar' ? 2 : 1], 'La frase');
+        cambiarVinculado(repo, env, elegido, io, (s) => {
+          if (nueva) s.clasificacion = nueva;
+          s.clasificacion_pendiente = false;
+          s.clasificacion_confirmada = { frase, fecha: ahora() };
+          return `Clasificación ${nombreDe(s.clasificacion)} confirmada.`;
+        });
         break;
       }
       case 'saltar': {

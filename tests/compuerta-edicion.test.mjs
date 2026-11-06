@@ -210,3 +210,19 @@ test('UI con etapa 1 incumplida falla por la etapa, no por las skills', () => {
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /^Falta el diseño/);
 });
+
+test('M2: clasificación pendiente -> deny nombrando clasificacion confirmar; docs/rq/<código>/ sigue libre', () => {
+  const raiz = repoConRq(base({ clasificacion: 'bounded', clasificacion_pendiente: true, aprobaciones: [ap(1, FRASE)] }));
+  const d = evaluar(raiz, 'src/x.js');
+  assert.equal(d.decision, 'deny');
+  assert.match(d.motivo, /clasificacion confirmar/);
+  assert.equal(evaluar(raiz, 'docs/rq/R-T1/spec.md').decision, 'allow');
+  assert.equal(evaluar(raiz, 'docs/rq/R-T1/sonda/x.js').decision, 'allow');
+});
+
+test('M2: confirmada -> permite; RQ sin el campo (3.x) no se bloquea', () => {
+  const conf = repoConRq(base({ clasificacion: 'bounded', clasificacion_pendiente: false, aprobaciones: [ap(1, FRASE)] }));
+  assert.equal(evaluar(conf, 'src/x.js').decision, 'allow');
+  const v3 = repoConRq(base({ clasificacion: 'bounded', aprobaciones: [ap(1, FRASE)] }));
+  assert.equal(evaluar(v3, 'src/x.js').decision, 'allow');
+});
