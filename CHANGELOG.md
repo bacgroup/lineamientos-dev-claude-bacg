@@ -9,8 +9,9 @@ Cambia la numeración de etapas: los RQ y `proyecto.yml` viejos se convierten so
 - Elección de ejecución: antes del primer commit el usuario elige entre `executing-plans` y subagentes, y queda en `estado.yml`.
 - Odoo detectado, no supuesto: las skills y reglas de Odoo aplican sólo si el proyecto lo declara o tiene addons.
 - Verificación local con el rol real en los RQ que tocan UI (etapa 3).
-- Una rama por RQ: se abre sin necesidad de upstream, `estado.yml` va en el mismo commit y los archivos de la CLI quedan ignorados; el árbol testeado los excluye.
+- Una rama por RQ: se abre sin necesidad de upstream, `estado.yml` y los demás archivos de la CLI van en el mismo commit, pero quedan fuera del árbol testeado: escribirlos después de `registrar-tests` no invalida los tests.
 - Conversión automática: un `estado.yml` sin `version_ciclo` se lee como v3 (etapas registradas y aprobaciones ≥ 2 se corren una) y no se reescribe hasta el próximo comando que escriba; los RQ abiertos con 3.x conservan su diseño. `proyecto.yml` viejos siguen valiendo sin cambios.
+- RQ Arquitectónico abiertos con 3.x que tenían el diseño aprobado (`aprobar 1`) pueden editar código sin la aprobación del plan, porque en v4 diseño y plan son una sola etapa; el commit de código sigue exigiendo `writing-plans` y `plan.md`.
 - Textos, plantilla y `AGENTS.md` sin supuestos de un proyecto, con la numeración nueva.
 
 
