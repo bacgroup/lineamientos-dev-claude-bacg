@@ -1,12 +1,14 @@
-// Skills de proceso que exige cada tipo al llegar a una etapa (3 desarrollo, 4 verificación, 6 PROD) y la
+// Skills de proceso que exige cada tipo al llegar a una etapa (2 desarrollo, 3 verificación, 5 PROD) y la
 // revisión de seguridad de las rutas sensibles. Se controlan al pasar de etapa (etapa, revision, commit y la
 // publicación a PROD), no al editar. `saltar skills` cubre las skills; `saltar seguridad`, la de seguridad.
 //
 // Además, cada proyecto puede exigir skills propias (PLG-SKILLS) en proyecto.yml:
+//   version_ciclo: 4
 //   skills_requeridas:
-//     - { etapa: 3, skill: "anthropic-skills:bacg-n8n-guidelines", rutas: ["**/n8n/**", "**/*.workflow.json"] }
-//     - { etapa: 3, skill: "anthropic-skills:bacg-diagnostico-bugs", tipo: bug }
-// `etapa` 3, 4 o 6; `tipo` rq | bug (sin la clave, los dos); `rutas` (opcional): sólo si el RQ toca alguna.
+//     - { etapa: 2, skill: "anthropic-skills:bacg-n8n-guidelines", rutas: ["**/n8n/**", "**/*.workflow.json"] }
+//     - { etapa: 2, skill: "anthropic-skills:bacg-diagnostico-bugs", tipo: bug }
+// `etapa` 2, 3 o 5; `tipo` rq | bug (sin la clave, los dos); `rutas` (opcional): sólo si el RQ toca alguna.
+// Un proyecto.yml sin `version_ciclo: 4` está en la numeración 3.x (3, 4 o 6) y se convierte al leerlo.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,6 +18,7 @@ import { buscarRepo, dirLineamientos } from './config.mjs';
 import { proyectoRegistrado } from './contexto.mjs';
 import { rutasDelRq } from './circuito.mjs';
 import { exigenciasOdoo, usaOdoo } from './odoo-skills.mjs';
+import { ETAPA, etapaProyectoAV4 } from './etapas.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x : []);
 
@@ -77,7 +80,9 @@ export function exigenciasDelProyecto(estado, proyecto, rutasRq) {
   const bug = esBug(estado);
   const out = [];
   for (const x of lista(proyecto?.skills_requeridas)) {
-    if (!x || typeof x.skill !== 'string' || ![3, 4, 6].includes(x.etapa)) continue;
+    if (!x || typeof x.skill !== 'string') continue;
+    const etapa = etapaProyectoAV4(proyecto, x.etapa);
+    if (![ETAPA.DESARROLLO, ETAPA.VERIFICACION, ETAPA.PROD].includes(etapa)) continue;
     if (x.tipo === 'bug' && !bug) continue;
     if (x.tipo === 'rq' && bug) continue;
     const globs = lista(x.rutas).filter((g) => typeof g === 'string');
@@ -86,7 +91,7 @@ export function exigenciasDelProyecto(estado, proyecto, rutasRq) {
       // Sin poder saber qué toca el RQ (rutas null), se exige: falla cerrada.
       if (rutasRq && !rutasRq.some((r) => res.some((re) => re.test(r)))) continue;
     }
-    out.push({ etapa: x.etapa, skill: x.skill.trim() });
+    out.push({ etapa, skill: x.skill.trim() });
   }
   return out;
 }
@@ -95,11 +100,12 @@ export function exigenciasDelProyecto(estado, proyecto, rutasRq) {
 export function exigencias(estado) {
   const bug = esBug(estado);
   const l = [];
-  if (bug) l.push({ etapa: 3, skill: 'superpowers:systematic-debugging' }, { etapa: 3, causa: true });
-  else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: 3, skill: 'superpowers:writing-plans' });
-  l.push({ etapa: 4, skill: 'superpowers:test-driven-development' });
-  if (!bug) l.push({ etapa: 6, skill: 'superpowers:verification-before-completion' });
-  l.push({ etapa: 6, revision: true });
+  const { DESARROLLO, VERIFICACION, PROD } = ETAPA;
+  if (bug) l.push({ etapa: DESARROLLO, skill: 'superpowers:systematic-debugging' }, { etapa: DESARROLLO, causa: true });
+  else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: DESARROLLO, skill: 'superpowers:writing-plans' });
+  l.push({ etapa: VERIFICACION, skill: 'superpowers:test-driven-development' });
+  if (!bug) l.push({ etapa: PROD, skill: 'superpowers:verification-before-completion' });
+  l.push({ etapa: PROD, revision: true });
   return l;
 }
 
@@ -118,8 +124,8 @@ export function faltaParaEtapa(estado, etapa, raiz, proyecto = undefined) {
     if (x.causa && !causaEnSpec(raiz, estado.codigo)) out.push(`la causa raíz en docs/rq/${estado.codigo}/spec.md (## Causa)`);
     if (x.revision && estado?.revision?.ok !== true) out.push('la revisión ($RQ revision ok)');
   }
-  if (etapa >= 4 && !verificacionLocalOk(estado) && tocaUi(estado, raiz, py, rutasRq())) {
-    // Antes que la revisión: la verificación local es evidencia de la etapa 4, la revisión la cierra.
+  if (etapa >= ETAPA.VERIFICACION && !verificacionLocalOk(estado) && tocaUi(estado, raiz, py, rutasRq())) {
+    // Antes que la revisión: la verificación local es evidencia de la etapa 3, la revisión la cierra.
     const i = out.indexOf('la revisión ($RQ revision ok)');
     out.splice(i === -1 ? out.length : i, 0, FALTA_VERIFICACION_LOCAL);
   }
