@@ -40,6 +40,8 @@ import { rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad, migracionesEnSync } from './circuito.mjs';
 import { faltaParaEtapa } from './requisitos.mjs';
 import { ramasProd, ramasSoloPr } from './stack.mjs';
+import { testsValenParaStage } from './arbol.mjs';
+import { enRamaProtegida, ramaDelRq } from './ramas.mjs';
 
 // Opciones de `git push` que consumen el siguiente argumento.
 const CON_VALOR_PUSH = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
@@ -72,7 +74,7 @@ const MSG_PREVIO = (archivo) =>
   `git add && git commit en un comando sólo vale para docs y tests${archivo ? `, y ${archivo} no lo es` : ''}. Con código: ${cli()} commit "<mensaje>" <rutas>.`;
 const MSG_FRASE = (sub) =>
   `La frase de rq.mjs ${sub} tiene que ser texto literal del usuario (un "Dale" vale si fue el mensaje entero). Si el usuario no lo dijo, pedíselo.`;
-const SUBS_CON_FRASE = new Set(['aprobar', 'autonomia', 'saltar']);
+const SUBS_CON_FRASE = new Set(['aprobar', 'autonomia', 'saltar', 'clasificacion']);
 const MSG_TESTS = () => `Corré los tests sobre lo que está en stage: ${cli()} registrar-tests`;
 
 // ---------------------------------------------------------------------------
@@ -458,8 +460,10 @@ function fraseDeRq(args, dir) {
     if (args[k] === '--rq') k++;
     else ws.push(args[k]);
   }
-  const [script, sub, , frase] = ws;
+  const [script, sub, accion] = ws;
   if (!SUBS_CON_FRASE.has(sub)) return null;
+  // `clasificacion cambiar <c> "<frase>"`: la frase va un lugar más adelante.
+  const frase = sub === 'clasificacion' && accion === 'cambiar' ? ws[4] : ws[3];
   const s = String(script ?? '');
   if (!/rq\.mjs$/i.test(s.replace(/\\/g, '/')) && !/\$\{?RQ\b/.test(s)) return null;
   return { op: 'frase', dir, sub, frase: typeof frase === 'string' ? frase : '' };
@@ -913,11 +917,15 @@ function evaluarCommit(op, ctx, dirLin) {
 
   const r = cargarRqs(repo.raiz, 'commitear código', ctx);
   if (r.deny) return r.deny;
-  const arbol = arbolEnStage(op.dir);
+  // M7: código de un RQ directo en una rama que sólo recibe PR (o en una de PROD) no se commitea.
+  const protegida = enRamaProtegida(op.dir, proyecto);
+  if (protegida && !r.rqs.some(({ estado }) => saltoValido(estado, 'rama'))) {
+    const codigo = r.rqs[0]?.codigo ?? '<código>';
+    return deny(`${protegida} sólo recibe cambios por PR: el código del RQ va en su rama. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}; los cambios en stage viajan con el switch) y commiteá ahí.`);
+  }
   for (const { estado } of r.rqs) {
     if (saltoValido(estado, 'commit')) return null;
-    const t = estado.tests;
-    if (t?.ok === true && typeof t.arbol === 'string' && t.arbol === arbol) return null;
+    if (testsValenParaStage(estado.tests, op.dir)) return null;
   }
   if (comandosTests(proyecto).length === 0) return deny(`${MSG_TESTS()} ${PISTA_SIN_TESTS}`);
   return deny(MSG_TESTS());
@@ -1142,13 +1150,13 @@ const resumirError = (e) => String(e?.message ?? e).replace(/\s+/g, ' ').trim().
 // Red de seguridad para las frases: si el texto nombra el CLI del RQ (rq.mjs o $RQ) junto a aprobar, autonomia o
 // saltar y el parser no armó la operación (node -e, un script que lo importa, variables), se niega.
 const RE_CLI_RQ = /rq\.mjs|\$\{?RQ\b/i;
-const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar)\b/i;
+const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion)\b/i;
 
 export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
   const ops = operacionesGit(comando, cwd);
   const texto = String(comando ?? '');
   if (RE_CLI_RQ.test(texto) && RE_SUB_FRASE.test(texto) && !ops.some((o) => o.op === 'frase') && buscarRepo(cwd)) {
-    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia o saltar en una forma que la compuerta no puede leer: corrélo como ${cli()} <subcomando> "<frase>".`), critica: false };
+    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar o clasificacion en una forma que la compuerta no puede leer: corrélo como ${cli()} <subcomando> "<frase>".`), critica: false };
   }
   // `critica` se calcula para todas las operaciones antes de evaluar ninguna.
   const destinos = ops.map((op) => {

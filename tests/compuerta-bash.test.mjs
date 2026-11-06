@@ -13,6 +13,7 @@ import {
 } from '../plugin/scripts/lib/compuerta-bash.mjs';
 import { guardarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { cli } from '../plugin/scripts/lib/cli.mjs';
+import { arbolTesteado } from '../plugin/scripts/lib/arbol.mjs';
 import { crearRepoTemporal } from './helpers.mjs';
 
 const DIR_LIN = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'lineamientos');
@@ -894,4 +895,67 @@ test('$RQ armado con node adentro (RQ=\'node …/rq.mjs\'; $RQ aprobar …) se l
   const cmd = (f) => `RQ='node C:/x/rq.mjs'; $RQ aprobar 6 "${f}" --rq E-1 2>&1 | tail -2`;
   assert.equal(evaluar(cmd('OK PROD sedes'), raiz, ['OK PROD sedes']).decision, 'allow');
   assert.equal(evaluar(cmd('inventada'), raiz, ['OK PROD sedes']).decision, 'deny');
+});
+
+// ---------- M5 y M7: árbol testeado, ramas sólo-PR y frase de clasificacion ----------
+
+// Copia de los lineamientos de prueba con `ramas_solo_pr` declarada en el proyecto demo.
+function dirLinSoloPr(ramas) {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-solo-pr-'));
+  fs.cpSync(DIR_LIN, d, { recursive: true });
+  const yml = path.join(d, 'proyectos', 'demo', 'proyecto.yml');
+  fs.appendFileSync(yml, `ramas_solo_pr: [${ramas.join(', ')}]\n`);
+  return d;
+}
+
+test('commit en rama sólo-PR se niega; con saltar rama se permite', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  git(raiz, 'branch', '-M', '18.0-dev');
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
+  git(raiz, 'add', '.');
+  const dirLin = dirLinSoloPr(['18.0-dev']);
+  const ev = (textos = []) => evaluarBash({ comando: 'git commit -m x', cwd: raiz, ctx: { textosUsuario: textos }, dirLin });
+
+  activar(raiz, base({ tests: { ok: true, arbol: arbolEnStage(raiz) } }));
+  const r = ev();
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /sólo recibe cambios por PR/);
+  assert.match(r.motivo, /rq\/R-B1/);
+
+  const frase = 'Commiteá en la rama protegida, lo asumo';
+  activar(raiz, base({ tests: { ok: true, arbol: arbolEnStage(raiz) }, saltos: [{ compuerta: 'rama', frase, motivo: 'm', fecha: 'f' }] }));
+  assert.deepEqual(ev([frase]), { decision: 'allow', critica: false });
+
+  // En la rama del RQ el mismo commit pasa sin salto.
+  git(raiz, 'switch', '-q', '-c', 'rq/R-B1');
+  activar(raiz, base({ tests: { ok: true, arbol: arbolEnStage(raiz) } }));
+  assert.deepEqual(ev(), { decision: 'allow', critica: false });
+});
+
+test('commit con estado.yml en stage tras registrar-tests pasa', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
+  git(raiz, 'add', 'src/a.ts');
+  activar(raiz, base({ tests: { ok: true, arbol: arbolTesteado(raiz) } }));
+  // La CLI escribió estado.yml después de registrar y el commit lo lleva en stage.
+  git(raiz, 'add', 'docs/rq');
+  assert.ok(archivosEnStage(raiz).includes('docs/rq/R-B1/estado.yml'));
+  assert.notEqual(arbolEnStage(raiz), arbolTesteado(raiz));
+  assert.deepEqual(evaluar('git commit -m x', raiz), { decision: 'allow', critica: false });
+});
+
+test('clasificacion cambiar sin frase literal se niega; con la frase se permite', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const frase = 'Pasalo a arquitectónico';
+  const cmd = `node "$RQ" clasificacion cambiar arquitectonico "${frase}" --rq R-B1`;
+  const r = evaluar(cmd, raiz, ['otra cosa']);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /tiene que ser texto literal del usuario/);
+  assert.deepEqual(evaluar(cmd, raiz, [`Dale, ${frase}.`]), { decision: 'allow', critica: false });
+  // Forma sin `cambiar`: la frase va en la posición 3.
+  const cmd2 = `node "$RQ" clasificacion bounded "${frase}"`;
+  assert.equal(evaluar(cmd2, raiz, ['otra cosa']).decision, 'deny');
+  assert.equal(evaluar(cmd2, raiz, [frase]).decision, 'allow');
 });
