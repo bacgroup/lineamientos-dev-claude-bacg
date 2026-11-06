@@ -125,3 +125,15 @@ test('M2: RQ confirmado en el principal, abierto en el secundario: sale confirma
   assert.equal(e.clasificacion_pendiente, false);
   assert.equal(e.clasificacion_confirmada.frase, 'es arquitectónico');
 });
+
+test('ejecucion elegida en el principal: el secundario la hereda al abrir; registrarla después se replica', async () => {
+  const { dirLin, a, b } = montar();
+  await rq(a, dirLin, ['abrir', 'PF-E', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal((await rq(a, dirLin, ['ejecucion', 'subagentes', 'con subagentes'])).code, 0);
+  const r = await rq(b, dirLin, ['abrir', 'PF-E', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal(r.code, 0, r.err);
+  const e = cargarEstado(b, 'PF-E').ejecucion;
+  assert.deepEqual({ modo: e.modo, frase: e.frase }, { modo: 'subagentes', frase: 'con subagentes' });
+  assert.equal((await rq(b, dirLin, ['ejecucion', 'inline', 'mejor en línea'])).code, 0);
+  assert.equal(cargarEstado(a, 'PF-E').ejecucion.modo, 'inline');
+});

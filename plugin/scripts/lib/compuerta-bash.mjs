@@ -75,7 +75,7 @@ const MSG_PREVIO = (archivo) =>
   `git add && git commit en un comando sólo vale para docs y tests${archivo ? `, y ${archivo} no lo es` : ''}. Con código: ${cli()} commit "<mensaje>" <rutas>.`;
 const MSG_FRASE = (sub) =>
   `La frase de rq.mjs ${sub} tiene que ser texto literal del usuario (un "Dale" vale si fue el mensaje entero). Si el usuario no lo dijo, pedíselo.`;
-const SUBS_CON_FRASE = new Set(['aprobar', 'autonomia', 'saltar', 'clasificacion']);
+const SUBS_CON_FRASE = new Set(['aprobar', 'autonomia', 'saltar', 'clasificacion', 'ejecucion']);
 const MSG_TESTS = () => `Corré los tests sobre lo que está en stage: ${cli()} registrar-tests`;
 
 // ---------------------------------------------------------------------------
@@ -454,7 +454,7 @@ function analizarGit(args, dir, compartido, tocar, info) {
   return ops;
 }
 
-// `node <…rq.mjs|$RQ> aprobar|autonomia|saltar …`: la frase que se va a registrar ({ op: 'frase' }), o null.
+// `node <…rq.mjs|$RQ> aprobar|autonomia|saltar|clasificacion|ejecucion …`: la frase que se va a registrar ({ op: 'frase' }), o null.
 function fraseDeRq(args, dir) {
   const ws = [];
   for (let k = 0; k < args.length; k++) {
@@ -1180,16 +1180,16 @@ const resumirError = (e) => String(e?.message ?? e).replace(/\s+/g, ' ').trim().
  * Decide si un comando Bash (o PowerShell) puede correr.
  * ctx = { textosUsuario, real?, sedes? } (real y sedes, inyectables en los tests). Devuelve { decision, motivo?, critica }.
  */
-// Red de seguridad para las frases: si el texto nombra el CLI del RQ (rq.mjs o $RQ) junto a aprobar, autonomia o
-// saltar y el parser no armó la operación (node -e, un script que lo importa, variables), se niega.
+// Red de seguridad para las frases: si el texto nombra el CLI del RQ (rq.mjs o $RQ) junto a aprobar, autonomia,
+// saltar, clasificacion o ejecucion y el parser no armó la operación (node -e, un script que lo importa, variables), se niega.
 const RE_CLI_RQ = /rq\.mjs|\$\{?RQ\b/i;
-const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion)\b/i;
+const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion)\b/i;
 
 export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
   const ops = operacionesGit(comando, cwd);
   const texto = String(comando ?? '');
   if (RE_CLI_RQ.test(texto) && RE_SUB_FRASE.test(texto) && !ops.some((o) => o.op === 'frase') && buscarRepo(cwd)) {
-    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar o clasificacion en una forma que la compuerta no puede leer: corrélo como ${cli()} <subcomando> "<frase>".`), critica: false };
+    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar, clasificacion o ejecucion en una forma que la compuerta no puede leer: corrélo como ${cli()} <subcomando> "<frase>".`), critica: false };
   }
   // `critica` se calcula para todas las operaciones antes de evaluar ninguna.
   const destinos = ops.map((op) => {

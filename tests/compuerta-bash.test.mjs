@@ -1020,3 +1020,17 @@ test('Exploración: lo que agrega el mismo comando del commit también queda en 
   const r = evaluar('git add docs/rq/R-1/sonda/a.js && git commit -m x', raiz);
   assert.equal(r.decision, 'allow', r.motivo);
 });
+
+test('ejecucion sin frase literal se niega; con la frase se permite', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const frase = 'Con subagentes';
+  const cmd = `node "$RQ" ejecucion subagentes "${frase}" --rq R-B1`;
+  const r = evaluar(cmd, raiz, ['otra cosa']);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /tiene que ser texto literal del usuario/);
+  assert.deepEqual(evaluar(cmd, raiz, [`Dale, ${frase}.`]), { decision: 'allow', critica: false });
+  // Una forma que la compuerta no sabe leer también se niega.
+  const ilegible = evaluar('node -e "x" $RQ ejecucion inline', raiz, []);
+  assert.equal(ilegible.decision, 'deny');
+  assert.match(ilegible.motivo, /aprobar, autonomia, saltar, clasificacion o ejecucion/);
+});

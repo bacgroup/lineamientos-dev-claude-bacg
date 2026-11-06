@@ -31,12 +31,13 @@ async function correr(cwd, args, env = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DE
 const repoDemo = (archivos = {}) => crearRepoTemporal({ proyectoId: 'demo', archivos });
 const abrirR1 = (raiz) => correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
 
-// Etapa 2 v4 de un Acotado: brainstorming registrado y ## Tareas en spec.md.
+// Etapa 2 v4 de un Acotado: brainstorming registrado, ## Tareas en spec.md y la ejecución elegida por el usuario.
 function listoParaDesarrollo(raiz, codigo = 'R-1') {
   fs.mkdirSync(path.join(raiz, 'docs', 'rq', codigo), { recursive: true });
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', codigo, 'spec.md'), '# spec\n\n## Tareas\n\n- [ ] una\n');
   const e = cargarEstado(raiz, codigo);
   e.skills = [...(e.skills ?? []), { skill: 'superpowers:brainstorming', etapa: 1 }];
+  e.ejecucion = { modo: 'inline', frase: 'en línea', fecha: 'f' };
   guardarEstadoTest(raiz, e);
 }
 
@@ -940,4 +941,50 @@ test('M2: clasificacion valida acción, valor y frase', async () => {
   assert.equal((await correr(raiz, ['clasificacion', 'otra', 'x'])).code, 2);
   assert.equal((await correr(raiz, ['clasificacion', 'cambiar', 'enorme', 'frase'])).code, 1);
   assert.equal(cargarEstado(raiz, 'R-1').clasificacion_pendiente, true);
+});
+
+test('ejecucion: guarda modo, frase y fecha; acepta los nombres de las skills; valor o frase inválidos fallan', async () => {
+  const raiz = repoDemo();
+  await abrirR1(raiz);
+  let r = await correr(raiz, ['ejecucion', 'subagentes', 'con subagentes']);
+  assert.equal(r.code, 0, r.err);
+  let e = cargarEstado(raiz, 'R-1').ejecucion;
+  assert.deepEqual({ modo: e.modo, frase: e.frase }, { modo: 'subagentes', frase: 'con subagentes' });
+  assert.ok(e.fecha);
+  assert.equal((await correr(raiz, ['ejecucion', 'executing-plans', 'en línea'])).code, 0);
+  assert.equal(cargarEstado(raiz, 'R-1').ejecucion.modo, 'inline');
+  assert.equal((await correr(raiz, ['ejecucion', 'subagent-driven-development', 'subagentes dale'])).code, 0);
+  assert.equal(cargarEstado(raiz, 'R-1').ejecucion.modo, 'subagentes');
+  r = await correr(raiz, ['ejecucion', 'paralelo', 'frase']);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /Ejecución inválida: "paralelo"/);
+  assert.equal((await correr(raiz, ['ejecucion', 'inline', ''])).code, 1);
+  assert.equal((await correr(raiz, ['ejecucion', 'inline'])).code, 2);
+  assert.equal(cargarEstado(raiz, 'R-1').ejecucion.modo, 'subagentes', 'los intentos inválidos no pisan');
+});
+
+test('ejecucion: el primer commit de código en Acotado se niega sin ejecución; en Exploración no se pide', async () => {
+  const raiz = repoDemo({ 'src/a.ts': 'x' });
+  await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
+  const e = cargarEstado(raiz, 'R-1');
+  delete e.ejecucion;
+  guardarEstadoTest(raiz, e);
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'y');
+  execFileSync('git', ['add', 'src/a.ts'], { cwd: raiz });
+  let r = await correr(raiz, ['registrar-tests']);
+  assert.equal(r.code, 1);
+  assert.ok(r.err.includes('Antes del primer commit, preguntale al usuario cómo ejecutar el plan (executing-plans en línea o subagent-driven-development) y registralo: $RQ ejecucion inline|subagentes "<su frase>".'), r.err);
+  assert.equal((await correr(raiz, ['ejecucion', 'inline', 'en línea'])).code, 0);
+  assert.equal((await correr(raiz, ['registrar-tests'])).code, 0);
+
+  const sp = repoDemo({ 'src/a.ts': 'x' });
+  await correr(sp, ['abrir', 'S-1', '--tipo', 'rq', '--clasificacion', 'spike']);
+  const s1 = cargarEstado(sp, 'S-1');
+  s1.skills = [{ skill: 'superpowers:brainstorming', etapa: 1 }];
+  guardarEstadoTest(sp, s1);
+  fs.writeFileSync(path.join(sp, 'src', 'a.ts'), 'y');
+  execFileSync('git', ['add', 'src/a.ts'], { cwd: sp });
+  r = await correr(sp, ['registrar-tests']);
+  assert.doesNotMatch(r.err, /cómo ejecutar el plan/);
 });

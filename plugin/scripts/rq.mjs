@@ -38,6 +38,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
   clasificacion confirmar "<frase>"   (el usuario confirma la clasificación propuesta; hasta entonces no se edita código)
   clasificacion cambiar <exploracion|acotado|arquitectonico> "<frase>"   (cambia y confirma; la frase es texto literal del usuario)
+  ejecucion inline|subagentes "<frase>"   (cómo se ejecuta el plan, antes del primer commit de código; acepta executing-plans y subagent-driven-development)
   etapa <n>                          (0-6; opcional: estado deriva la etapa de la evidencia)
   aprobar <etapa> "<frase>"          (etapa 0-6: 1 diseño y plan, 4 DEV en arquitectónico, 5 PROD; la frase es texto literal del usuario)
   autonomia <hasta> "<frase>"        (hasta 1-4: cubre desarrollo (2) y DEV (4), nunca el diseño ni PROD)
@@ -335,10 +336,24 @@ function hayCambiosSinStage(raiz) {
   throw new ErrorCli(`git diff falló: ${String(r.stderr || r.error?.message).trim()}`);
 }
 
-/** Sin brainstorming (y, según el tipo, causa, tareas o plan): no se commitea código. */
-function exigirDesarrollo(estado, raiz) {
+const MODOS_EJECUCION = { inline: 'inline', 'executing-plans': 'inline', subagentes: 'subagentes', 'subagent-driven-development': 'subagentes' };
+
+const MSG_EJECUCION = 'Antes del primer commit, preguntale al usuario cómo ejecutar el plan (executing-plans en línea o subagent-driven-development) y registralo: $RQ ejecucion inline|subagentes "<su frase>".';
+
+/** ¿El RQ ya tiene algún commit propio con archivos de producto (no docs ni tests)? */
+function hayCommitDeCodigo(raiz, codigo, estado, proyecto) {
+  return commitsDelRq(raiz, codigo, estado).some((h) =>
+    (salida(raiz, ['diff-tree', '--no-commit-id', '--name-only', '--no-renames', '-r', h]) ?? '').split('\n').some((r) => r && tipoArchivo(r, proyecto) !== 'libre'));
+}
+
+/**
+ * Sin brainstorming (y, según el tipo, causa, tareas o plan): no se commitea código. Y antes del primer commit de
+ * código (salvo Exploración, que va en línea) el usuario eligió cómo se ejecuta el plan.
+ */
+function exigirDesarrollo(estado, raiz, proyecto) {
   const falta = faltaParaEtapa(estado, ETAPA.DESARROLLO, raiz);
   if (falta.length) throw new ErrorCli(`Antes de commitear código del ${estado.codigo} falta: ${falta.join('; ')}. Si el usuario decide saltearlo: $RQ saltar skills "<frase>" "<motivo>".`);
+  if (estado.clasificacion !== 'spike' && !estado.ejecucion && !hayCommitDeCodigo(raiz, estado.codigo, estado, proyecto)) throw new ErrorCli(MSG_EJECUCION);
 }
 
 /**
@@ -392,7 +407,7 @@ function registrarTests(repo, elegido, env, io) {
   if (hayCambiosSinStage(raiz)) {
     throw new ErrorCli('Hay cambios sin stagear en archivos trackeados: usá $RQ commit "<mensaje>" <rutas> (los deja aparte mientras corren los tests) o hacé git add antes.');
   }
-  if (enStageDeProducto(raiz, proyecto).length) exigirDesarrollo(estado, raiz);
+  if (enStageDeProducto(raiz, proyecto).length) exigirDesarrollo(estado, raiz, proyecto);
   const r = correrTests(raiz, estado, proyecto, io);
   guardar(raiz, estado);
   return r;
@@ -432,7 +447,7 @@ function commit(repo, elegido, args, env, io) {
   if (fueraDeSonda(estado, todoEnStage(raiz))) throw new ErrorCli(MSG_EXPLORACION_FUERA(codigo));
   if (producto.length && saltoValido(estado, 'commit')) tests = 'tests salteados (saltar commit)';
   else if (producto.length) {
-    exigirDesarrollo(estado, raiz);
+    exigirDesarrollo(estado, raiz, proyecto);
     const aparte = hayCambiosSinStage(raiz);
     if (aparte) {
       const st = spawnSync('git', ['stash', 'push', '-q', '--keep-index', '-m', `rq.mjs commit ${codigo}`], { cwd: raiz, encoding: 'utf8' });
@@ -1142,10 +1157,10 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
-    const aridad = { etapa: 1, aprobar: 2, autonomia: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0 };
+    const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0 };
     if (sub === 'paso' && (args[0] === 'no-aplica' || args[0] === 'hecho')) uso(n === 3);
     else if (sub === 'paso' && args[0] === 'reabrir') uso(n === 2);
     else if (sub === 'desplegar' || sub === 'previa') uso(n <= 1);
@@ -1235,6 +1250,13 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
           s.clasificacion_confirmada = { frase, fecha: ahora() };
           return `Clasificación ${nombreDe(s.clasificacion)} confirmada.`;
         });
+        break;
+      }
+      case 'ejecucion': {
+        const modo = MODOS_EJECUCION[String(args[0]).trim().toLowerCase()];
+        if (!modo) throw new ErrorCli(`Ejecución inválida: "${args[0]}" (inline | subagentes; también executing-plans o subagent-driven-development).`);
+        const frase = textoNoVacio(args[1], 'La frase');
+        cambiarVinculado(repo, env, elegido, io, (s) => { s.ejecucion = { modo, frase, fecha: ahora() }; return `Ejecución ${modo} registrada.`; });
         break;
       }
       case 'saltar': {

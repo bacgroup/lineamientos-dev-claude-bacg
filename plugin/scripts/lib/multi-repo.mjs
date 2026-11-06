@@ -95,6 +95,7 @@ export function heredar(raiz, proyectoId, proyecto, estado) {
     if (o.clasificacion_confirmada) estado.clasificacion_confirmada = o.clasificacion_confirmada;
   }
   if (!estado.autonomia && o.autonomia) estado.autonomia = o.autonomia;
+  if (!estado.ejecucion && o.ejecucion) estado.ejecucion = o.ejecucion;
   if (!estado.tarea && o.tarea) estado.tarea = o.tarea;
   estado.vinculado = [...new Set([...lista(estado.vinculado), path.basename(origen.raiz)])];
   return path.basename(origen.raiz);
