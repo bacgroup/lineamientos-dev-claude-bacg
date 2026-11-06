@@ -44,6 +44,43 @@ function causaEnSpec(raiz, codigo) {
   }
 }
 
+// `## Tareas` en spec.md con al menos un ítem de lista (viñeta o numerado).
+const RE_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+\S/;
+
+export function tareasEnSpec(raiz, codigo) {
+  try {
+    const lineas = fs.readFileSync(path.join(raiz, 'docs', 'rq', codigo, 'spec.md'), 'utf8').split(/\r?\n/);
+    const i = lineas.findIndex((l) => /^\s*#{1,6}\s*tareas\b/i.test(l));
+    if (i === -1) return false;
+    for (const l of lineas.slice(i + 1)) {
+      if (/^\s*#{1,6}\s/.test(l)) return false;
+      if (RE_ITEM.test(l)) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** ¿Existe docs/rq/<código>/plan.md? */
+function planEnDisco(raiz, codigo) {
+  try {
+    return fs.statSync(path.join(raiz, 'docs', 'rq', codigo, 'plan.md')).isFile();
+  } catch {
+    return false;
+  }
+}
+
+export const MSG_EXPLORACION_FUERA = (codigo) =>
+  `Exploración: el código de la sonda va a docs/rq/${codigo}/sonda/; construirlo es un RQ nuevo.`;
+
+/** Exploración (spike): la primera ruta relativa a la raíz que queda fuera de docs/rq/<código>/, o null. */
+export function fueraDeSonda(estado, rels) {
+  if (estado?.clasificacion !== 'spike') return null;
+  const pref = `docs/rq/${estado.codigo}/`;
+  return lista(rels).find((r) => r === null || !String(r).replace(/\\/g, '/').startsWith(pref)) ?? null;
+}
+
 /** proyecto.yml del repo de `raiz`, o null (sin repo registrado o ilegible). */
 function proyectoDeRaiz(raiz) {
   if (!raiz) return null;
@@ -96,13 +133,15 @@ export function exigenciasDelProyecto(estado, proyecto, rutasRq) {
   return out;
 }
 
-/** Exigencias por etapa según el tipo: [{ etapa, skill? , causa?, revision? }]. */
+/** Exigencias por etapa según el tipo: [{ etapa, skill?, causa?, tareas?, plan?, revision? }]. */
 export function exigencias(estado) {
   const bug = esBug(estado);
   const l = [];
   const { DESARROLLO, VERIFICACION, PROD } = ETAPA;
+  l.push({ etapa: DESARROLLO, skill: 'superpowers:brainstorming' });
   if (bug) l.push({ etapa: DESARROLLO, skill: 'superpowers:systematic-debugging' }, { etapa: DESARROLLO, causa: true });
-  else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: DESARROLLO, skill: 'superpowers:writing-plans' });
+  else if (estado?.clasificacion === 'bounded') l.push({ etapa: DESARROLLO, tareas: true });
+  else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: DESARROLLO, skill: 'superpowers:writing-plans' }, { etapa: DESARROLLO, plan: true });
   l.push({ etapa: VERIFICACION, skill: 'superpowers:test-driven-development' });
   if (!bug) l.push({ etapa: PROD, skill: 'superpowers:verification-before-completion' });
   l.push({ etapa: PROD, revision: true });
@@ -122,6 +161,8 @@ export function faltaParaEtapa(estado, etapa, raiz, proyecto = undefined) {
     if (x.etapa > etapa) continue;
     if (x.skill && !sinSkills && !tieneSkill(estado, x.skill)) out.push(x.skill);
     if (x.causa && !causaEnSpec(raiz, estado.codigo)) out.push(`la causa raíz en docs/rq/${estado.codigo}/spec.md (## Causa)`);
+    if (x.tareas && !tareasEnSpec(raiz, estado.codigo)) out.push(`las tareas en docs/rq/${estado.codigo}/spec.md (## Tareas)`);
+    if (x.plan && !planEnDisco(raiz, estado.codigo)) out.push(`el plan en docs/rq/${estado.codigo}/plan.md`);
     if (x.revision && estado?.revision?.ok !== true) out.push('la revisión ($RQ revision ok)');
   }
   if (etapa >= ETAPA.VERIFICACION && !verificacionLocalOk(estado) && tocaUi(estado, raiz, py, rutasRq())) {

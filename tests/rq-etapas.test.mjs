@@ -39,6 +39,11 @@ test('commit: add, tests, registro y commit en un paso; los cambios sin stagear 
   const env = lin(`tests:\n  unit: ${JSON.stringify(UNIT)}\n`);
   const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'src/a.ts': 'ok\n', 'src/b.ts': 'b\n' } });
   assert.equal((await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], env)).code, 0);
+  // Etapa 2 v4: brainstorming y ## Tareas en spec.md (Acotado).
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'spec.md'), '# R-1\n\n## Tareas\n\n- [ ] algo\n');
+  const e1 = cargarEstado(raiz, 'R-1');
+  e1.skills = [{ skill: 'superpowers:brainstorming', etapa: 1 }];
+  guardarEstado(raiz, e1);
   fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'ok\n// cambio\n');
   fs.writeFileSync(path.join(raiz, 'src', 'b.ts'), 'b sin stagear\n');
   let r = await correr(raiz, ['commit', 'feat: algo', 'src/a.ts'], env);
@@ -68,9 +73,9 @@ test('commit: sólo docs no corre tests; BUG sin systematic-debugging no commite
   fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'ok ');
   r = await correr(raiz, ['commit', 'fix: arreglo', 'src/a.ts'], env);
   assert.equal(r.code, 1);
-  assert.match(r.err, /falta: superpowers:systematic-debugging/);
+  assert.match(r.err, /falta: superpowers:brainstorming; superpowers:systematic-debugging/);
   const e = cargarEstado(raiz, 'B-1');
-  e.skills = [{ skill: 'superpowers:systematic-debugging', etapa: 1 }];
+  e.skills = [{ skill: 'superpowers:brainstorming', etapa: 1 }, { skill: 'superpowers:systematic-debugging', etapa: 1 }];
   guardarEstado(raiz, e);
   r = await correr(raiz, ['commit', 'fix: arreglo', 'src/a.ts'], env);
   assert.equal(r.code, 0, r.out + r.err);
@@ -99,13 +104,17 @@ test('etapa derivada de la evidencia y skills exigidas por tipo', () => {
   assert.equal(etapaDerivada({ ...e, tests: { ok: true }, revision: { ok: true }, e2e: { ok: true } }, raiz), 4);
   assert.equal(etapaDerivada({ ...e, circuito: [{ paso: 'push:x' }] }, raiz), 5);
   assert.equal(etapaDerivada({ ...e, etapa: 6 }, raiz), 6);
-  assert.deepEqual(faltaParaEtapa(e, 2, raiz), []);
-  assert.deepEqual(faltaParaEtapa({ ...e, clasificacion: 'arquitectonico' }, 2, raiz), ['superpowers:writing-plans']);
-  assert.deepEqual(faltaParaEtapa({ ...e, skills: ['test-driven-development'] }, 5, raiz), [
+  assert.deepEqual(faltaParaEtapa(e, 2, raiz), ['superpowers:brainstorming', 'las tareas en docs/rq/R-3/spec.md (## Tareas)']);
+  assert.deepEqual(faltaParaEtapa({ ...e, clasificacion: 'arquitectonico' }, 2, raiz), [
+    'superpowers:brainstorming', 'superpowers:writing-plans', 'el plan en docs/rq/R-3/plan.md',
+  ]);
+  const conTareas = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'docs/rq/R-3/spec.md': '# R-3\n\n## Tareas\n\n1. una\n' } });
+  assert.deepEqual(faltaParaEtapa({ ...e, skills: ['brainstorming'] }, 2, conTareas), []);
+  assert.deepEqual(faltaParaEtapa({ ...e, skills: ['brainstorming', 'test-driven-development'] }, 5, conTareas), [
     'superpowers:verification-before-completion',
     'la revisión ($RQ revision ok)',
   ]);
-  const bug = { codigo: 'R-3', tipo: 'bug', skills: ['superpowers:systematic-debugging'] };
+  const bug = { codigo: 'R-3', tipo: 'bug', skills: ['superpowers:brainstorming', 'superpowers:systematic-debugging'] };
   assert.deepEqual(faltaParaEtapa(bug, 2, raiz), ['la causa raíz en docs/rq/R-3/spec.md (## Causa)']);
   const p = { sensible: { rutas: ['src/lib/billing*'] } };
   assert.equal(sensibleSinRevisar({}, ['src/lib/billing.ts'], p), 'src/lib/billing.ts');
@@ -230,7 +239,7 @@ test('estado: autonomía por defecto hasta la 4 y lo que falta para la próxima 
   assert.match(r.out, /^Autonomía: hasta etapa 4 \(por defecto\)$/m);
   await correr(raiz, ['abrir', 'R-11', '--tipo', 'rq', '--clasificacion', 'arquitectonico'], env);
   r = await correr(raiz, ['estado', '--rq', 'R-11'], env);
-  assert.match(r.out, /^Falta para la etapa 2: superpowers:writing-plans$/m);
+  assert.match(r.out, /^Falta para la etapa 2: superpowers:brainstorming; superpowers:writing-plans; el plan en docs\/rq\/R-11\/plan\.md$/m);
   assert.match(r.out, /^Autonomía: ninguna$/m);
 });
 

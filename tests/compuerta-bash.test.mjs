@@ -30,6 +30,13 @@ function git(cwd, ...args) {
 function activar(raiz, estado) {
   if (estado) guardarEstado(raiz, estado);
   fs.mkdirSync(path.join(raiz, 'docs', 'rq'), { recursive: true });
+  // Etapa 2 v4: un Acotado necesita ## Tareas en spec.md y un Arquitectónico, plan.md (los fixtures los registran).
+  const cod = estado?.codigo ?? 'R-B1';
+  const dirRq = path.join(raiz, 'docs', 'rq', cod);
+  if (estado?.clasificacion === 'bounded' && !fs.existsSync(path.join(dirRq, 'spec.md'))) {
+    fs.mkdirSync(dirRq, { recursive: true });
+    fs.writeFileSync(path.join(dirRq, 'spec.md'), '# spec\n\n## Tareas\n\n- [ ] una\n');
+  }
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), `${estado?.codigo ?? 'R-B1'}\n`);
 }
 
@@ -37,7 +44,7 @@ const base = (extra = {}) => ({
   codigo: 'R-B1', tipo: 'rq', clasificacion: 'bounded', etapa: 5,
   autonomia: null, aprobaciones: [], saltos: [], circuito: [], ...extra,
 });
-const SKILLS_PROD = ['superpowers:test-driven-development', { skill: 'superpowers:verification-before-completion', etapa: 3 }];
+const SKILLS_PROD = ['superpowers:brainstorming', 'superpowers:test-driven-development', { skill: 'superpowers:verification-before-completion', etapa: 3 }];
 const verde = { tests: { ok: true, arbol: 'x' }, revision: { ok: true }, skills: SKILLS_PROD };
 const okProd = { etapa: 5, frase: FRASE_PROD, fecha: '2026-10-23T12:00:00Z' };
 const paso = (p) => ({ paso: p, fecha: '2026-10-23T12:00:00Z' });
@@ -882,7 +889,7 @@ test('PROD exige las skills de proceso del tipo (o saltar skills) y el E2E compl
   activar(raiz, base({ ...listo, skills: [] }));
   let r = evaluar('git push', raiz, [FRASE_PROD]);
   assert.equal(r.decision, 'deny');
-  assert.match(r.motivo, /^PROD del RQ R-B1: falta superpowers:test-driven-development; superpowers:verification-before-completion/);
+  assert.match(r.motivo, /^PROD del RQ R-B1: falta superpowers:brainstorming; superpowers:test-driven-development; superpowers:verification-before-completion/);
   activar(raiz, base({ ...listo, skills: [], saltos: [{ compuerta: 'skills', frase: 'salteá las skills', motivo: 'urgente' }] }));
   assert.equal(evaluar('git push', raiz, [FRASE_PROD]).decision, 'allow');
   activar(raiz, base({ ...listo, e2e: { ok: true, completo: false } }));
@@ -940,7 +947,7 @@ test('commit con estado.yml en stage tras registrar-tests pasa', () => {
   git(raiz, 'add', 'src/a.ts');
   activar(raiz, base({ tests: { ok: true, arbol: arbolTesteado(raiz) } }));
   // La CLI escribió estado.yml después de registrar y el commit lo lleva en stage.
-  git(raiz, 'add', 'docs/rq');
+  git(raiz, 'add', 'docs/rq/R-B1/estado.yml', 'docs/rq/ACTIVO');
   assert.ok(archivosEnStage(raiz).includes('docs/rq/R-B1/estado.yml'));
   assert.notEqual(arbolEnStage(raiz), arbolTesteado(raiz));
   assert.deepEqual(evaluar('git commit -m x', raiz), { decision: 'allow', critica: false });
@@ -958,4 +965,23 @@ test('clasificacion cambiar sin frase literal se niega; con la frase se permite'
   const cmd2 = `node "$RQ" clasificacion bounded "${frase}"`;
   assert.equal(evaluar(cmd2, raiz, ['otra cosa']).decision, 'deny');
   assert.equal(evaluar(cmd2, raiz, [frase]).decision, 'allow');
+});
+
+test('Exploración: el commit de código fuera de docs/rq/<código>/ se niega; la sonda se permite', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const msg = 'Exploración: el código de la sonda va a docs/rq/R-1/sonda/; construirlo es un RQ nuevo.';
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.js'), 'x');
+  git(raiz, 'add', '.');
+  activar(raiz, base({ codigo: 'R-1', clasificacion: 'spike', tests: { ok: true, arbol: arbolEnStage(raiz) } }));
+  const r = evaluar('git commit -m x', raiz);
+  assert.equal(r.decision, 'deny');
+  assert.equal(r.motivo, msg);
+
+  git(raiz, 'reset', '-q');
+  fs.rmSync(path.join(raiz, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda', 'a.js'), 'x');
+  git(raiz, 'add', 'docs/rq/R-1/sonda/a.js');
+  assert.equal(evaluar('git commit -m x', raiz).decision, 'allow');
 });

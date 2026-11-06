@@ -38,7 +38,7 @@ import { cli, comandosTests, comandoE2e, PISTA_SIN_TESTS } from './cli.mjs';
 import { norm } from './contexto.mjs';
 import { rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad, migracionesEnSync } from './circuito.mjs';
-import { faltaParaEtapa } from './requisitos.mjs';
+import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA } from './requisitos.mjs';
 import { ETAPA } from './etapas.mjs';
 import { ramasProd, ramasSoloPr } from './stack.mjs';
 import { testsValenParaStage } from './arbol.mjs';
@@ -923,6 +923,11 @@ function evaluarCommit(op, ctx, dirLin) {
   if (protegida && !r.rqs.some(({ estado }) => saltoValido(estado, 'rama'))) {
     const codigo = r.rqs[0]?.codigo ?? '<código>';
     return deny(`${protegida} sólo recibe cambios por PR: el código del RQ va en su rama. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}; los cambios en stage viajan con el switch) y commiteá ahí.`);
+  }
+  // Exploración: el código de la sonda va a docs/rq/<código>/; nada de producto fuera de ahí.
+  const noLibres = rels.filter((rel) => rel === null || tipoArchivo(rel, proyecto) !== 'libre');
+  for (const { estado } of r.rqs) {
+    if (fueraDeSonda(estado, noLibres) !== null) return deny(MSG_EXPLORACION_FUERA(estado.codigo));
   }
   for (const { estado } of r.rqs) {
     if (saltoValido(estado, 'commit')) return null;

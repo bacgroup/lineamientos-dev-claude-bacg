@@ -31,6 +31,15 @@ async function correr(cwd, args, env = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DE
 const repoDemo = (archivos = {}) => crearRepoTemporal({ proyectoId: 'demo', archivos });
 const abrirR1 = (raiz) => correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
 
+// Etapa 2 v4 de un Acotado: brainstorming registrado y ## Tareas en spec.md.
+function listoParaDesarrollo(raiz, codigo = 'R-1') {
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', codigo), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', codigo, 'spec.md'), '# spec\n\n## Tareas\n\n- [ ] una\n');
+  const e = cargarEstado(raiz, codigo);
+  e.skills = [...(e.skills ?? []), { skill: 'superpowers:brainstorming', etapa: 1 }];
+  guardarEstadoTest(raiz, e);
+}
+
 // Lineamientos temporal con un proyecto cuyos tests son los comandos dados.
 function lineamientosCon(tests) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-'));
@@ -167,6 +176,7 @@ test('saltar: compuerta válida con frase y motivo', async () => {
 test('revision ok|bloqueante guarda ok true/false con nota', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
   let r = await correr(raiz, ['revision', 'ok', 'sin bloqueantes']);
   assert.equal(r.code, 1, 'sin test-driven-development no hay revisión ok');
   assert.match(r.err, /falta: superpowers:test-driven-development/);
@@ -335,6 +345,7 @@ test('el script por línea de comandos funciona (child_process)', () => {
 test('registrar-tests: cambios sin stagear en archivos trackeados → exit 1 y tests sin tocar', async () => {
   const raiz = repoDemo({ 'a.txt': 'uno\n' });
   await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
   fs.writeFileSync(path.join(raiz, 'a.txt'), 'dos\n');
   const r = await correr(raiz, ['registrar-tests']);
   assert.equal(r.code, 1);
@@ -465,6 +476,7 @@ test('registrar-tests: {archivos} recibe lo que está en stage de producto; sin 
   const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_ALTA: '1' };
   const raiz = repoDemo();
   await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
   fs.writeFileSync(path.join(raiz, 'notas.md'), 'x');
   execFileSync('git', ['add', 'notas.md'], { cwd: raiz });
   let r = await correr(raiz, ['registrar-tests'], env);

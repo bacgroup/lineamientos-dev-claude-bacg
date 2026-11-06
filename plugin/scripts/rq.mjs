@@ -9,7 +9,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
 import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, cola, conSpecs, shellDeTests } from './lib/cli.mjs';
-import { faltaParaEtapa, sensibleSinRevisar, skillsDe, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
+import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, rutaBacklog, leerBacklog } from './lib/backlog.mjs';
@@ -324,7 +324,7 @@ function hayCambiosSinStage(raiz) {
   throw new ErrorCli(`git diff falló: ${String(r.stderr || r.error?.message).trim()}`);
 }
 
-/** BUG sin causa o sin systematic-debugging (y RQ arquitectónico sin writing-plans): no se commitea código. */
+/** Sin brainstorming (y, según el tipo, causa, tareas o plan): no se commitea código. */
 function exigirDesarrollo(estado, raiz) {
   const falta = faltaParaEtapa(estado, ETAPA.DESARROLLO, raiz);
   if (falta.length) throw new ErrorCli(`Antes de commitear código del ${estado.codigo} falta: ${falta.join('; ')}. Si el usuario decide saltearlo: $RQ saltar skills "<frase>" "<motivo>".`);
@@ -418,6 +418,7 @@ function commit(repo, elegido, args, env, io) {
   rebasarSiNoEmpezo(raiz, codigo, estado);
   const producto = enStageDeProducto(raiz, proyecto);
   let tests = 'sólo docs y tests: sin correr tests';
+  if (fueraDeSonda(estado, producto)) throw new ErrorCli(MSG_EXPLORACION_FUERA(codigo));
   if (producto.length && saltoValido(estado, 'commit')) tests = 'tests salteados (saltar commit)';
   else if (producto.length) {
     exigirDesarrollo(estado, raiz);
