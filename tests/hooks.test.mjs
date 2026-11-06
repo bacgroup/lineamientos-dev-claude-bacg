@@ -646,3 +646,21 @@ test('session-start incluye el texto de arranque (inicio y reanudación)', () =>
   assert.match(ctx, /Dónde nos quedamos/);
   assert.match(ctx, /RQ activo: R-T1/); // lo anterior sigue
 });
+
+test('session-start en carpeta padre con dos repos, uno con RQ activo → arranque de ambos y reanudación', () => {
+  const padre = tmp('padre como-');
+  const uno = path.join(padre, 'repo-uno');
+  const dos = path.join(padre, 'repo-dos');
+  for (const d of [uno, dos]) {
+    fs.mkdirSync(d);
+    spawnSync('git', ['init', '-q'], { cwd: d });
+    fs.writeFileSync(path.join(d, '.bacg-lineamientos'), 'proyecto: demo\n');
+  }
+  abrirRq(dos);
+  const ctx = sessionStart(padre).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /repos registrados debajo/);
+  assert.match(ctx, /preguntale al usuario en qué proyecto/);
+  assert.match(ctx, /- repo-uno: /);
+  assert.match(ctx, /- repo-dos: /);
+  assert.match(ctx, /Dónde nos quedamos: RQ R-T1/);
+});

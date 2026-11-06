@@ -45,7 +45,7 @@ export function reposDebajo(dir, niveles = 2, dirLin = dirLineamientos()) {
 }
 
 function git(dir, args) {
-  const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
+  const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', timeout: 5000 });
   return { ok: r.status === 0, out: String(r.stdout ?? '').trim() };
 }
 
@@ -68,7 +68,7 @@ export function estadoRepo(dir) {
   if (!clonado) return { nombre: path.basename(String(dir ?? '')), rama: null, adelante: 0, atras: 0, sinCommitear: 0, clonado: false };
   const cuenta = git(dir, ['rev-list', '--left-right', '--count', 'HEAD...@{u}']);
   const [adelante, atras] = cuenta.ok ? cuenta.out.split(/\s+/).map(Number) : [0, 0];
-  const estado = git(dir, ['status', '--porcelain']);
+  const estado = git(dir, ['--no-optional-locks', 'status', '--porcelain']);
   return {
     nombre: nombreRepo(dir),
     rama: ramaActual(dir),
@@ -125,7 +125,18 @@ function textoPadre(raiz, dirLin) {
   const repos = reposDebajo(raiz, 2, dirLin);
   const lineas = ['# Arranque: carpeta con varios repos', 'Repos registrados debajo de esta carpeta:'];
   if (repos.length === 0) lineas.push('(ninguno)');
-  for (const d of repos) lineas.push(lineaRepo(estadoRepo(d), path.relative(raiz, d)));
+  for (const d of repos) {
+    lineas.push(lineaRepo(estadoRepo(d), path.relative(raiz, d)));
+    try {
+      const m = modoArranque(d);
+      if (m.modo !== 'reanudacion') continue;
+      const estado = cargarEstado(d, m.codigo);
+      const etapa = etapaDerivada(estado, d);
+      lineas.push(`  Dónde nos quedamos: RQ ${m.codigo} (${estado.tipo ?? '?'}), ${nombreDe(estado.clasificacion)}, etapa ${etapa}: ${NOMBRE_ETAPA[etapa] ?? '?'}.`);
+    } catch {
+      // estado ilegible: sin detalle del RQ
+    }
+  }
   return lineas.join('\n');
 }
 

@@ -162,6 +162,11 @@ export async function handler(
       'Esta carpeta no es un repo de un proyecto: el plugin no sabe en cuál vas a trabajar. Antes de cualquier RQ, preguntale al usuario en qué proyecto y repo de la lista (o si es otro proyecto) y trabajá desde la raíz de ese repo; lo ideal es abrir la sesión ahí.',
       `CLI del RQ: node "${rutaCli(pluginRoot)}" (corrélo desde la raíz del repo; es el $RQ de la skill ciclo-rq).`,
     ];
+    try {
+      lineas.push(textoArranque({ raiz: cwd, proyecto: null, dirLin }));
+    } catch {
+      // el arranque sólo orienta: si falla, queda la lista de repos
+    }
     return contexto('SessionStart', lineas.join('\n\n'));
   }
 
