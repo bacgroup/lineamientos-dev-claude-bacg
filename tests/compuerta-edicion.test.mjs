@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { evaluarEdicion } from '../plugin/scripts/lib/compuerta-edicion.mjs';
-import { guardarEstado } from '../plugin/scripts/lib/estado.mjs';
+import { guardarEstado, cargarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { cli } from '../plugin/scripts/lib/cli.mjs';
 import { crearRepoTemporal } from './helpers.mjs';
 
@@ -16,9 +16,11 @@ const base = (extra = {}) => ({
 const ap = (etapa, frase) => ({ etapa, frase, fecha: '2026-10-23T12:00:00Z' });
 const SKILLS = new Set(['design-taste-frontend', 'frontend-design:frontend-design']);
 
-function repoConRq(estado, { activo = 'R-T1' } = {}) {
+// Con estado, también docs/rq/<código>/spec.md (la etapa 1 lo exige); `spec: false` lo omite.
+function repoConRq(estado, { activo = 'R-T1', spec = true } = {}) {
   const raiz = crearRepoTemporal({});
   if (estado) guardarEstado(raiz, estado);
+  if (estado && spec) fs.writeFileSync(path.join(raiz, 'docs', 'rq', estado.codigo, 'spec.md'), '# x\n');
   if (activo) {
     fs.mkdirSync(path.join(raiz, 'docs', 'rq'), { recursive: true });
     fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), `${activo}\n`);
@@ -104,6 +106,18 @@ test('diseño aprobado -> allow, en cualquier sesión (la frase se validó al re
   assert.deepEqual(evaluar(raiz, 'src/lib/a.ts'), { decision: 'allow' });
 });
 
+test('aprobar 1 sin docs/rq/<código>/spec.md -> deny con el mensaje del diseño', () => {
+  for (const clasificacion of ['arquitectonico', 'bounded']) {
+    const raiz = repoConRq(base({ clasificacion, aprobaciones: [ap(1, FRASE)] }), { spec: false });
+    const r = evaluar(raiz, 'src/lib/a.ts');
+    assert.equal(r.decision, 'deny', clasificacion);
+    assert.equal(
+      r.motivo,
+      `Falta el diseño aprobado del RQ R-T1: docs/rq/R-T1/spec.md y la aprobación del usuario con ${cli()} aprobar 1 "<su frase>" (etapa 1, en toda clasificación).`,
+    );
+  }
+});
+
 test('bounded y spike: spec.md y autonomía no alcanzan, hace falta aprobar 1', () => {
   for (const clasificacion of ['bounded', 'spike']) {
     const raiz = repoConRq(base({ clasificacion }));
@@ -124,18 +138,27 @@ test('arquitectónico con autonomía registrada hasta la 4 y sin aprobar 1 -> de
   assert.equal(evaluar(raiz, 'src/lib/a.ts').decision, 'deny');
 });
 
-test('RQ abierto con 3.x: el plan aprobado (aprobar 2) vale como diseño; bounded con sólo spec.md, no', () => {
-  const v3 = (yml) => {
+test('RQ abierto con 3.x: el plan aprobado (aprobar 2) vale como diseño; bounded y spike conservan el diseño por spec.md', () => {
+  const v3 = (yml, { spec = true } = {}) => {
     const raiz = repoConRq(null);
     fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-T1'), { recursive: true });
-    fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'spec.md'), 'x');
+    if (spec) fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'spec.md'), 'x');
     fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'estado.yml'), `codigo: R-T1\ntipo: rq\n${yml}`);
     return raiz;
   };
   const plan = v3('clasificacion: arquitectonico\netapa: 3\naprobaciones:\n  - { etapa: 2, frase: Plan ok, fecha: f }\n');
   assert.deepEqual(evaluar(plan, 'src/lib/a.ts'), { decision: 'allow' });
-  const acotado = v3('clasificacion: bounded\netapa: 3\naprobaciones: []\n');
-  assert.equal(evaluar(acotado, 'src/lib/a.ts').decision, 'deny');
+  assert.equal(evaluar(v3('clasificacion: arquitectonico\netapa: 3\naprobaciones: []\n'), 'src/lib/a.ts').decision, 'deny');
+  for (const clasificacion of ['bounded', 'spike']) {
+    const yml = `clasificacion: ${clasificacion}\netapa: 3\naprobaciones: []\n`;
+    const acotado = v3(yml);
+    assert.deepEqual(evaluar(acotado, 'src/lib/a.ts'), { decision: 'allow' }, `${clasificacion} recién convertido`);
+    // Guardado y vuelto a leer (ya v4, sin _v3): sigue con su diseño.
+    guardarEstado(acotado, cargarEstado(acotado, 'R-T1'));
+    assert.equal(cargarEstado(acotado, 'R-T1')._v3, undefined);
+    assert.deepEqual(evaluar(acotado, 'src/lib/a.ts'), { decision: 'allow' }, `${clasificacion} tras guardar`);
+    assert.equal(evaluar(v3(yml, { spec: false }), 'src/lib/a.ts').decision, 'deny', `${clasificacion} sin spec.md`);
+  }
 });
 
 test('salto de la compuerta edicion -> allow', () => {
@@ -146,7 +169,7 @@ test('salto de la compuerta edicion -> allow', () => {
 test('varios RQ activos: alcanza con que uno permita la edición', () => {
   const raiz = repoConRq(base(), { activo: null });
   guardarEstado(raiz, base({ codigo: 'R-T2', aprobaciones: [ap(1, FRASE)] }));
-  fs.mkdirSync(path.join(raiz, 'docs', 'rq'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T2', 'spec.md'), '# x\n');
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-T2\nR-T1\n');
   assert.deepEqual(evaluar(raiz, 'src/lib/a.ts'), { decision: 'allow' });
 });

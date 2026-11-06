@@ -233,3 +233,17 @@ test('estado: autonomía por defecto hasta la 4 y lo que falta para la próxima 
   assert.match(r.out, /^Falta para la etapa 2: superpowers:writing-plans$/m);
   assert.match(r.out, /^Autonomía: ninguna$/m);
 });
+
+test('etapa 6 sobre un RQ abierto con 3.x se registra como 5 con aviso; sobre uno v4 es el cierre', async () => {
+  const env = lin('');
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'R-12', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  comoV3(raiz, 'R-12');
+  let r = await correr(raiz, ['etapa', '6'], env);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(r.out, 'Etapa 6 de la numeración vieja: registrada como 5 (PROD y entrega).\nEtapa 5.\n');
+  assert.equal(cargarEstado(raiz, 'R-12').etapa, 5);
+  r = await correr(raiz, ['etapa', '6'], env);
+  assert.equal(r.out, 'Etapa 6.\n');
+  assert.equal(cargarEstado(raiz, 'R-12').etapa, 6);
+});

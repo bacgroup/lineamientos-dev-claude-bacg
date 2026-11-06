@@ -87,7 +87,7 @@ function etapaValida(s, nombre = 'etapa') {
   return n;
 }
 
-// En 3.x el OK de PROD era la etapa 6 (hoy Cierre): `aprobar 6` sobre un RQ abierto con 3.x (cargado con `_v3`) se
+// En 3.x el OK de PROD era la etapa 6 (hoy Cierre): `aprobar 6` y `etapa 6` sobre un RQ abierto con 3.x (cargado con `_v3`) se
 // registra como 5, con aviso. Una vez guardado en v4, 6 es el cierre.
 const AVISO_PROD_V3 = `Etapa 6 de la numeración vieja: registrada como ${ETAPA.PROD} (${NOMBRE_ETAPA[ETAPA.PROD]}).`;
 
@@ -1158,8 +1158,11 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         abrir(repo, args, env, io);
         break;
       case 'etapa': {
-        const e = etapaValida(args[0]);
+        const pedida = etapaValida(args[0]);
         const { codigo, estado } = activo(raiz, elegido);
+        // Como en aprobar: el 6 de un RQ abierto con 3.x era PROD.
+        const e = pedida === ETAPA.CIERRE && estado._v3 === true ? ETAPA.PROD : pedida;
+        if (e !== pedida) io.stdout.write(`${AVISO_PROD_V3}\n`);
         const falta = faltaParaEtapa(estado, e, raiz);
         // Aviso, no bloqueo: la etapa es opcional; lo exigen revision, el commit de código y la publicación a PROD.
         if (falta.length) io.stderr.write(`Aviso: para la etapa ${e} del ${codigo} falta: ${falta.join('; ')}.\n`);

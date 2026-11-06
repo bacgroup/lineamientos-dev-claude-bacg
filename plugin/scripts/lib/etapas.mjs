@@ -18,6 +18,9 @@ export const NOMBRE_ETAPA = Object.freeze({
   6: 'Cierre',
 });
 
+// Clasificaciones cuyo diseño en 3.x se cumplía con spec.md, sin aprobación.
+export const CLASIFICACIONES_DISENO_V3 = Object.freeze(['spike', 'bounded']);
+
 const esObjeto = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
 
 /** Etapa v3 (0..7) a v4: 0→0, 1→1, 2→1, del 3 en adelante −1. Lo que no es una etapa v3 queda igual. */
@@ -35,6 +38,8 @@ export function etapaProyectoAV4(proyecto, n) {
  * Estado en numeración v4. Uno ya v4 (o que no es un objeto) vuelve tal cual; uno v3 vuelve como copia convertida
  * (etapa, aprobaciones[].etapa, autonomia.hasta) con `version_ciclo: 4` y `_v3: true`, que guardarEstado no escribe.
  * Dos aprobaciones que caen en la misma etapa (Diseño y Plan) quedan las dos. No muta el original.
+ * En 3.x el diseño de spike y bounded lo cubría spec.md: esos estados ganan `diseno_v3: true`, que sí se guarda, para
+ * que la etapa 1 siga cumplida con spec.md (sin `aprobar 1`) después de reescribirlos en v4.
  */
 export function aV4(estado) {
   if (!esObjeto(estado) || estado.version_ciclo === VERSION_CICLO) return estado;
@@ -44,6 +49,7 @@ export function aV4(estado) {
     e.aprobaciones = e.aprobaciones.map((a) => (esObjeto(a) && 'etapa' in a ? { ...a, etapa: etapaV3aV4(a.etapa) } : a));
   }
   if (esObjeto(e.autonomia) && 'hasta' in e.autonomia) e.autonomia = { ...e.autonomia, hasta: etapaV3aV4(e.autonomia.hasta) };
+  if (CLASIFICACIONES_DISENO_V3.includes(e.clasificacion)) e.diseno_v3 = true;
   e.version_ciclo = VERSION_CICLO;
   e._v3 = true;
   return e;

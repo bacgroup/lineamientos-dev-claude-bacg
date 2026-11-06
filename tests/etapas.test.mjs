@@ -71,3 +71,9 @@ test('etapaProyectoAV4: sin version_ciclo convierte 3→2, 4→3, 6→5; con ver
   const v4 = { version_ciclo: 4 };
   assert.deepEqual([2, 3, 5].map((n) => etapaProyectoAV4(v4, n)), [2, 3, 5]);
 });
+
+test('aV4 marca diseno_v3 en spike y bounded (en 3.x, spec.md cubría el diseño); arquitectónico y v4, no', () => {
+  for (const c of ['spike', 'bounded']) assert.equal(aV4({ codigo: 'R-1', clasificacion: c, etapa: 1 }).diseno_v3, true, c);
+  assert.equal('diseno_v3' in aV4({ codigo: 'R-1', clasificacion: 'arquitectonico', etapa: 2 }), false);
+  assert.equal('diseno_v3' in aV4({ codigo: 'R-1', clasificacion: 'bounded', etapa: 1, version_ciclo: 4 }), false);
+});

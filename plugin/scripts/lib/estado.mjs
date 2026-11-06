@@ -3,7 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import yaml from '../vendor/js-yaml.mjs';
 import { fraseDelUsuario } from './transcript.mjs';
-import { aV4, ETAPA, VERSION_CICLO } from './etapas.mjs';
+import { aV4, ETAPA, VERSION_CICLO, CLASIFICACIONES_DISENO_V3 } from './etapas.mjs';
 
 const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 // Etapas que la autonomía puede cumplir: desarrollo y DEV. Nunca el diseño (1), la verificación (3, evidencia) ni PROD.
@@ -122,6 +122,22 @@ export function etapaCumplida(estado, etapa, ctx) {
   }
 }
 
+/** ¿Existe docs/rq/<código>/spec.md? null si no se conoce la raíz. */
+function specExiste(estado, ctx) {
+  const raiz = typeof ctx.raiz === 'string' && ctx.raiz !== '' ? ctx.raiz : null;
+  if (!raiz) return null;
+  return codigoOk(estado.codigo) && fs.existsSync(path.join(raiz, 'docs', 'rq', estado.codigo, 'spec.md'));
+}
+
+// Diseño (1): `aprobar 1` y, si se conoce la raíz, spec.md. Un spike o bounded abierto con 3.x (`diseno_v3`) lo
+// cumple con spec.md, sin aprobación, como en 3.x; sin raíz no se puede ver spec.md y no alcanza.
+function disenoCumplido(estado, ctx) {
+  const spec = specExiste(estado, ctx);
+  if (spec === false) return false;
+  if (lista(estado.aprobaciones).some((a) => aprobacionValida(a) && a.etapa === ETAPA.DISENO)) return true;
+  return spec === true && estado.diseno_v3 === true && CLASIFICACIONES_DISENO_V3.includes(estado.clasificacion);
+}
+
 function calcularEtapa(estado, etapa, ctx) {
   if (!esObjeto(estado)) return false;
   // Verificación: sólo evidencia, sin aprobación humana ni autonomía.
@@ -133,6 +149,7 @@ function calcularEtapa(estado, etapa, ctx) {
       (a) => aprobacionValida(a) && a.etapa === ETAPA.PROD && fraseDelUsuario(a.frase, textos),
     );
   }
+  if (etapa === ETAPA.DISENO) return disenoCumplido(estado, ctx);
   if (lista(estado.aprobaciones).some((a) => aprobacionValida(a) && a.etapa === etapa)) return true;
 
   // La autonomía (la registrada o la de spike y bounded por defecto) sólo cumple desarrollo y DEV: el diseño (1)

@@ -66,7 +66,7 @@ test('aprobacionValida: la frase se validó al registrarla; acá alcanza con eta
 });
 
 test('etapaCumplida: aprobación de la etapa, válida en cualquier sesión', () => {
-  const raiz = crearRepoTemporal({});
+  const raiz = crearRepoTemporal({ archivos: { 'docs/rq/R-T1/spec.md': 'x' } });
   const e = base({ aprobaciones: [ap(1, 'Spec aprobada, dale')] });
   assert.equal(etapaCumplida(e, 1, ctx(raiz)), true);
   assert.equal(etapaCumplida(e, 2, ctx(raiz)), false, 'arquitectónico: el OK de diseño no cubre el desarrollo');
@@ -132,7 +132,7 @@ test('etapaCumplida 3: sólo evidencia (tests.ok y revision.ok)', () => {
 });
 
 test('etapaCumplida: en bounded el OK del diseño cubre desarrollo y DEV; en arquitectónico no', () => {
-  const raiz = crearRepoTemporal({});
+  const raiz = crearRepoTemporal({ archivos: { 'docs/rq/R-T1/spec.md': 'x' } });
   const e = base({ clasificacion: 'bounded', aprobaciones: [ap(1, 'Spec aprobada, dale')] });
   for (const n of [1, 2, 4]) assert.equal(etapaCumplida(e, n, ctx(raiz)), true, String(n));
   const arq = { ...e, clasificacion: 'arquitectonico' };
@@ -254,4 +254,33 @@ test('rqsActivos y guardarActivos: varios RQ, uno por línea, sin duplicados; va
 test('estadoCommiteado: YAML que no es objeto (array) da null', () => {
   const raiz = crearRepoTemporal({ archivos: { 'docs/rq/R-A/estado.yml': '- 1\n- 2\n' } });
   assert.equal(estadoCommiteado(raiz, 'R-A'), null);
+});
+
+test('etapaCumplida 1 en un RQ abierto con 3.x (spike o bounded): spec.md alcanza, también después de guardarlo en v4', () => {
+  const raiz = crearRepoTemporal({});
+  escribir(raiz, 'docs/rq/R-V3/estado.yml', 'codigo: R-V3\ntipo: rq\nclasificacion: bounded\netapa: 1\naprobaciones: []\n');
+  let e = cargarEstado(raiz, 'R-V3');
+  assert.equal(etapaCumplida(e, 1, ctx(raiz)), false, 'sin spec.md, no');
+  escribir(raiz, 'docs/rq/R-V3/spec.md', 'x');
+  assert.equal(etapaCumplida(e, 1, ctx(raiz)), true, 'recién convertido');
+  assert.equal(etapaCumplida(e, 1, ctx(null)), false, 'sin raíz no se puede ver spec.md');
+  guardarEstado(raiz, e);
+  e = cargarEstado(raiz, 'R-V3');
+  assert.equal('_v3' in e, false);
+  assert.equal(e.diseno_v3, true);
+  assert.equal(etapaCumplida(e, 1, ctx(raiz)), true, 'guardado en v4 conserva el diseño');
+  assert.equal(etapaCumplida({ ...e, clasificacion: 'arquitectonico' }, 1, ctx(raiz)), false, 'si pasa a arquitectónico, pide aprobar 1');
+  escribir(raiz, 'docs/rq/R-A3/estado.yml', 'codigo: R-A3\ntipo: rq\nclasificacion: arquitectonico\netapa: 1\naprobaciones: []\n');
+  escribir(raiz, 'docs/rq/R-A3/spec.md', 'x');
+  assert.equal(etapaCumplida(cargarEstado(raiz, 'R-A3'), 1, ctx(raiz)), false, 'arquitectónico v3 sin plan aprobado: no');
+  assert.equal(etapaCumplida(base({ clasificacion: 'bounded', codigo: 'R-V3' }), 1, ctx(raiz)), false, 'un v4 sin la marca pide aprobar 1');
+});
+
+test('etapaCumplida 1 exige spec.md cuando se conoce la raíz, aunque haya aprobar 1', () => {
+  const raiz = crearRepoTemporal({});
+  const e = base({ aprobaciones: [ap(1, 'Diseño ok')] });
+  assert.equal(etapaCumplida(e, 1, ctx(raiz)), false);
+  escribir(raiz, 'docs/rq/R-T1/spec.md', 'x');
+  assert.equal(etapaCumplida(e, 1, ctx(raiz)), true);
+  assert.equal(etapaCumplida(e, 1, {}), true, 'sin raíz manda la aprobación');
 });
