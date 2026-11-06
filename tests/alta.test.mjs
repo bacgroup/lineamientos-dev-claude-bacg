@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pasosAlta, formatoAlta, bloqueante, lineaAlta, scriptDelComando } from '../plugin/scripts/lib/alta.mjs';
+import { limpiarCacheOdoo } from '../plugin/scripts/lib/odoo-skills.mjs';
 import { main } from '../plugin/scripts/rq.mjs';
 import { handler as sessionStart } from '../plugin/scripts/lib/hooks/session-start.mjs';
 
@@ -107,4 +108,13 @@ test('arranque: avisa el alta incompleta en un repo; recién instalado sin linea
   assert.match(vacio.hookSpecificOutput.additionalContext, /alta pendiente.*\/bacg-alta/s);
   const otro = await sessionStart({ cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'nada-')) }, { dirLin: m.lin, home: m.home, pluginRoot: null, env: {} });
   assert.equal(otro, null, 'con lineamientos y fuera de un proyecto: silencio');
+});
+
+test('alta: sin addons en ningún repo del proyecto no ofrece odoo-skills; con addons (sin motor declarado) sí', () => {
+  const m = montar();
+  assert.ok(!pasosAlta(opts(m)).some((p) => p.id === 'odoo-skills'), 'sin manifiesto, ni rastro de Odoo');
+  fs.mkdirSync(path.join(m.repo, 'addons', 'x'), { recursive: true });
+  fs.writeFileSync(path.join(m.repo, 'addons', 'x', '__manifest__.py'), '{}');
+  limpiarCacheOdoo();
+  assert.ok(pasosAlta(opts(m)).some((p) => p.id === 'odoo-skills'));
 });

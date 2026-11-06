@@ -30,8 +30,8 @@ const ODOO = {
 
 // ---------- stack.mjs ----------
 
-test('stack por defecto: el de BACG (Odoo, sin agentes externos); Supabase sólo si se declaran refs o Lovable', () => {
-  assert.equal(motorDatos({}), 'odoo');
+test('stack por defecto: sin motor declarado (null), migraciones genéricas y sin agentes externos; Supabase sólo si se declaran refs o Lovable', () => {
+  assert.equal(motorDatos({}), null);
   assert.deepEqual(globsMigraciones({}), ['**/migrations/**']);
   assert.equal(esMigracion('addons/x/migrations/18.0.1/post.py', {}), true);
   assert.deepEqual(autoresExternos({}), []);
@@ -260,7 +260,8 @@ test('lineaStack: el arranque dice el stack declarado (y el de referencia cuando
   assert.match(erp, /PROD = push o merge a 18\.0/);
   assert.match(erp, /DEV rama 18\.0-dev/);
   assert.match(erp, /agentes sin el plugin: los de agentes_externos/);
-  assert.match(lineaStack({}), /datos odoo .* MCP de PROD: ninguno declarado .* agentes sin el plugin: ninguno declarado/);
+  assert.match(lineaStack({}), /datos sin declarar .* MCP de PROD: ninguno declarado .* agentes sin el plugin: ninguno declarado/);
+  assert.doesNotMatch(lineaStack({}), /odoo/i, 'sin Odoo declarado, la línea del arranque no lo nombra');
   assert.match(lineaStack({ mcp_prod: [{ servidor: 'n8n-prod', tipo: 'n8n' }] }), /MCP de PROD: n8n-prod \(n8n\)/);
 });
 

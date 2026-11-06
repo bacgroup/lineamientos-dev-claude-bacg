@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { SKILLS_ODOO, instalarSkillsOdoo, estadoSkillsOdoo, exigenciasOdoo, usaOdoo, dentroDeAddon, ramaSkills } from '../plugin/scripts/lib/odoo-skills.mjs';
+import { SKILLS_ODOO, instalarSkillsOdoo, estadoSkillsOdoo, exigenciasOdoo, usaOdoo, hayManifiestoOdoo, limpiarCacheOdoo, dentroDeAddon, ramaSkills } from '../plugin/scripts/lib/odoo-skills.mjs';
 import { faltaParaEtapa } from '../plugin/scripts/lib/requisitos.mjs';
 
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), p));
@@ -60,12 +60,35 @@ test('instalar: si la rama no trae alguna skill, no toca nada', () => {
   assert.deepEqual(estadoSkillsOdoo(home).faltan, SKILLS_ODOO);
 });
 
-test('usaOdoo y ramaSkills: motor odoo por defecto, apagable, rama configurable', () => {
-  assert.equal(usaOdoo({}), true);
-  assert.equal(usaOdoo({ datos: { motor: 'supabase' } }), false);
-  assert.equal(usaOdoo({ odoo_skills: false }), false);
+test('usaOdoo y ramaSkills: motor declarado o addons en el repo, apagable, rama configurable', () => {
+  const sin = tmp('sin-odoo-');
+  assert.equal(usaOdoo({}, sin), false, 'sin datos y sin manifiesto: no es Odoo');
+  assert.equal(usaOdoo({}), false, 'sin raíz y sin motor declarado: no');
+  assert.equal(usaOdoo({ datos: { motor: 'odoo' } }, sin), true, 'declarado manda aunque no haya addons');
+  assert.equal(usaOdoo({ datos: { motor: 'supabase' } }, sin), false);
+  assert.equal(usaOdoo({ odoo_skills: false }, sin), false);
+  const con = tmp('con-odoo-');
+  fs.mkdirSync(path.join(con, 'addons', 'x'), { recursive: true });
+  fs.writeFileSync(path.join(con, 'addons', 'x', '__manifest__.py'), '{}');
+  assert.equal(usaOdoo({}, con), true, 'sin declarar y con addons: sí');
+  assert.equal(usaOdoo({ datos: { motor: 'supabase' } }, con), false, 'motor declarado otro, aunque haya manifiesto');
+  assert.equal(usaOdoo({ odoo_skills: false }, con), false);
   assert.equal(ramaSkills({}), '20.0');
   assert.equal(ramaSkills({ odoo_skills: { rama: '21.0' } }), '21.0');
+});
+
+test('hayManifiestoOdoo: profundidad <= 3, salta node_modules y .git, cachea por raíz', () => {
+  const raiz = tmp('prof-');
+  const poner = (rel) => { fs.mkdirSync(path.dirname(path.join(raiz, rel)), { recursive: true }); fs.writeFileSync(path.join(raiz, rel), '{}'); };
+  poner('node_modules/x/__manifest__.py');
+  poner('.git/x/__manifest__.py');
+  poner('a/b/c/d/__manifest__.py');
+  assert.equal(hayManifiestoOdoo(raiz), false, 'a profundidad 4, node_modules y .git no cuentan');
+  poner('a/b/c/__manifest__.py');
+  assert.equal(hayManifiestoOdoo(raiz), false, 'cacheado: no relee en el mismo proceso');
+  limpiarCacheOdoo();
+  assert.equal(hayManifiestoOdoo(raiz), true, 'profundidad 3');
+  assert.equal(hayManifiestoOdoo(null), false);
 });
 
 function repoAddons() {
@@ -97,6 +120,7 @@ test('exigenciasOdoo: guidelines o web por etapa 2, review en 3, security con ru
   assert.deepEqual(skills(null), ['2:odoo-guidelines', '3:odoo-review'], 'sin saber qué toca, en un repo con addons: falla cerrada');
   assert.deepEqual(exigenciasOdoo(py, tmp('sin-addons-'), null), [], 'sin addons en el repo, nada');
   assert.deepEqual(exigenciasOdoo({ datos: { motor: 'supabase' } }, raiz, ['mod_a/models/x.py']), []);
+  assert.deepEqual(exigenciasOdoo({}, tmp('sin-addons-'), ['mod_a/models/x.py']), [], 'sin datos y sin manifiesto, nada de Odoo');
 });
 
 test('faltaParaEtapa: suma las skills de Odoo del proyecto (y se cumplen con el nombre corto)', () => {
@@ -118,4 +142,14 @@ test('faltaParaEtapa v4: odoo-guidelines se pide para el desarrollo (2) y odoo-r
   const falta = faltaParaEtapa(estado, 2, raiz, {});
   assert.ok(falta.includes('odoo-guidelines'));
   assert.ok(!falta.includes('odoo-review'));
+});
+
+test('faltaParaEtapa: proyecto sin datos en repo sin manifiesto no menciona Odoo; con addons, sí', () => {
+  const estado = { codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', skills: [] };
+  const sin = faltaParaEtapa(estado, 3, tmp('sin-odoo-'), {});
+  assert.ok(!sin.some((x) => /odoo/i.test(x)), JSON.stringify(sin));
+  const con = faltaParaEtapa(estado, 3, repoAddons(), {});
+  assert.ok(con.includes('odoo-guidelines'));
+  const sup = faltaParaEtapa(estado, 3, repoAddons(), { datos: { motor: 'supabase' } });
+  assert.ok(!sup.some((x) => /odoo/i.test(x)), 'motor supabase declarado, aunque haya manifiesto');
 });

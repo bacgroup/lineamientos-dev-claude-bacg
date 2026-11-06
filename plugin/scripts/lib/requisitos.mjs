@@ -161,7 +161,7 @@ export function faltaParaEtapa(estado, etapa, raiz, proyecto = undefined) {
   let rutas;
   const rutasRq = () => (rutas === undefined ? (rutas = raiz ? rutasDelRq(raiz, estado) : null) : rutas);
   const propias = lista(py?.skills_requeridas).length ? exigenciasDelProyecto(estado, py, rutasRq()) : [];
-  const odoo = py && usaOdoo(py) ? exigenciasOdoo(py, raiz, rutasRq()) : [];
+  const odoo = py && usaOdoo(py, raiz) ? exigenciasOdoo(py, raiz, rutasRq()) : [];
   for (const x of [...exigencias(estado), ...propias, ...odoo]) {
     if (x.etapa > etapa) continue;
     if (x.skill && !sinSkills && !tieneSkill(estado, x.skill)) out.push(x.skill);

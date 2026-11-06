@@ -990,7 +990,7 @@ function desplegar(repo, elegido, args, env, io) {
         ? `${aplicar} sobre ${ref}${r ? ` (${r.nombre})` : ''}${bl ? `; bloques del handoff en orden: ${bl}` : ''}`
         : enSupabase || motorDatos(proyecto) === 'supabase'
           ? `execute_sql del conector (no la CLI) con project_id ${ref}${r ? ` (${r.nombre})` : ''}, una llamada por bloque${bl ? `, en orden: ${bl}` : ''}`
-          : `aplicar las migraciones en ${ref} con el mecanismo de ${motorDatos(proyecto)} (declaralo en datos.aplicar de proyecto.yml)`;
+          : `aplicar las migraciones en ${ref} con el mecanismo del motor de datos${motorDatos(proyecto) ? ` (${motorDatos(proyecto)})` : ''} (declaralo en datos.aplicar de proyecto.yml)`;
     } else if (/^merge-prs-sync:/i.test(p)) {
       const sede = p.slice('merge-prs-sync:'.length);
       como = cuenta

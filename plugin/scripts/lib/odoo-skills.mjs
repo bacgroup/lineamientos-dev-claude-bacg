@@ -1,6 +1,6 @@
 // Skills oficiales de Odoo (PLG-ODOO): odoo/odoo, carpeta skills/ de la rama 20.0 (la única que las trae).
 // Se instalan juntas (se referencian entre sí) en ~/.claude/skills/ con `rq.mjs odoo-skills`; no se copian a este
-// repo. En un proyecto Odoo (datos.motor odoo, salvo `odoo_skills: false` en proyecto.yml) la CLI las exige según
+// repo. En un proyecto Odoo (datos.motor odoo, o sin motor declarado con addons en el repo; salvo `odoo_skills: false` en proyecto.yml) la CLI las exige según
 // lo que toca el RQ dentro de un addon (carpeta con __manifest__.py):
 //   - etapa 2 (desarrollo): odoo-guidelines (Python, XML, datos, seguridad) y odoo-web-guidelines (static/);
 //   - etapa 3 (verificación): odoo-review y, si toca rutas sensibles o controllers/, odoo-security.
@@ -10,7 +10,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { motorDatos } from './stack.mjs';
 import { globARegExp } from './rutas.mjs';
 import { ETAPA } from './etapas.mjs';
 
@@ -24,8 +23,42 @@ const lista = (x) => (Array.isArray(x) ? x : []);
 
 export const dirSkills = (home = os.homedir()) => path.join(home, '.claude', 'skills');
 
-/** ¿El proyecto trabaja con Odoo? `odoo_skills: false` lo apaga; si no, datos.motor (por defecto, odoo). */
-export const usaOdoo = (proyecto) => proyecto?.odoo_skills !== false && motorDatos(proyecto) === 'odoo';
+const cacheManifiesto = new Map();
+
+/** Vacía la caché de hayManifiestoOdoo (para tests; en producción vive lo que el proceso). */
+export const limpiarCacheOdoo = () => cacheManifiesto.clear();
+
+/** ¿Hay algún __manifest__.py hasta 3 niveles de carpetas bajo `raiz` (sin node_modules ni .git)? Cacheado por raíz. */
+export function hayManifiestoOdoo(raiz) {
+  if (!raiz) return false;
+  const clave = path.resolve(String(raiz));
+  if (cacheManifiesto.has(clave)) return cacheManifiesto.get(clave);
+  const buscar = (dir, nivel) => {
+    if (fs.existsSync(path.join(dir, '__manifest__.py'))) return true;
+    if (nivel >= 3) return false;
+    let hijos = [];
+    try {
+      hijos = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return false;
+    }
+    return hijos.some((e) => e.isDirectory() && e.name !== 'node_modules' && e.name !== '.git' && buscar(path.join(dir, e.name), nivel + 1));
+  };
+  const hay = buscar(clave, 0);
+  cacheManifiesto.set(clave, hay);
+  return hay;
+}
+
+/**
+ * ¿El proyecto trabaja con Odoo? `odoo_skills: false` lo apaga; `datos.motor` declarado manda (odoo o no);
+ * sin declarar, sí si el repo (`raiz`) tiene addons. Sin raíz y sin motor declarado: no.
+ */
+export function usaOdoo(proyecto, raiz) {
+  if (proyecto?.odoo_skills === false) return false;
+  const declarado = typeof proyecto?.datos?.motor === 'string' ? proyecto.datos.motor.trim().toLowerCase() : '';
+  if (declarado) return declarado === 'odoo';
+  return hayManifiestoOdoo(raiz);
+}
 
 /** Rama de odoo/odoo de donde se toman: `odoo_skills.rama` del proyecto o 20.0. */
 export const ramaSkills = (proyecto) =>
@@ -100,29 +133,15 @@ export function dentroDeAddon(raiz, rel, cache = new Map()) {
   return null;
 }
 
-/** ¿El repo tiene algún addon (un __manifest__.py hasta dos niveles abajo de la raíz)? */
-export function tieneAddons(raiz) {
-  if (!raiz) return false;
-  const hijos = (d) => {
-    try {
-      return fs.readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules');
-    } catch {
-      return [];
-    }
-  };
-  for (const a of hijos(raiz)) {
-    if (fs.existsSync(path.join(raiz, a.name, '__manifest__.py'))) return true;
-    for (const b of hijos(path.join(raiz, a.name))) if (fs.existsSync(path.join(raiz, a.name, b.name, '__manifest__.py'))) return true;
-  }
-  return false;
-}
+/** ¿El repo tiene algún addon? (__manifest__.py hasta 3 niveles abajo de la raíz) */
+export const tieneAddons = hayManifiestoOdoo;
 
 /**
  * Skills de Odoo que exige el RQ: [{ etapa, skill }]. `rutasRq` null (no se sabe qué toca) en un repo con addons
  * exige odoo-guidelines y odoo-review: falla cerrada, como skills_requeridas.
  */
 export function exigenciasOdoo(proyecto, raiz, rutasRq) {
-  if (!usaOdoo(proyecto)) return [];
+  if (!usaOdoo(proyecto, raiz)) return [];
   if (!rutasRq) return tieneAddons(raiz) ? [{ etapa: DESARROLLO, skill: 'odoo-guidelines' }, { etapa: VERIFICACION, skill: 'odoo-review' }] : [];
   const sensibles = [...lista(proyecto?.sensible?.rutas), '**/controllers/**'].filter((g) => typeof g === 'string').map(globARegExp);
   const cache = new Map();

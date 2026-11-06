@@ -13,14 +13,14 @@ import { globARegExp } from './rutas.mjs';
 const lista = (x) => (Array.isArray(x) ? x.filter((s) => typeof s === 'string' && s.trim()) : []);
 const norm = (x) => (typeof x === 'string' ? x.trim().toLowerCase() : '');
 
-export const MOTOR_DEFECTO = 'odoo';
 export const MIGRACIONES_DEFECTO = ['**/migrations/**'];
 export const MIGRACIONES_SUPABASE = ['supabase/migrations/**'];
 export const AUTORES_LOVABLE = ['gpt-engineer-app[bot]', 'lovable-dev[bot]', 'Lovable'];
 
 /**
  * Motor de base de datos: `datos.motor` declarado; sin declarar, supabase si el proyecto declara refs de Supabase o
- * proyectos de Lovable (stack heredado); si no, odoo (referencia BACG).
+ * proyectos de Lovable (stack heredado); si no, null: el plugin sirve a cualquier proyecto y Odoo se decide con
+ * usaOdoo(proyecto, raiz), que también detecta addons.
  */
 export function motorDatos(proyecto) {
   const declarado = norm(proyecto?.datos?.motor);
@@ -28,7 +28,7 @@ export function motorDatos(proyecto) {
   const refs = lista(proyecto?.entornos?.prod?.supabase_refs).length > 0;
   const sedes = (Array.isArray(proyecto?.repos) ? proyecto.repos : []).some((r) => typeof r?.supabase_ref === 'string' && r.supabase_ref.trim());
   const lovable = Object.keys(proyecto?.lovable?.proyectos ?? {}).length > 0;
-  return refs || sedes || lovable ? 'supabase' : MOTOR_DEFECTO;
+  return refs || sedes || lovable ? 'supabase' : null;
 }
 
 /**
@@ -110,7 +110,7 @@ export function lineaStack(proyecto) {
   const lovable = Object.keys(proyecto.lovable?.proyectos ?? {}).length > 0;
   const externos = lista(proyecto.agentes_externos?.autores).length > 0 || lovable;
   return [
-    `Stack del proyecto: datos ${motorDatos(proyecto)} (${migs.length ? `migraciones ${migs.join(', ')}` : 'sin migraciones versionadas'}${aplicar})`,
+    `Stack del proyecto: datos ${motorDatos(proyecto) ?? 'sin declarar'} (${migs.length ? `migraciones ${migs.join(', ')}` : 'sin migraciones versionadas'}${aplicar})`,
     `PROD ${ramas ? `= push o merge a ${ramas.join(', ')}` : conRamas ? '= las ramas_prod de cada repo' : '= todo push a un repo con push_prod'}`,
     `DEV ${devTxt || 'sin declarar'}`,
     `MCP de PROD: ${Array.isArray(proyecto.mcp_prod) && proyecto.mcp_prod.length ? proyecto.mcp_prod.map((m) => `${m?.servidor} (${m?.tipo ?? 'generico'})`).join(', ') : 'ninguno declarado'}`,

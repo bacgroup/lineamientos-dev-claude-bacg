@@ -226,3 +226,41 @@ test('M2: confirmada -> permite; RQ sin el campo (3.x) no se bloquea', () => {
   const v3 = repoConRq(base({ clasificacion: 'bounded', aprobaciones: [ap(1, FRASE)] }));
   assert.equal(evaluar(v3, 'src/x.js').decision, 'allow');
 });
+
+// M6: skill oficial de Odoo al editar un archivo de un addon (etapa 1 cumplida y clasificación confirmada).
+const estadoOk = (extra = {}) => base({ clasificacion: 'bounded', clasificacion_pendiente: false, aprobaciones: [ap(1, FRASE)], ...extra });
+function repoAddon(proyectoExtra = {}, estadoExtra = {}) {
+  const raiz = repoConRq(estadoOk(estadoExtra));
+  fs.mkdirSync(path.join(raiz, 'addons', 'x', 'models'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'addons', 'x', '__manifest__.py'), '{}');
+  return { raiz, p: { ...proyecto, ...proyectoExtra } };
+}
+
+test('M6: addon sin odoo-guidelines -> deny; cargada (sesión o estado) o con saltar skills -> allow', () => {
+  const { raiz, p } = repoAddon();
+  const r = evaluar(raiz, 'addons/x/models/a.py', {}, p);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /cargá antes la skill odoo-guidelines/);
+  assert.equal(evaluar(raiz, 'addons/x/models/a.py', { skills: new Set(['odoo-guidelines']) }, p).decision, 'allow');
+  const conEstado = repoAddon({}, { skills: ['odoo-guidelines'] });
+  assert.equal(evaluar(conEstado.raiz, 'addons/x/models/a.py', {}, conEstado.p).decision, 'allow');
+  const salto = repoAddon({}, { saltos: [{ compuerta: 'skills', frase: 'salteá las skills de Odoo', motivo: 'm', fecha: '2026-10-23T12:00:00Z' }] });
+  assert.equal(evaluar(salto.raiz, 'addons/x/models/a.py', {}, salto.p).decision, 'allow');
+});
+
+test('M6: static/ de un addon pide odoo-web-guidelines, no odoo-guidelines', () => {
+  const { raiz, p } = repoAddon();
+  const r = evaluar(raiz, 'addons/x/static/src/a.js', { skills: new Set(['odoo-guidelines']) }, p);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /skill odoo-web-guidelines/);
+  assert.equal(evaluar(raiz, 'addons/x/static/src/a.js', { skills: new Set(['odoo-web-guidelines']) }, p).decision, 'allow');
+});
+
+test('M6: sin Odoo (motor declarado otro u odoo_skills false) o fuera de un addon, no pide skill de Odoo', () => {
+  const sup = repoAddon({ datos: { motor: 'supabase' } });
+  assert.equal(evaluar(sup.raiz, 'addons/x/models/a.py', {}, sup.p).decision, 'allow');
+  const off = repoAddon({ odoo_skills: false });
+  assert.equal(evaluar(off.raiz, 'addons/x/models/a.py', {}, off.p).decision, 'allow');
+  const { raiz, p } = repoAddon();
+  assert.equal(evaluar(raiz, 'src/x.js', {}, p).decision, 'allow');
+});

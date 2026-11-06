@@ -51,7 +51,7 @@ const PISTA_MENOR = ' Si el cambio es menor, preguntale al usuario en el chat (t
  * odoo-guidelines en el resto del addon; null fuera de un addon o en un proyecto sin Odoo.
  */
 export function skillOdooDeRuta(raiz, rel, proyecto) {
-  if (!proyecto || !usaOdoo(proyecto)) return null;
+  if (!proyecto || !usaOdoo(proyecto, raiz)) return null;
   const enAddon = dentroDeAddon(raiz, rel);
   if (enAddon === null) return null;
   return /^static\//.test(enAddon) ? 'odoo-web-guidelines' : 'odoo-guidelines';
