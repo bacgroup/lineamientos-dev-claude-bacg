@@ -30,7 +30,7 @@ export function arbolTesteado(dir) {
   try {
     if (fs.existsSync(indice)) fs.copyFileSync(indice, copia);
     const env = { ...process.env, GIT_INDEX_FILE: copia };
-    git(dir, ['rm', '--cached', '-q', '-r', '--ignore-unmatch', '--', ...PROPIOS_DE_LA_CLI], env);
+    git(dir, ['rm', '--cached', '-f', '-q', '-r', '--ignore-unmatch', '--', ...PROPIOS_DE_LA_CLI], env);
     return git(dir, ['write-tree'], env);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });

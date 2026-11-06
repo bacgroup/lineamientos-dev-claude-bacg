@@ -55,3 +55,14 @@ test('esPropioDeLaCli', () => {
   for (const rel of ['docs/rq/X/estado.yml', 'docs/rq/ACTIVO', 'sub/docs/backlog.md']) assert.equal(esPropioDeLaCli(rel), true, rel);
   assert.equal(esPropioDeLaCli('docs/rq/X/spec.md'), false);
 });
+
+test('arbolTesteado tolera estado.yml modificado en el working tree tras el stage', () => {
+  const dir = crearRepoTemporal({});
+  escribir(dir, 'src/a.js', 'uno');
+  git(dir, 'add', 'src/a.js');
+  const sinEstado = arbolTesteado(dir);
+  escribir(dir, 'docs/rq/R-1/estado.yml', 'codigo: R-1\n');
+  git(dir, 'add', 'docs/rq/R-1/estado.yml');
+  escribir(dir, 'docs/rq/R-1/estado.yml', 'codigo: R-1\ntests: ok\n');
+  assert.equal(arbolTesteado(dir), sinEstado);
+});
