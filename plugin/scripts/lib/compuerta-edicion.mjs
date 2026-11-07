@@ -9,6 +9,7 @@ import { skillsDe } from './requisitos.mjs';
 import { dentroDeAddon, usaOdoo } from './odoo-skills.mjs';
 import { ETAPA } from './etapas.mjs';
 import { nombreDe } from './clasificacion.mjs';
+import { dirConfigClaude, dirSesiones } from './sesiones.mjs';
 
 const allow = () => ({ decision: 'allow' });
 const deny = (motivo) => ({ decision: 'deny', motivo });
@@ -75,8 +76,11 @@ export function escrituraProhibida(abs, raiz) {
   if (RE_ESTADO_O_ACTIVO.test(p) && enRepo()) {
     return `estado.yml y ACTIVO sólo se cambian con rq.mjs (${cli()} <subcomando>).`;
   }
-  const rel = relativaAlRepo(path.join(os.homedir(), '.claude', 'projects'), p);
-  if (rel && /\.jsonl$/i.test(rel)) {
+  // Transcripciones de la cuenta por defecto y de la cuenta en uso (CLAUDE_CONFIG_DIR), y el registro de sesiones
+  // que usa rq.mjs para encontrarlas.
+  const enProjects = [path.join(os.homedir(), '.claude', 'projects'), path.join(dirConfigClaude(), 'projects')]
+    .some((base) => /\.jsonl$/i.test(relativaAlRepo(base, p) ?? ''));
+  if (enProjects || relativaAlRepo(dirSesiones(), p)) {
     return 'El transcript de la sesión (~/.claude/projects/*.jsonl) no se escribe: es la prueba de lo que dijo el usuario.';
   }
   return null;

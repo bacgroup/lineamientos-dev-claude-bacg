@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { dirConfigClaude } from './sesiones.mjs';
 import { spawnSync } from 'node:child_process';
 import { globARegExp } from './rutas.mjs';
 import { ETAPA } from './etapas.mjs';
@@ -21,7 +22,8 @@ export const SKILLS_ODOO = ['odoo-git', 'odoo-guidelines', 'odoo-review', 'odoo-
 export const ARCHIVO_ORIGEN = '.odoo-skills.json';
 const lista = (x) => (Array.isArray(x) ? x : []);
 
-export const dirSkills = (home = os.homedir()) => path.join(home, '.claude', 'skills');
+// Skills de usuario de la cuenta de Claude en uso: ~/.claude/skills o, con otra cuenta, CLAUDE_CONFIG_DIR/skills.
+export const dirSkills = (home = os.homedir(), env = process.env) => path.join(dirConfigClaude({ env, home }), 'skills');
 
 const cacheManifiesto = new Map();
 

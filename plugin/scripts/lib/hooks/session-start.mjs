@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { dirConfigClaude } from '../sesiones.mjs';
 import { spawnSync } from 'node:child_process';
 import { dirLineamientos, buscarRepo, carpetaProyecto } from '../config.mjs';
 import { pasosAlta, lineaAlta } from '../alta.mjs';
@@ -89,8 +90,9 @@ function resumenes(dirLin, proyectoId, raiz, pluginRoot) {
   return recortar(texto, MAX_RESUMENES);
 }
 
-function pluginsFaltantes(home) {
-  const archivo = path.join(home, '.claude', 'plugins', 'installed_plugins.json');
+function pluginsFaltantes(home, env) {
+  // Los plugins de la cuenta de Claude en uso: ~/.claude o, con otra cuenta, CLAUDE_CONFIG_DIR.
+  const archivo = path.join(dirConfigClaude({ env, home }), 'plugins', 'installed_plugins.json');
   let instalados = new Set();
   const texto = leer(archivo);
   if (texto !== null) {
@@ -225,7 +227,7 @@ export async function handler(
     // sin git o historial ilegible: sin aviso
   }
 
-  const faltan = pluginsFaltantes(home);
+  const faltan = pluginsFaltantes(home, env);
   if (faltan) partes.push(faltan);
   const aviso = avisoVersion(dirLin, pluginRoot);
   if (aviso) partes.push(aviso);

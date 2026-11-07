@@ -55,6 +55,15 @@ try {
   // stdin ilegible: se sigue con lo leído
 }
 
+// Anota dónde está la transcripción de esta sesión (otra cuenta de Claude con CLAUDE_CONFIG_DIR): rq.mjs la busca
+// ahí para verificar las frases del usuario. Antes del atajo, para que quede anotada desde el primer comando.
+try {
+  const { registrarSesion } = await import('../lib/sesiones.mjs');
+  registrarSesion(JSON.parse(texto));
+} catch {
+  // entrada que no es JSON o registro imposible: rq.mjs falla cerrada
+}
+
 // Atajo: un comando de shell que no nombra git, gh, el CLI del RQ ni los archivos protegidos (sin comillas ni
 // barras, como en criticidad) no tiene nada que evaluar; se deja pasar sin cargar las compuertas.
 const RE_RELEVANTE = /git|\bgh\b|push|merge|rq\.mjs|\$\{?rq\b|activo|estado\.yml|\.jsonl|\bnode\b/i;

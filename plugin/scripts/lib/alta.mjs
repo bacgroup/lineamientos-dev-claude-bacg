@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { dirConfigClaude } from './sesiones.mjs';
 import { spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, configEnRepo, dirLineamientos, nombreRepo, ajustesLocales } from './config.mjs';
 import { reposHermanos } from './multi-repo.mjs';
@@ -93,7 +94,7 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
   // 5. Plugins requeridos
   let instalados = null;
   try {
-    instalados = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(home, '.claude', 'plugins', 'installed_plugins.json'), 'utf8'))?.plugins ?? {}));
+    instalados = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(dirConfigClaude({ env, home }), 'plugins', 'installed_plugins.json'), 'utf8'))?.plugins ?? {}));
   } catch {
     // sin el archivo: no se puede saber
   }

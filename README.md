@@ -69,6 +69,8 @@ Mientras falte un paso obligatorio, el arranque de sesión lo avisa y `rq.mjs ab
 
    Si falta alguno, el hook `SessionStart` lo avisa al arrancar la sesión en un repo registrado y te da el comando para instalarlo.
 
+Otra cuenta de Claude en la misma PC (`CLAUDE_CONFIG_DIR`): se instala igual, en esa cuenta. La carpeta de lineamientos y `~/.claude/bacg-dev.json` se comparten. Para verificar las frases del usuario, el plugin anota en `~/.claude/bacg-dev/sesiones/` dónde guarda esa cuenta cada transcripción.
+
 Requisitos: Node 22 o más. El plugin no tiene dependencias npm: `js-yaml` va vendorizado.
 
 ## Convive con el plugin de origen

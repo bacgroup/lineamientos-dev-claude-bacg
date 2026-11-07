@@ -29,6 +29,7 @@ import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs
 import { enRamaProtegida, pasarARamaDelRq, ramaDelRq } from './lib/ramas.mjs';
 import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
 import { leerTranscript, vecesQueLoDijo, mismaFrase } from './lib/transcript.mjs';
+import { RE_SESION, homeReal, transcripcionRegistrada } from './lib/sesiones.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -39,7 +40,7 @@ const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige entre varios RQ activos; sin --rq, el más reciente)
   alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
-  odoo-skills [--rama <rama>]              (instala en ~/.claude/skills las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
+  odoo-skills [--rama <rama>]              (instala en ~/.claude/skills (o CLAUDE_CONFIG_DIR/skills) las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
   previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
   abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
   clasificacion confirmar "<frase>"   (el usuario confirma la clasificación propuesta; hasta entonces no se edita código)
@@ -91,9 +92,6 @@ function textoNoVacio(valor, nombre) {
   return valor;
 }
 
-// Id de sesión de Claude Code (UUID). Cualquier otra forma se rechaza: el id arma una ruta.
-const RE_SESION = /^[0-9a-f-]{36}$/;
-
 /** Transcripciones de la sesión: <home>/.claude/projects/<carpeta>/<id>.jsonl (un nivel de carpeta). */
 function transcripcionesDe(home, id) {
   const base = path.join(home, '.claude', 'projects');
@@ -115,14 +113,6 @@ function transcripcionesDe(home, id) {
     });
 }
 
-/** Home del usuario del sistema operativo: HOME y USERPROFILE no lo cambian (un agente podría apuntarlos a otro lado). */
-function homeReal() {
-  try {
-    return os.userInfo().homedir;
-  } catch {
-    return os.homedir();
-  }
-}
 
 /** Una línea tipeada en la terminal; si nadie escribe en 2 minutos, falla. */
 function leerLineaDeTerminal(pregunta, stderr) {
@@ -176,7 +166,12 @@ async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, esta
   if (typeof id !== 'string' || !RE_SESION.test(id)) {
     throw new ErrorCli(`Id de sesión inválido (${JSON.stringify(String(id))}): no se puede verificar la frase.`);
   }
-  const rutas = transcripcionesDe(home, id);
+  // Cuenta por defecto: <home real>/.claude/projects; otra cuenta (CLAUDE_CONFIG_DIR): la que anotó el hook.
+  let rutas = transcripcionesDe(home, id);
+  if (rutas.length === 0) {
+    const registrada = transcripcionRegistrada(id, { home });
+    if (registrada) rutas = [registrada];
+  }
   if (rutas.length > 1) throw new ErrorCli(`Hay más de una transcripción de la sesión ${id}: no se puede verificar la frase.`);
   let textos;
   try {

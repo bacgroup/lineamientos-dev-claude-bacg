@@ -21,3 +21,6 @@ import path from 'node:path';
     }
   });
 }
+
+// Los tests arman sus propios homes: una cuenta de Claude con CLAUDE_CONFIG_DIR no tiene que cambiarles nada.
+delete process.env.CLAUDE_CONFIG_DIR;

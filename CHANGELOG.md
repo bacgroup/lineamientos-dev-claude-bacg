@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.1: otra cuenta de Claude en la misma PC (2026-11-07)
+
+- Funciona con una segunda cuenta de Claude Code que corre con `CLAUDE_CONFIG_DIR` en el mismo usuario de Windows. El hook `PreToolUse` anota dónde está la transcripción de cada sesión en `~/.claude/bacg-dev/sesiones/`, y `rq.mjs` la busca ahí cuando no está en `~/.claude/projects`. Así verifica las frases del usuario sin confiar en variables de entorno que un agente puede cambiar.
+- Plugins instalados y skills de Odoo se buscan en la carpeta de configuración de la cuenta en uso (`CLAUDE_CONFIG_DIR` o `~/.claude`). `~/.claude/bacg-dev.json` sigue siendo uno por PC, compartido entre cuentas.
+- El registro de sesiones y las transcripciones de `CLAUDE_CONFIG_DIR` no se pueden editar con las herramientas de edición, igual que las de `~/.claude/projects`.
+
 ## 4.0.0: ciclo RQ v4, el ciclo humano (2026-11-06)
 
 Cambia la numeración de etapas: los RQ y `proyecto.yml` viejos se convierten solos (ver más abajo). El circuito autómata llega en 4.1.
