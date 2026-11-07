@@ -3,22 +3,24 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { evaluarEdicion } from '../plugin/scripts/lib/compuerta-edicion.mjs';
-import { guardarEstado } from '../plugin/scripts/lib/estado.mjs';
+import { guardarEstado, cargarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { cli } from '../plugin/scripts/lib/cli.mjs';
 import { crearRepoTemporal } from './helpers.mjs';
 
 const proyecto = { ui: { patrones: ['src/components/**', 'src/pages/**', '**/*.css'] } };
-const FRASE = 'Plan aprobado, dale';
+const FRASE = 'Diseño y plan aprobados, dale';
 const base = (extra = {}) => ({
-  codigo: 'R-T1', tipo: 'rq', clasificacion: 'arquitectonico', etapa: 2,
+  codigo: 'R-T1', tipo: 'rq', clasificacion: 'arquitectonico', etapa: 1,
   autonomia: null, aprobaciones: [], saltos: [], ...extra,
 });
 const ap = (etapa, frase) => ({ etapa, frase, fecha: '2026-10-23T12:00:00Z' });
 const SKILLS = new Set(['design-taste-frontend', 'frontend-design:frontend-design']);
 
-function repoConRq(estado, { activo = 'R-T1' } = {}) {
+// Con estado, también docs/rq/<código>/spec.md (la etapa 1 lo exige); `spec: false` lo omite.
+function repoConRq(estado, { activo = 'R-T1', spec = true } = {}) {
   const raiz = crearRepoTemporal({});
   if (estado) guardarEstado(raiz, estado);
+  if (estado && spec) fs.writeFileSync(path.join(raiz, 'docs', 'rq', estado.codigo, 'spec.md'), '# x\n');
   if (activo) {
     fs.mkdirSync(path.join(raiz, 'docs', 'rq'), { recursive: true });
     fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), `${activo}\n`);
@@ -46,7 +48,7 @@ test('archivo libre (docs) se edita sin RQ', () => {
 });
 
 test('I3b: estado.yml y ACTIVO nunca se editan a mano; relevo.md sí', () => {
-  const raiz = repoConRq(base({ aprobaciones: [ap(2, FRASE)] }));
+  const raiz = repoConRq(base({ aprobaciones: [ap(1, FRASE)] }));
   for (const rel of ['docs/rq/R-T1/estado.yml', 'docs/rq/ACTIVO', 'docs/rq/OTRO/estado.yml']) {
     const r = evaluar(raiz, rel, { textosUsuario: [FRASE] });
     assert.equal(r.decision, 'deny', rel);
@@ -89,26 +91,74 @@ test('RQ activo sin estado.yml o con estado inválido -> deny, sin lanzar', () =
   assert.match(r.motivo, /^ESTADO_INVALIDO: R-T1: .*Revisá docs\/rq\/ACTIVO/);
 });
 
-test('etapa 2 no cumplida -> deny nombrando lo que falta', () => {
+test('etapa 1 no cumplida -> deny nombrando lo que falta', () => {
   const raiz = repoConRq(base());
   const r = evaluar(raiz, 'src/lib/a.ts');
   assert.equal(r.decision, 'deny');
   assert.equal(
     r.motivo,
-    'Falta el diseño del RQ R-T1: en bounded y spike alcanza con escribir docs/rq/R-T1/spec.md; en arquitectónico, plan aprobado (etapa 2).',
+    `Falta el diseño aprobado del RQ R-T1: docs/rq/R-T1/spec.md y la aprobación del usuario con ${cli()} aprobar 1 "<su frase>" (etapa 1, en toda clasificación).`,
   );
 });
 
-test('plan aprobado -> allow, en cualquier sesión (la frase se validó al registrarla)', () => {
-  const raiz = repoConRq(base({ aprobaciones: [ap(2, FRASE)] }));
+test('diseño aprobado -> allow, en cualquier sesión (la frase se validó al registrarla)', () => {
+  const raiz = repoConRq(base({ aprobaciones: [ap(1, FRASE)] }));
   assert.deepEqual(evaluar(raiz, 'src/lib/a.ts'), { decision: 'allow' });
 });
 
-test('bounded con spec.md y sin aprobaciones -> allow (autonomía por defecto)', () => {
-  const raiz = repoConRq(base({ clasificacion: 'bounded' }));
+test('aprobar 1 sin docs/rq/<código>/spec.md -> deny con el mensaje del diseño', () => {
+  for (const clasificacion of ['arquitectonico', 'bounded']) {
+    const raiz = repoConRq(base({ clasificacion, aprobaciones: [ap(1, FRASE)] }), { spec: false });
+    const r = evaluar(raiz, 'src/lib/a.ts');
+    assert.equal(r.decision, 'deny', clasificacion);
+    assert.equal(
+      r.motivo,
+      `Falta el diseño aprobado del RQ R-T1: docs/rq/R-T1/spec.md y la aprobación del usuario con ${cli()} aprobar 1 "<su frase>" (etapa 1, en toda clasificación).`,
+    );
+  }
+});
+
+test('bounded y spike: spec.md y autonomía no alcanzan, hace falta aprobar 1', () => {
+  for (const clasificacion of ['bounded', 'spike']) {
+    const raiz = repoConRq(base({ clasificacion }));
+    fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'spec.md'), 'x');
+    const r = evaluar(raiz, 'src/lib/a.ts');
+    assert.equal(r.decision, 'deny', clasificacion);
+    assert.match(r.motivo, /^Falta el diseño aprobado del RQ R-T1/, clasificacion);
+    guardarEstado(raiz, base({ clasificacion, aprobaciones: [ap(1, FRASE)] }));
+    assert.deepEqual(evaluar(raiz, 'src/lib/a.ts'), { decision: 'allow' }, clasificacion);
+  }
+});
+
+test('arquitectónico con autonomía registrada hasta la 4 y sin aprobar 1 -> deny', () => {
+  const raiz = repoConRq(base({ autonomia: { hasta: 4, frase: 'Seguí solo', fecha: 'f' } }));
   assert.equal(evaluar(raiz, 'src/lib/a.ts').decision, 'deny');
-  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'spec.md'), 'x');
-  assert.deepEqual(evaluar(raiz, 'src/lib/a.ts'), { decision: 'allow' });
+  // Una aprobación de otra etapa tampoco es la del diseño.
+  guardarEstado(raiz, base({ aprobaciones: [ap(2, FRASE), ap(4, FRASE)] }));
+  assert.equal(evaluar(raiz, 'src/lib/a.ts').decision, 'deny');
+});
+
+test('RQ abierto con 3.x: el plan aprobado (aprobar 2) vale como diseño; bounded y spike conservan el diseño por spec.md', () => {
+  const v3 = (yml, { spec = true } = {}) => {
+    const raiz = repoConRq(null);
+    fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-T1'), { recursive: true });
+    if (spec) fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'spec.md'), 'x');
+    fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'estado.yml'), `codigo: R-T1\ntipo: rq\n${yml}`);
+    return raiz;
+  };
+  const plan = v3('clasificacion: arquitectonico\netapa: 3\naprobaciones:\n  - { etapa: 2, frase: Plan ok, fecha: f }\n');
+  assert.deepEqual(evaluar(plan, 'src/lib/a.ts'), { decision: 'allow' });
+  assert.equal(evaluar(v3('clasificacion: arquitectonico\netapa: 3\naprobaciones: []\n'), 'src/lib/a.ts').decision, 'deny');
+  for (const clasificacion of ['bounded', 'spike']) {
+    const yml = `clasificacion: ${clasificacion}\netapa: 3\naprobaciones: []\n`;
+    const acotado = v3(yml);
+    assert.deepEqual(evaluar(acotado, 'src/lib/a.ts'), { decision: 'allow' }, `${clasificacion} recién convertido`);
+    // Guardado y vuelto a leer (ya v4, sin _v3): sigue con su diseño.
+    guardarEstado(acotado, cargarEstado(acotado, 'R-T1'));
+    assert.equal(cargarEstado(acotado, 'R-T1')._v3, undefined);
+    assert.deepEqual(evaluar(acotado, 'src/lib/a.ts'), { decision: 'allow' }, `${clasificacion} tras guardar`);
+    assert.equal(evaluar(v3(yml, { spec: false }), 'src/lib/a.ts').decision, 'deny', `${clasificacion} sin spec.md`);
+  }
 });
 
 test('salto de la compuerta edicion -> allow', () => {
@@ -118,8 +168,8 @@ test('salto de la compuerta edicion -> allow', () => {
 
 test('varios RQ activos: alcanza con que uno permita la edición', () => {
   const raiz = repoConRq(base(), { activo: null });
-  guardarEstado(raiz, base({ codigo: 'R-T2', aprobaciones: [ap(2, FRASE)] }));
-  fs.mkdirSync(path.join(raiz, 'docs', 'rq'), { recursive: true });
+  guardarEstado(raiz, base({ codigo: 'R-T2', aprobaciones: [ap(1, FRASE)] }));
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T2', 'spec.md'), '# x\n');
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-T2\nR-T1\n');
   assert.deepEqual(evaluar(raiz, 'src/lib/a.ts'), { decision: 'allow' });
 });
@@ -134,7 +184,7 @@ const DISENO = 'lineamientos-dev-claude-bacg:diseno-frontend';
 const PISTA_MENOR = ' Si el cambio es menor, preguntale al usuario en el chat (texto, no botones) si omite el refuerzo; con su respuesta: $RQ saltar ui "<su frase>" "<motivo>".';
 
 test('UI: diseno-frontend siempre y, encima, las skills de la regla que cubre el archivo (ui.reglas, si no ui.skills)', () => {
-  const raiz = conSpecDiseno(repoConRq(base({ aprobaciones: [ap(2, FRASE)] })));
+  const raiz = conSpecDiseno(repoConRq(base({ aprobaciones: [ap(1, FRASE)] })));
   let r = evaluar(raiz, 'src/components/Boton.tsx', {}, PROYECTO_UI);
   assert.equal(r.decision, 'deny');
   assert.equal(r.motivo, `Cambio de UI: cargá antes la skill diseno-frontend, canon-x (refuerzo de UI y canon del proyecto).${PISTA_MENOR}`);
@@ -150,13 +200,71 @@ test('UI: diseno-frontend siempre y, encima, las skills de la regla que cubre el
 });
 
 test('UI: las skills registradas en el RQ (estado.skills) valen para cualquier sesión o subagente', () => {
-  const raiz = conSpecDiseno(repoConRq(base({ aprobaciones: [ap(2, FRASE)], skills: ['canon-x', DISENO] })));
+  const raiz = conSpecDiseno(repoConRq(base({ aprobaciones: [ap(1, FRASE)], skills: ['canon-x', DISENO] })));
   assert.deepEqual(evaluar(raiz, 'src/components/Boton.tsx', {}, PROYECTO_UI), { decision: 'allow' });
 });
 
-test('UI con etapa 2 incumplida falla por la etapa, no por las skills', () => {
+test('UI con etapa 1 incumplida falla por la etapa, no por las skills', () => {
   const raiz = repoConRq(base());
   const r = evaluar(raiz, 'src/pages/Home.tsx', { skills: SKILLS }, PROYECTO_UI);
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /^Falta el diseño/);
+});
+
+test('M2: clasificación pendiente -> deny nombrando clasificacion confirmar; docs/rq/<código>/ sigue libre', () => {
+  const raiz = repoConRq(base({ clasificacion: 'bounded', clasificacion_pendiente: true, aprobaciones: [ap(1, FRASE)] }));
+  const d = evaluar(raiz, 'src/x.js');
+  assert.equal(d.decision, 'deny');
+  assert.match(d.motivo, /clasificacion confirmar/);
+  // Nombres visibles, que la CLI acepta; nunca los valores internos de estado.yml.
+  assert.match(d.motivo, /\(Acotado\)/);
+  assert.match(d.motivo, /clasificacion cambiar <exploracion\|acotado\|arquitectonico>/);
+  assert.doesNotMatch(d.motivo, /spike|bounded/);
+  assert.equal(evaluar(raiz, 'docs/rq/R-T1/spec.md').decision, 'allow');
+  assert.equal(evaluar(raiz, 'docs/rq/R-T1/sonda/x.js').decision, 'allow');
+});
+
+test('M2: confirmada -> permite; RQ sin el campo (3.x) no se bloquea', () => {
+  const conf = repoConRq(base({ clasificacion: 'bounded', clasificacion_pendiente: false, aprobaciones: [ap(1, FRASE)] }));
+  assert.equal(evaluar(conf, 'src/x.js').decision, 'allow');
+  const v3 = repoConRq(base({ clasificacion: 'bounded', aprobaciones: [ap(1, FRASE)] }));
+  assert.equal(evaluar(v3, 'src/x.js').decision, 'allow');
+});
+
+// M6: skill oficial de Odoo al editar un archivo de un addon (etapa 1 cumplida y clasificación confirmada).
+const estadoOk = (extra = {}) => base({ clasificacion: 'bounded', clasificacion_pendiente: false, aprobaciones: [ap(1, FRASE)], ...extra });
+function repoAddon(proyectoExtra = {}, estadoExtra = {}) {
+  const raiz = repoConRq(estadoOk(estadoExtra));
+  fs.mkdirSync(path.join(raiz, 'addons', 'x', 'models'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'addons', 'x', '__manifest__.py'), '{}');
+  return { raiz, p: { ...proyecto, ...proyectoExtra } };
+}
+
+test('M6: addon sin odoo-guidelines -> deny; cargada (sesión o estado) o con saltar skills -> allow', () => {
+  const { raiz, p } = repoAddon();
+  const r = evaluar(raiz, 'addons/x/models/a.py', {}, p);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /cargá antes la skill odoo-guidelines/);
+  assert.equal(evaluar(raiz, 'addons/x/models/a.py', { skills: new Set(['odoo-guidelines']) }, p).decision, 'allow');
+  const conEstado = repoAddon({}, { skills: ['odoo-guidelines'] });
+  assert.equal(evaluar(conEstado.raiz, 'addons/x/models/a.py', {}, conEstado.p).decision, 'allow');
+  const salto = repoAddon({}, { saltos: [{ compuerta: 'skills', frase: 'salteá las skills de Odoo', motivo: 'm', fecha: '2026-10-23T12:00:00Z' }] });
+  assert.equal(evaluar(salto.raiz, 'addons/x/models/a.py', {}, salto.p).decision, 'allow');
+});
+
+test('M6: static/ de un addon pide odoo-web-guidelines, no odoo-guidelines', () => {
+  const { raiz, p } = repoAddon();
+  const r = evaluar(raiz, 'addons/x/static/src/a.js', { skills: new Set(['odoo-guidelines']) }, p);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /skill odoo-web-guidelines/);
+  assert.equal(evaluar(raiz, 'addons/x/static/src/a.js', { skills: new Set(['odoo-web-guidelines']) }, p).decision, 'allow');
+});
+
+test('M6: sin Odoo (motor declarado otro u odoo_skills false) o fuera de un addon, no pide skill de Odoo', () => {
+  const sup = repoAddon({ datos: { motor: 'supabase' } });
+  assert.equal(evaluar(sup.raiz, 'addons/x/models/a.py', {}, sup.p).decision, 'allow');
+  const off = repoAddon({ odoo_skills: false });
+  assert.equal(evaluar(off.raiz, 'addons/x/models/a.py', {}, off.p).decision, 'allow');
+  const { raiz, p } = repoAddon();
+  assert.equal(evaluar(raiz, 'src/x.js', {}, p).decision, 'allow');
 });

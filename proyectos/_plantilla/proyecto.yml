@@ -2,10 +2,12 @@
 # (bacgroup/lineamientos-dev-claude-bacg) y sumá el proyecto a proyectos/registro.yml. Cada repo del proyecto lleva
 # `.bacg-lineamientos` con `proyecto: <id>` y `.claude/settings.json` (ver plantillas/repo-proyecto/).
 #
-# Los valores de ejemplo son los de la arquitectura de referencia de BACG: Odoo + n8n + AWS, PROD por rama y
-# conectores MCP de PROD declarados. Lo que no se declara toma ese valor. Otro stack (Supabase + Lovable, Postgres
-# propio, sin base) se declara con `datos`, `entornos.prod`, `lovable` y `agentes_externos`; ver el pie.
+# Los valores son ejemplos de la arquitectura de referencia de BACG (Odoo + n8n + AWS, PROD por rama y conectores MCP
+# de PROD declarados): reemplazalos por los del proyecto. Nada se supone: el stack es el que se declara o se detecta.
+# Otro stack (Supabase + Lovable, Postgres propio, sin base) se declara con `datos`, `entornos.prod`, `lovable` y
+# `agentes_externos`; ver el pie.
 
+version_ciclo: 4                # numeración de etapas del ciclo (0-6); sin la clave, skills_requeridas se lee en la de 3.x
 id: mi-proyecto                 # identificador corto; el `proyecto:` de .bacg-lineamientos
 nombre: Mi Proyecto             # nombre legible
 cuenta_github: bacgroup         # org o cuenta dueña de los repos
@@ -20,9 +22,12 @@ repos:                          # un elemento por repo del proyecto (los RQ mult
     rol: addons
     push_prod: true
 
-# Base de datos. Sin la clave: odoo, con migraciones de módulos en **/migrations/**.
+# Base de datos.
 datos:
-  motor: odoo                   # odoo | supabase | postgres | otro | ninguno
+  # motor: odoo                 # odoo | supabase | postgres | otro | ninguno. Sin declarar, se detecta: Odoo si el repo
+  #                             # tiene algún __manifest__.py a 3 niveles o menos de la raíz; Supabase si declara
+  #                             # supabase_refs o proyectos de Lovable. Declaralo si la detección no alcanza.
+  #                             # odoo_skills: false (en la raíz del archivo) apaga las skills de Odoo aunque se detecte.
   migraciones: ["**/migrations/**"]   # globs: disparan "Toca: migraciones"; [] = sin migraciones
   aplicar: "Las aplica Odoo al actualizar el módulo (-u) en el deploy"   # lo muestra `rq.mjs desplegar`
 
@@ -51,11 +56,12 @@ mcp_prod:
   # - servidor: odoo-prod
   #   tipo: odoo                # con execute_kw/call_kw, decide `method` (search_read pasa; write/create/unlink no)
 
-# Skills de BACG que la CLI exige (además de las de proceso). etapa 3 | 4 | 6; tipo rq | bug; rutas opcionales.
+# Skills de BACG que la CLI exige (además de las de proceso). etapa 2 (desarrollo) | 3 (verificación) | 5 (PROD);
+# tipo rq | bug; rutas opcionales.
 skills_requeridas:
-  - { etapa: 3, skill: "anthropic-skills:bacg-n8n-guidelines", rutas: ["**/n8n/**"] }
-  - { etapa: 6, skill: "anthropic-skills:bacg-n8n-pasaje-prod", rutas: ["**/n8n/**"] }
-  # - { etapa: 3, skill: "anthropic-skills:bacg-diagnostico-bugs", tipo: bug }
+  - { etapa: 2, skill: "anthropic-skills:bacg-n8n-guidelines", rutas: ["**/n8n/**"] }
+  - { etapa: 5, skill: "anthropic-skills:bacg-n8n-pasaje-prod", rutas: ["**/n8n/**"] }
+  # - { etapa: 2, skill: "anthropic-skills:bacg-diagnostico-bugs", tipo: bug }
 
 # Pasos de publicación: cada uno espera a los de su despues_de (sin la clave, a todos los anteriores). Los manuales no
 # bloquean el cierre: quedan pendientes del usuario.

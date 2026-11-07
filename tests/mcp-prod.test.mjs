@@ -11,8 +11,8 @@ const proyecto = {
     { servidor: 'n8n-compartido', tipo: 'n8n', ids_prod: ['wfPROD'] },
   ],
 };
-const FRASE6 = 'Publicá el workflow a producción';
-const rq6 = { codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 6, aprobaciones: [{ etapa: 6, frase: FRASE6, fecha: '2026-11-04T12:00:00Z' }], saltos: [], circuito: [] };
+const FRASE_PROD = 'Publicá el workflow a producción';
+const rqProd = { codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 5, aprobaciones: [{ etapa: 5, frase: FRASE_PROD, fecha: '2026-11-04T12:00:00Z' }], saltos: [], circuito: [] };
 const ev = (tool, input = {}, estado = null, textos = []) =>
   evaluarMcp({ toolName: tool, toolInput: input, proyecto, estado, ctx: { textosUsuario: textos, raiz: null } });
 
@@ -34,8 +34,8 @@ test('n8n de PROD: escritura sin RQ → deny crítica; con OK de PROD en la sesi
     assert.equal(r.decision, 'deny', t);
     assert.equal(r.critica, true);
   }
-  assert.match(ev('mcp__n8n-prod__publish_workflow', {}, { ...rq6, aprobaciones: [] }).motivo, /etapa 6/);
-  assert.equal(ev('mcp__n8n-prod__publish_workflow', {}, rq6, [FRASE6]).decision, 'allow');
+  assert.match(ev('mcp__n8n-prod__publish_workflow', {}, { ...rqProd, aprobaciones: [] }).motivo, /etapa 5/);
+  assert.equal(ev('mcp__n8n-prod__publish_workflow', {}, rqProd, [FRASE_PROD]).decision, 'allow');
 });
 
 test('servidor con prefijo de conector (claude_ai_, plugin_) también se reconoce', () => {

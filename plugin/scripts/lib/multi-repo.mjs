@@ -46,7 +46,12 @@ export function reposHermanos(raiz, proyectoId, proyecto) {
   } catch {
     // carpeta padre ilegible
   }
-  for (const d of vecinos) sumar(path.join(path.dirname(raiz), d.name));
+  // Sólo una carpeta con .git (carpeta, o archivo en un worktree) puede ser la raíz de un repo: el resto se descarta
+  // sin lanzar git, que en una carpeta con miles de vecinos (p. ej. el temp) costaba minutos por comando.
+  for (const d of vecinos) {
+    const dir = path.join(path.dirname(raiz), d.name);
+    if (fs.existsSync(path.join(dir, '.git'))) sumar(dir);
+  }
   return [...out.values()];
 }
 
@@ -89,7 +94,13 @@ export function heredar(raiz, proyectoId, proyecto, estado) {
   estado.aprobaciones = unir(estado.aprobaciones, o.aprobaciones);
   estado.saltos = unir(estado.saltos, o.saltos);
   estado.skills = unir(estado.skills, o.skills);
+  if (o.clasificacion) {
+    estado.clasificacion = o.clasificacion;
+    estado.clasificacion_pendiente = o.clasificacion_pendiente === true;
+    if (o.clasificacion_confirmada) estado.clasificacion_confirmada = o.clasificacion_confirmada;
+  }
   if (!estado.autonomia && o.autonomia) estado.autonomia = o.autonomia;
+  if (!estado.ejecucion && o.ejecucion) estado.ejecucion = o.ejecucion;
   if (!estado.tarea && o.tarea) estado.tarea = o.tarea;
   estado.vinculado = [...new Set([...lista(estado.vinculado), path.basename(origen.raiz)])];
   return path.basename(origen.raiz);

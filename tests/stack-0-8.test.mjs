@@ -14,7 +14,8 @@ import { guardarEstado, cargarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { handler as postTool } from '../plugin/scripts/lib/hooks/post-tool.mjs';
 import { shellDeTests } from '../plugin/scripts/lib/cli.mjs';
 import { evaluarEdicion } from '../plugin/scripts/lib/compuerta-edicion.mjs';
-import { crearRepoTemporal } from './helpers.mjs';
+import { crearRepoTemporal, sesionDePrueba } from './helpers.mjs';
+import { main as mainRq } from '../plugin/scripts/rq.mjs';
 
 function git(cwd, ...args) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
@@ -30,8 +31,8 @@ const ODOO = {
 
 // ---------- stack.mjs ----------
 
-test('stack por defecto: el de BACG (Odoo, sin agentes externos); Supabase sólo si se declaran refs o Lovable', () => {
-  assert.equal(motorDatos({}), 'odoo');
+test('stack por defecto: sin motor declarado (null), migraciones genéricas y sin agentes externos; Supabase sólo si se declaran refs o Lovable', () => {
+  assert.equal(motorDatos({}), null);
   assert.deepEqual(globsMigraciones({}), ['**/migrations/**']);
   assert.equal(esMigracion('addons/x/migrations/18.0.1/post.py', {}), true);
   assert.deepEqual(autoresExternos({}), []);
@@ -72,6 +73,12 @@ test('AGENTS.md nombra las bases y las migraciones del stack declarado', () => {
   assert.match(s, /`erp-prod`/);
   assert.match(s, /`\*\*\/migrations\/\*\*`/);
   assert.doesNotMatch(s, /supabase\/migrations/);
+});
+
+test('AGENTS.md nombra las etapas con la numeración v4', () => {
+  const s = seccionAgents({ id: 'erp', ...ODOO });
+  assert.match(s, /0 Arranque y clasificación · 1 Diseño y plan · 2 Desarrollo · 3 Verificación · 4 DEV \/ Preview · 5 PROD y entrega · 6 Cierre/);
+  assert.doesNotMatch(s, /\b7 Cierre\b/);
 });
 
 // ---------- P1: PROD por rama destino ----------
@@ -118,7 +125,7 @@ test('publicaEnProd: sólo las ramas de ramas_prod; sin ramas_prod, todo push a 
   assert.equal(publicaEnProd({ op: 'merge-pr' }, raiz, proyecto, entrada, { basePr: () => '18.0' }), true);
 });
 
-test('compuerta: push a la rama de DEV pide la etapa 4 pero no el OK de PROD; a la de PROD, sí', () => {
+test('compuerta: push a la rama de DEV pide la etapa 3 pero no el OK de PROD; a la de PROD, sí', () => {
   const dirLin = fs.mkdtempSync(path.join(os.tmpdir(), 'lin '));
   fs.mkdirSync(path.join(dirLin, 'proyectos', 'erp'), { recursive: true });
   fs.writeFileSync(path.join(dirLin, 'proyectos', 'erp', 'proyecto.yml'), PROY());
@@ -127,7 +134,7 @@ test('compuerta: push a la rama de DEV pide la etapa 4 pero no el OK de PROD; a 
   git(raiz, 'add', 'a.py');
   git(raiz, 'commit', '-q', '-m', 'R-1: a');
   const estado = {
-    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 4, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
+    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 3, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
     tests: { ok: true, arbol: 'x' }, revision: { ok: true },
   };
   guardarEstado(raiz, estado);
@@ -137,9 +144,9 @@ test('compuerta: push a la rama de DEV pide la etapa 4 pero no el OK de PROD; a 
   const prod = ev('git push origin HEAD:18.0');
   assert.equal(prod.decision, 'deny');
   assert.equal(prod.critica, true);
-  assert.match(prod.motivo, /es PROD: falta el OK del usuario para PROD \(etapa 6\)/);
+  assert.match(prod.motivo, /es PROD: falta el OK del usuario para PROD \(etapa 5\)/);
   guardarEstado(raiz, { ...estado, tests: { ok: false } , revision: null });
-  assert.equal(ev('git push').decision, 'deny', 'la rama de DEV sigue pidiendo la etapa 4');
+  assert.equal(ev('git push').decision, 'deny', 'la rama de DEV sigue pidiendo la etapa 3');
 });
 
 // ---------- P3: shell de los tests ----------
@@ -162,7 +169,9 @@ const PROY_SCSS = { ui: { patrones: ['**/*.scss', '**/views/**/*.xml'], skills: 
 
 function repoUi({ spec = '# R-U1\n## Diseño\nCanon, dirección, estados, móvil.\n', archivos = {} } = {}) {
   const raiz = crearRepoTemporal({ archivos });
-  guardarEstado(raiz, { codigo: 'R-U1', tipo: 'rq', clasificacion: 'bounded', etapa: 3, autonomia: null, aprobaciones: [], saltos: [] });
+  // Diseño aprobado (etapa 1): sin eso la compuerta de edición niega antes de mirar el refuerzo de UI.
+  const diseno = [{ etapa: 1, frase: 'Diseño ok', fecha: '2026-11-06T12:00:00Z' }];
+  guardarEstado(raiz, { codigo: 'R-U1', tipo: 'rq', clasificacion: 'bounded', etapa: 2, autonomia: null, aprobaciones: diseno, saltos: [] });
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-U1\n');
   if (spec !== null) fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-U1', 'spec.md'), spec);
   return raiz;
@@ -258,7 +267,8 @@ test('lineaStack: el arranque dice el stack declarado (y el de referencia cuando
   assert.match(erp, /PROD = push o merge a 18\.0/);
   assert.match(erp, /DEV rama 18\.0-dev/);
   assert.match(erp, /agentes sin el plugin: los de agentes_externos/);
-  assert.match(lineaStack({}), /datos odoo .* MCP de PROD: ninguno declarado .* agentes sin el plugin: ninguno declarado/);
+  assert.match(lineaStack({}), /datos sin declarar .* MCP de PROD: ninguno declarado .* agentes sin el plugin: ninguno declarado/);
+  assert.doesNotMatch(lineaStack({}), /odoo/i, 'sin Odoo declarado, la línea del arranque no lo nombra');
   assert.match(lineaStack({ mcp_prod: [{ servidor: 'n8n-prod', tipo: 'n8n' }] }), /MCP de PROD: n8n-prod \(n8n\)/);
 });
 
@@ -279,12 +289,18 @@ test('saltar ui (cambio menor aceptado por el usuario): sin diseno-frontend, red
   assert.doesNotMatch(r.motivo, /diseno-frontend|Si el cambio es menor/);
 });
 
-test('rq.mjs saltar acepta la compuerta ui', () => {
+test('rq.mjs saltar acepta la compuerta ui', async () => {
   const raiz = repoUi();
   fs.writeFileSync(path.join(raiz, '.bacg-lineamientos'), 'proyecto: erp\n');
-  const r = spawnSync(process.execPath, [path.join(process.cwd(), 'plugin', 'scripts', 'rq.mjs'), 'saltar', 'ui', 'sí, omitilo', 'texto del botón'], { cwd: raiz, encoding: 'utf8' });
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /Salto de la compuerta ui registrado/);
+  const sesion = sesionDePrueba('sí, omitilo');
+  let out = '';
+  let err = '';
+  const code = await mainRq(['saltar', 'ui', 'sí, omitilo', 'texto del botón'], {
+    cwd: raiz, env: { ...process.env, ...sesion.env }, home: sesion.home,
+    stdout: { write: (x) => { out += x; } }, stderr: { write: (x) => { err += x; } },
+  });
+  assert.equal(code, 0, err);
+  assert.match(out, /Salto de la compuerta ui registrado/);
   assert.equal(cargarEstado(raiz, 'R-U1').saltos.at(-1).compuerta, 'ui');
 });
 
@@ -294,7 +310,7 @@ test('ramas_solo_pr: push directo a 18.0-dev se niega y pide PR; push de la rama
   fs.writeFileSync(path.join(dirLin, 'proyectos', 'erp', 'proyecto.yml'), PROY('ramas_solo_pr: ["18.0-dev"]\n'));
   const raiz = repoConUpstream('erp-app', '18.0-dev');
   const estado = {
-    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 4, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
+    codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 3, autonomia: null, aprobaciones: [], saltos: [], circuito: [],
     tests: { ok: true, arbol: 'x' }, revision: { ok: true },
   };
   guardarEstado(raiz, estado);
@@ -305,6 +321,6 @@ test('ramas_solo_pr: push directo a 18.0-dev se niega y pide PR; push de la rama
   assert.match(r.motivo, /18\.0-dev sólo recibe cambios por PR.*gh pr create --base 18\.0-dev/);
   assert.equal(ev('git push origin HEAD:18.0-dev').decision, 'deny');
   assert.deepEqual(ev('git push -u origin HEAD:rq/R-1'), { decision: 'allow', critica: false }, 'rama propia del RQ');
-  assert.equal(ev('gh pr merge 12 --merge', { basePr: () => '18.0-dev' }).decision, 'allow', 'el merge del PR a DEV sigue la etapa 4');
+  assert.equal(ev('gh pr merge 12 --merge', { basePr: () => '18.0-dev' }).decision, 'allow', 'el merge del PR a DEV sigue la etapa 3');
   assert.deepEqual(ramasSoloPr({ ramas_solo_pr: ['18.0-dev'] }, { nombre: 'x', ramas_solo_pr: [] }), [], 'el repo manda');
 });

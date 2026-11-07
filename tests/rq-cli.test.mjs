@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { main, bloquesHandoff } from '../plugin/scripts/rq.mjs';
 import { cargarEstado, rqActivo, rqsActivos, guardarEstado as guardarEstadoTest } from '../plugin/scripts/lib/estado.mjs';
 import { leerBacklog } from '../plugin/scripts/lib/backlog.mjs';
-import { crearRepoTemporal } from './helpers.mjs';
+import { crearRepoTemporal, sesionDePrueba, fraseDe } from './helpers.mjs';
+import { arbolTesteado } from '../plugin/scripts/lib/arbol.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 // Copia temporal del fixture: abrir y cerrar escriben el backlog del proyecto.
@@ -16,12 +17,19 @@ const DIR_LIN = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-fixture-'));
 fs.cpSync(path.join(AQUI, 'fixtures', 'lineamientos'), DIR_LIN, { recursive: true });
 const SCRIPT = path.resolve(AQUI, '..', 'plugin', 'scripts', 'rq.mjs');
 
+// En estos tests el usuario escribió en la sesión la frase que se registra; la verificación en sí la prueba
+// tests/frase-cli.test.mjs.
+const SESION = sesionDePrueba();
+
 async function correr(cwd, args, env = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' }) {
   let out = '';
   let err = '';
+  const frase = fraseDe(args);
+  if (frase) SESION.dijo(frase);
   const code = await main(args, {
     cwd,
-    env: { ...process.env, ...env },
+    home: SESION.home,
+    env: { ...process.env, ...SESION.env, ...env },
     stdout: { write: (s) => { out += s; } },
     stderr: { write: (s) => { err += s; } },
   });
@@ -30,6 +38,16 @@ async function correr(cwd, args, env = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DE
 
 const repoDemo = (archivos = {}) => crearRepoTemporal({ proyectoId: 'demo', archivos });
 const abrirR1 = (raiz) => correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
+
+// Etapa 2 v4 de un Acotado: brainstorming registrado, ## Tareas en spec.md y la ejecución elegida por el usuario.
+function listoParaDesarrollo(raiz, codigo = 'R-1') {
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', codigo), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', codigo, 'spec.md'), '# spec\n\n## Tareas\n\n- [ ] una\n');
+  const e = cargarEstado(raiz, codigo);
+  e.skills = [...(e.skills ?? []), { skill: 'superpowers:brainstorming', etapa: 1 }];
+  e.ejecucion = { modo: 'inline', frase: 'en línea', fecha: 'f' };
+  guardarEstadoTest(raiz, e);
+}
 
 // Lineamientos temporal con un proyecto cuyos tests son los comandos dados.
 function lineamientosCon(tests) {
@@ -105,12 +123,12 @@ test('sin RQ activo los subcomandos de estado fallan con exit 1', async () => {
   assert.match(r.out, /RQ activo: ninguno\./);
 });
 
-test('etapa: actualiza y valida 0-7 entero', async () => {
+test('etapa: actualiza y valida 0-6 entero', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
   assert.equal((await correr(raiz, ['etapa', '3'])).code, 0);
   assert.equal(cargarEstado(raiz, 'R-1').etapa, 3);
-  for (const n of ['8', '-1', '1.5', 'x']) {
+  for (const n of ['7', '8', '-1', '1.5', 'x']) {
     assert.equal((await correr(raiz, ['etapa', n])).code, 1, n);
   }
   assert.equal(cargarEstado(raiz, 'R-1').etapa, 3);
@@ -127,25 +145,26 @@ test('aprobar 1 "Spec aprobada" deja la aprobación; valida etapa y frase', asyn
   assert.equal(a[0].frase, 'Spec aprobada');
   assert.ok(!Number.isNaN(Date.parse(a[0].fecha)));
   assert.equal((await correr(raiz, ['aprobar', '9', 'x'])).code, 1);
+  assert.equal((await correr(raiz, ['aprobar', '7', 'x'])).code, 1);
   assert.equal((await correr(raiz, ['aprobar', '1', ''])).code, 1);
   assert.equal((await correr(raiz, ['aprobar', '1', '   '])).code, 1);
   assert.equal(cargarEstado(raiz, 'R-1').aprobaciones.length, 1);
 });
 
-test('autonomia: hasta 1-5, nunca 6 o más', async () => {
+test('autonomia: hasta 1-4, nunca 5 o más', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
-  const r = await correr(raiz, ['autonomia', '5', 'Dale, hasta el final']);
+  const r = await correr(raiz, ['autonomia', '4', 'Dale, hasta el final']);
   assert.equal(r.code, 0);
   const au = cargarEstado(raiz, 'R-1').autonomia;
-  assert.equal(au.hasta, 5);
+  assert.equal(au.hasta, 4);
   assert.equal(au.frase, 'Dale, hasta el final');
   assert.ok(au.fecha);
-  for (const n of ['6', '7', '0', 'x']) {
+  for (const n of ['5', '6', '7', '0', 'x']) {
     assert.equal((await correr(raiz, ['autonomia', n, 'f'])).code, 1, n);
   }
   assert.equal((await correr(raiz, ['autonomia', '3', ''])).code, 1);
-  assert.equal(cargarEstado(raiz, 'R-1').autonomia.hasta, 5);
+  assert.equal(cargarEstado(raiz, 'R-1').autonomia.hasta, 4);
 });
 
 test('saltar: compuerta válida con frase y motivo', async () => {
@@ -166,6 +185,7 @@ test('saltar: compuerta válida con frase y motivo', async () => {
 test('revision ok|bloqueante guarda ok true/false con nota', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
   let r = await correr(raiz, ['revision', 'ok', 'sin bloqueantes']);
   assert.equal(r.code, 1, 'sin test-driven-development no hay revisión ok');
   assert.match(r.err, /falta: superpowers:test-driven-development/);
@@ -243,20 +263,20 @@ test('estado imprime código, tipo, clasificación, etapa, aprobaciones, autonom
   assert.equal(r.code, 0);
   assert.match(r.out, /R-1/);
   assert.match(r.out, /rq/);
-  assert.match(r.out, /bounded/);
+  assert.match(r.out, /Clasificación: Acotado \(pendiente de confirmar\)/);
   assert.match(r.out, /1: Spec aprobada/);
   assert.match(r.out, /tests.*ok/i);
   assert.match(r.out, /revisi/i);
   assert.match(r.out, /circuito/i);
 });
 
-test('cerrar: etapa 7 y borra ACTIVO', async () => {
+test('cerrar: etapa 6 y borra ACTIVO', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
   const r = await correr(raiz, ['cerrar']);
   assert.equal(r.code, 0);
   assert.match(r.out, /RQ R-1 cerrado\./);
-  assert.equal(cargarEstado(raiz, 'R-1').etapa, 7);
+  assert.equal(cargarEstado(raiz, 'R-1').etapa, 6);
   assert.equal(rqActivo(raiz), null);
   assert.equal(fs.existsSync(path.join(raiz, 'docs', 'rq', 'ACTIVO')), false);
 });
@@ -334,6 +354,7 @@ test('el script por línea de comandos funciona (child_process)', () => {
 test('registrar-tests: cambios sin stagear en archivos trackeados → exit 1 y tests sin tocar', async () => {
   const raiz = repoDemo({ 'a.txt': 'uno\n' });
   await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
   fs.writeFileSync(path.join(raiz, 'a.txt'), 'dos\n');
   const r = await correr(raiz, ['registrar-tests']);
   assert.equal(r.code, 1);
@@ -379,7 +400,7 @@ test('abrir y cerrar llevan la fila del RQ en el backlog del proyecto', async ()
     { c: filas[0]['Código'], t: filas[0].Tarea, p: filas[0].Prioridad, e: filas[0].Estado, l: filas[0].Link },
     { c: 'R-7', t: 'Aviso / corto', p: 'Alta', e: 'En curso', l: 'docs/rq/R-7/' },
   );
-  r = await correr(raiz, ['etapa', '6'], env);
+  r = await correr(raiz, ['etapa', '5'], env);
   r = await correr(raiz, ['cerrar'], env);
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /Quedan pendientes .*push:demo-app, manual:publicar-en-lovable/);
@@ -464,6 +485,7 @@ test('registrar-tests: {archivos} recibe lo que está en stage de producto; sin 
   const env = { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_ALTA: '1' };
   const raiz = repoDemo();
   await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
   fs.writeFileSync(path.join(raiz, 'notas.md'), 'x');
   execFileSync('git', ['add', 'notas.md'], { cwd: raiz });
   let r = await correr(raiz, ['registrar-tests'], env);
@@ -782,7 +804,7 @@ test('sede (RQ espejo): no escribe backlog y al cerrar sólo deja pendientes sus
   assert.match(r.out, /sede; el backlog vive en el repo padre/);
   assert.equal(fs.existsSync(path.join(raiz, 'docs', 'backlog.md')), false);
   assert.equal(fs.existsSync(path.join(lin, 'proyectos', 'demo', 'backlog.md')), false);
-  await correr(raiz, ['etapa', '6'], env);
+  await correr(raiz, ['etapa', '5'], env);
   r = await correr(raiz, ['cerrar'], env);
   assert.equal(r.code, 0, r.err);
   assert.deepEqual(cargarEstado(raiz, 'R-1').pendientes, ['push:demo-sede']);
@@ -831,4 +853,284 @@ test('auditar: lista commits de Lovable con marcas y --cerrar mueve la marca y a
   commitDe('gpt-engineer-app[bot]', 'src/z.ts');
   r = await correr(raiz, ['auditar']);
   assert.match(r.out, /1 commit\(s\)/);
+});
+
+// Verificación local con el rol real (M1): RQ que toca UI.
+const SPEC_UI = '# R-1\n\n## Toca: UI [x] · sensible [ ]\n';
+const rqConUi = async (extra = {}) => {
+  const raiz = repoDemo({ 'docs/rq/R-1/qa/a.png': 'png', 'docs/rq/R-1/spec.md': SPEC_UI, 'docs/otro/b.png': 'png', ...extra });
+  await abrirR1(raiz);
+  return raiz;
+};
+
+test('verificar --local registra qué y capturas', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['verificar', '--local', 'Recorrí X como gerente', 'docs/rq/R-1/qa/a.png']);
+  assert.equal(r.code, 0, r.err);
+  const v = cargarEstado(raiz, 'R-1').verificacion_local;
+  assert.equal(v.que, 'Recorrí X como gerente');
+  assert.deepEqual(v.capturas, ['docs/rq/R-1/qa/a.png']);
+  assert.equal(typeof v.fecha, 'string');
+});
+
+test('verificar --local sin capturas falla', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['verificar', '--local', 'Recorrí X como gerente']);
+  assert.notEqual(r.code, 0);
+  assert.match(r.err, /al menos una captura/);
+  assert.equal(cargarEstado(raiz, 'R-1').verificacion_local, undefined);
+});
+
+test('verificar --local con captura fuera de qa/ falla', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['verificar', '--local', 'Recorrí X', 'docs/otro/b.png']);
+  assert.notEqual(r.code, 0);
+  assert.match(r.err, /docs\/rq\/R-1\/qa\//);
+  const r2 = await correr(raiz, ['verificar', '--local', 'Recorrí X', 'docs/rq/R-1/qa/../../../otro/b.png']);
+  assert.notEqual(r2.code, 0);
+  const r3 = await correr(raiz, ['verificar', '--local', 'Recorrí X', 'docs/rq/R-1/qa/no-existe.png']);
+  assert.notEqual(r3.code, 0);
+  assert.match(r3.err, /no existe/);
+});
+
+test('estado muestra "Verificación local: sin registrar" en un RQ que toca UI', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['estado']);
+  assert.match(r.out, /Verificación local: sin registrar/);
+  await correr(raiz, ['verificar', '--local', 'Recorrí X', 'docs/rq/R-1/qa/a.png']);
+  assert.match((await correr(raiz, ['estado'])).out, /Verificación local: ok/);
+  const sinUi = repoDemo();
+  await abrirR1(sinUi);
+  assert.doesNotMatch((await correr(sinUi, ['estado'])).out, /Verificación local/);
+});
+
+test('saltar verificacion-local es una compuerta válida', async () => {
+  const raiz = await rqConUi();
+  const r = await correr(raiz, ['saltar', 'verificacion-local', 'sin entorno local', 'no hay datos']);
+  assert.equal(r.code, 0, r.err);
+});
+
+test('M2: abrir con nombre nuevo guarda el valor interno, queda pendiente e imprime nombre e implicancias', async () => {
+  const raiz = repoDemo();
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'acotado']);
+  assert.equal(r.code, 0, r.err);
+  const e = cargarEstado(raiz, 'R-1');
+  assert.equal(e.clasificacion, 'bounded');
+  assert.equal(e.clasificacion_pendiente, true);
+  assert.match(r.out, /Acotado/);
+  assert.match(r.out, /\/prototype/);
+  assert.match(r.out, /clasificacion confirmar/);
+});
+
+test('M2: clasificacion confirmar libera; cambiar cambia y libera; estado la muestra', async () => {
+  const raiz = repoDemo();
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'acotado']);
+  assert.match((await correr(raiz, ['estado'])).out, /Clasificación: Acotado \(pendiente de confirmar\)/);
+  const c = await correr(raiz, ['clasificacion', 'confirmar', 'Sí, acotado']);
+  assert.equal(c.code, 0, c.err);
+  let e = cargarEstado(raiz, 'R-1');
+  assert.equal(e.clasificacion_pendiente, false);
+  assert.equal(e.clasificacion_confirmada.frase, 'Sí, acotado');
+  assert.ok(e.clasificacion_confirmada.fecha);
+  assert.match((await correr(raiz, ['estado'])).out, /Clasificación: Acotado\n/);
+
+  const k = await correr(raiz, ['clasificacion', 'cambiar', 'arquitectonico', 'mejor arquitectónico']);
+  assert.equal(k.code, 0, k.err);
+  e = cargarEstado(raiz, 'R-1');
+  assert.equal(e.clasificacion, 'arquitectonico');
+  assert.equal(e.clasificacion_pendiente, false);
+  assert.equal(e.clasificacion_confirmada.frase, 'mejor arquitectónico');
+});
+
+test('M2: clasificacion valida acción, valor y frase', async () => {
+  const raiz = repoDemo();
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'acotado']);
+  assert.equal((await correr(raiz, ['clasificacion', 'confirmar'])).code, 2);
+  assert.equal((await correr(raiz, ['clasificacion', 'otra', 'x'])).code, 2);
+  assert.equal((await correr(raiz, ['clasificacion', 'cambiar', 'enorme', 'frase'])).code, 1);
+  assert.equal(cargarEstado(raiz, 'R-1').clasificacion_pendiente, true);
+});
+
+test('ejecucion: guarda modo, frase y fecha; acepta los nombres de las skills; valor o frase inválidos fallan', async () => {
+  const raiz = repoDemo();
+  await abrirR1(raiz);
+  let r = await correr(raiz, ['ejecucion', 'subagentes', 'con subagentes']);
+  assert.equal(r.code, 0, r.err);
+  let e = cargarEstado(raiz, 'R-1').ejecucion;
+  assert.deepEqual({ modo: e.modo, frase: e.frase }, { modo: 'subagentes', frase: 'con subagentes' });
+  assert.ok(e.fecha);
+  assert.equal((await correr(raiz, ['ejecucion', 'executing-plans', 'en línea'])).code, 0);
+  assert.equal(cargarEstado(raiz, 'R-1').ejecucion.modo, 'inline');
+  assert.equal((await correr(raiz, ['ejecucion', 'subagent-driven-development', 'subagentes dale'])).code, 0);
+  assert.equal(cargarEstado(raiz, 'R-1').ejecucion.modo, 'subagentes');
+  r = await correr(raiz, ['ejecucion', 'paralelo', 'frase']);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /Ejecución inválida: "paralelo"/);
+  assert.equal((await correr(raiz, ['ejecucion', 'inline', ''])).code, 1);
+  assert.equal((await correr(raiz, ['ejecucion', 'inline'])).code, 2);
+  assert.equal(cargarEstado(raiz, 'R-1').ejecucion.modo, 'subagentes', 'los intentos inválidos no pisan');
+});
+
+test('ejecucion: el primer commit de código en Acotado se niega sin ejecución; en Exploración no se pide', async () => {
+  const raiz = repoDemo({ 'src/a.ts': 'x' });
+  await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
+  const e = cargarEstado(raiz, 'R-1');
+  delete e.ejecucion;
+  guardarEstadoTest(raiz, e);
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'y');
+  execFileSync('git', ['add', 'src/a.ts'], { cwd: raiz });
+  let r = await correr(raiz, ['registrar-tests']);
+  assert.equal(r.code, 1);
+  assert.ok(r.err.includes('Antes del primer commit, preguntale al usuario cómo ejecutar el plan (executing-plans en línea o subagent-driven-development) y registralo: $RQ ejecucion inline|subagentes "<su frase>".'), r.err);
+  assert.equal((await correr(raiz, ['ejecucion', 'inline', 'en línea'])).code, 0);
+  assert.equal((await correr(raiz, ['registrar-tests'])).code, 0);
+
+  const sp = repoDemo({ 'src/a.ts': 'x' });
+  await correr(sp, ['abrir', 'S-1', '--tipo', 'rq', '--clasificacion', 'spike']);
+  const s1 = cargarEstado(sp, 'S-1');
+  s1.skills = [{ skill: 'superpowers:brainstorming', etapa: 1 }];
+  guardarEstadoTest(sp, s1);
+  fs.writeFileSync(path.join(sp, 'src', 'a.ts'), 'y');
+  execFileSync('git', ['add', 'src/a.ts'], { cwd: sp });
+  r = await correr(sp, ['registrar-tests']);
+  assert.doesNotMatch(r.err, /cómo ejecutar el plan/);
+});
+
+// ---------- M4, M5 y M7: rama por RQ, estado.yml en el mismo commit y archivos ignorados ----------
+
+// Lineamientos con ramas_solo_pr: ["18.0-dev"] en el proyecto demo.
+function linSoloPr() {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-solo-pr-'));
+  fs.cpSync(DIR_LIN, d, { recursive: true });
+  fs.appendFileSync(path.join(d, 'proyectos', 'demo', 'proyecto.yml'), 'ramas_solo_pr: ["18.0-dev"]\n');
+  return { BACG_LINEAMIENTOS_DIR: d, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' };
+}
+
+// Repo en 18.0-dev con upstream en un origin bare.
+function repoEn180(archivos = {}) {
+  const raiz = repoDemo(archivos);
+  const remoto = fs.mkdtempSync(path.join(os.tmpdir(), 'remoto-'));
+  gitEn(remoto, 'init', '-q', '--bare');
+  gitEn(raiz, 'branch', '-M', '18.0-dev');
+  gitEn(raiz, 'remote', 'add', 'origin', remoto);
+  gitEn(raiz, 'push', '-q', '-u', 'origin', '18.0-dev');
+  return raiz;
+}
+
+test('abrir en una rama sólo-PR pasa a rq/<código> desde el upstream', async () => {
+  const raiz = repoEn180();
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], linSoloPr());
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /Rama del RQ: rq\/R-1 \(desde origin\/18\.0-dev\)\./);
+  assert.equal(gitEn(raiz, 'rev-parse', '--abbrev-ref', 'HEAD'), 'rq/R-1');
+  assert.equal(rqActivo(raiz), 'R-1');
+});
+
+test('abrir: si no puede pasar a la rama del RQ lo abre igual y da el comando a mano', async () => {
+  const raiz = repoEn180({ 'a.txt': 'uno\n' });
+  gitEn(raiz, 'switch', '-q', '-c', 'rq/R-1');
+  commitear(raiz, { 'a.txt': 'otro\n' });
+  gitEn(raiz, 'switch', '-q', '18.0-dev');
+  fs.writeFileSync(path.join(raiz, 'a.txt'), 'sin commitear\n');
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], linSoloPr());
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /RQ R-1 abierto\./);
+  assert.match(r.out, /No pude pasar a rq\/R-1/);
+  assert.match(r.out, /git switch rq\/R-1/);
+  assert.equal(rqActivo(raiz), 'R-1');
+});
+
+test('abrir en detached HEAD con ramas_solo_pr abre el RQ sin excepción', async () => {
+  const raiz = repoEn180();
+  gitEn(raiz, 'switch', '-q', '--detach');
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], linSoloPr());
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /RQ R-1 abierto\./);
+});
+
+test('commit de un archivo trackeado bajo .gitignore se commitea; uno ignorado y no trackeado da error', async () => {
+  const raiz = repoDemo({ '.gitignore': 'dist/\n' });
+  fs.mkdirSync(path.join(raiz, 'dist'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'dist', 'a.txt'), 'uno\n');
+  gitEn(raiz, 'add', '-f', 'dist/a.txt');
+  gitEn(raiz, 'commit', '-q', '-m', 'dist trackeado');
+  await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
+  fs.writeFileSync(path.join(raiz, 'dist', 'a.txt'), 'dos\n');
+  const r = await correr(raiz, ['commit', 'fix: toca dist', 'dist/a.txt']);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(gitEn(raiz, 'show', '--name-only', '--format=', 'HEAD').split('\n').includes('dist/a.txt'), true);
+
+  fs.writeFileSync(path.join(raiz, 'dist', 'b.txt'), 'nuevo\n');
+  const e = await correr(raiz, ['commit', 'fix: otro', 'dist/b.txt']);
+  assert.equal(e.code, 1);
+  assert.match(e.err, /dist\/b\.txt está en \.gitignore y no está trackeada: sacala de las rutas o forzala a mano con git add -f\./);
+});
+
+test('registrar-tests deja estado.yml en stage y el commit lo incluye sin invalidar los tests', async () => {
+  const raiz = repoDemo();
+  await abrirR1(raiz);
+  listoParaDesarrollo(raiz);
+  escribir(raiz, { 'src/a.js': 'x\n' });
+  gitEn(raiz, 'add', 'src/a.js');
+  const r = await correr(raiz, ['registrar-tests']);
+  assert.equal(r.code, 0, r.err);
+  const enStage = gitEn(raiz, 'diff', '--cached', '--name-only').split('\n');
+  assert.ok(enStage.includes('docs/rq/R-1/estado.yml'), enStage.join(','));
+  assert.ok(enStage.includes('docs/rq/ACTIVO'));
+  const t = cargarEstado(raiz, 'R-1').tests;
+  assert.equal(t.arbol, arbolTesteado(raiz));
+  // Una segunda corrida no queda frenada por "cambios sin stagear" de lo que escribe la CLI.
+  assert.equal((await correr(raiz, ['registrar-tests'])).code, 0);
+  gitEn(raiz, 'commit', '-q', '-m', 'R-1: a');
+  assert.ok(gitEn(raiz, 'show', '--name-only', '--format=', 'HEAD').includes('docs/rq/R-1/estado.yml'));
+});
+
+test('entregar e imprimirEstado en una rama sólo-PR dicen "Rama equivocada"', async () => {
+  const raiz = repoEn180();
+  const env = linSoloPr();
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded', '--sin-previa'], { ...env, BACG_DEV_SIN_PREVIA: '1' });
+  gitEn(raiz, 'switch', '-q', '18.0-dev');
+  const r = await correr(raiz, ['entregar'], env);
+  assert.match(r.out, /Rama equivocada: 18\.0-dev sólo recibe cambios por PR\./);
+  const s = await correr(raiz, ['estado'], env);
+  assert.match(s.out, /Rama equivocada: 18\.0-dev sólo recibe cambios por PR\./);
+});
+
+test('commit de código en una rama sólo-PR da error con git switch -c', async () => {
+  const raiz = repoEn180();
+  const env = linSoloPr();
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  listoParaDesarrollo(raiz);
+  gitEn(raiz, 'switch', '-q', '18.0-dev');
+  escribir(raiz, { 'src/a.js': 'x\n' });
+  const r = await correr(raiz, ['commit', 'feat: a', 'src/a.js'], env);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /git switch -c rq\/R-1/);
+});
+
+test('abrir en una rama sólo-PR sin upstream crea rq/<código> desde HEAD', async () => {
+  const raiz = repoEn180();
+  gitEn(raiz, 'branch', '--unset-upstream');
+  const r = await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], linSoloPr());
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /Rama del RQ: rq\/R-1 \(desde HEAD\)\./);
+  assert.equal(gitEn(raiz, 'rev-parse', '--abbrev-ref', 'HEAD'), 'rq/R-1');
+  assert.equal(cargarEstado(raiz, 'R-1').codigo, 'R-1');
+});
+
+test('arranque: inicio sin RQ, reanudación con RQ y no escribe nada', async () => {
+  const raiz = repoDemo();
+  const antes = execFileSync('git', ['status', '--porcelain'], { cwd: raiz, encoding: 'utf8' });
+  const inicio = await correr(raiz, ['arranque']);
+  assert.equal(inicio.code, 0);
+  assert.match(inicio.out, /Arranque: inicio/);
+  assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: raiz, encoding: 'utf8' }), antes);
+  assert.equal((await abrirR1(raiz)).code, 0);
+  const rean = await correr(raiz, ['arranque']);
+  assert.equal(rean.code, 0);
+  assert.match(rean.out, /Dónde nos quedamos/);
+  assert.match(rean.out, /R-1/);
+  assert.equal((await correr(raiz, ['arranque', 'x'])).code, 2);
 });

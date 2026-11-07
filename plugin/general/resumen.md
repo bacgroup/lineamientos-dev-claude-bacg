@@ -6,14 +6,15 @@ Esto se inyecta al arrancar cada sesión en un repo con `.bacg-lineamientos` o `
 
 ## Dos tipos de ciclo
 
-- **RQ** (funcionalidad nueva o cambio de comportamiento): encuadre → backlog → ARQ si amerita → `brainstorming` → `writing-plans` → desarrollo con TDD → E2E live + revisión → entrega → cierre.
-- **BUG** (algo que anda mal respecto de lo acordado): encuadre → backlog → `systematic-debugging` (causa raíz) → test que reproduce el bug en rojo → arreglo → E2E live + revisión reforzada → entrega → cierre.
+- **RQ** (funcionalidad nueva o cambio de comportamiento): arranque → clasificación confirmada (Exploración, Acotado o Arquitectónico) → encuadre y backlog → ARQ si amerita → `brainstorming` y plan (tareas en el spec, o `writing-plans` en arquitectónico) → desarrollo con TDD → E2E live + verificación local si toca pantallas + revisión → entrega → cierre.
+- **BUG** (algo que anda mal respecto de lo acordado): igual que un RQ, con `systematic-debugging` (causa raíz) antes de `brainstorming` y el test que reproduce el bug en rojo antes del arreglo.
 - Consultas, lecturas y cambios de docs o tests: sin ciclo.
 
 ## Lo único que aprueba el usuario
 
-1. PROD (etapa 6). Si el pedido ya lo dice, ese pedido es el OK.
-2. Cuando el cambio amerita ARQ (contratos, datos, seguridad, despliegue, integración nueva o cambio grande): el diseño y el plan, una vez cada uno.
+1. PROD (etapa 5). Si el pedido ya lo dice, ese pedido es el OK.
+2. La clasificación que propone el agente, el diseño y plan (etapa 1, en toda clasificación) y cómo se ejecuta el plan (en línea o con subagentes).
+3. En Arquitectónico (contratos, datos, seguridad, despliegue, integración nueva o cambio grande), además el paso a DEV.
 
 Se registra con sus palabras literales; un "Dale" vale si fue la respuesta entera. Nunca inventes ni parafrasees una aprobación.
 
@@ -28,7 +29,7 @@ Se registra con sus palabras literales; un "Dale" vale si fue la respuesta enter
 
 - Docs y tests: libres, también `git add <rutas> && git commit` y el push.
 - Código: uno por tarea del plan, con `node <CLI del RQ> commit "<tipo>: <qué>" <rutas>` (add, tests relacionados y commit en un paso). Nunca `git commit -a`.
-- Push y merge con código piden la etapa 4 (tests + `revision ok`).
+- Push y merge con código piden la etapa 3 (tests + `revision ok`).
 
 ## Reglas de sesión
 

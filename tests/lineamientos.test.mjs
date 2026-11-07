@@ -38,9 +38,11 @@ test('_plantilla/proyecto.yml parsea y tiene las claves del contrato', () => {
   assert.ok(Array.isArray(py.repos) && py.repos.length > 0);
   for (const k of ['nombre', 'rol', 'push_prod']) assert.ok(k in py.repos[0], `repos[0].${k}`);
   assert.ok(py.entornos.local && py.entornos.dev && py.entornos.prod);
-  assert.equal(py.datos.motor, 'odoo', 'la plantilla es la de referencia BACG');
+  assert.equal(py.version_ciclo, 4, 'la plantilla está en la numeración de etapas v4');
+  assert.ok(!('motor' in py.datos), 'datos.motor va comentado: sin declarar, se detecta');
+  assert.match(fs.readFileSync(path.join(plantilla, 'proyecto.yml'), 'utf8'), /#\s*motor: odoo[^\n]*\n[^\n]*__manifest__\.py/, 'el comentario de datos.motor explica la detección');
   assert.ok(Array.isArray(py.mcp_prod) && py.mcp_prod.every((m) => m.servidor && m.tipo));
-  assert.ok(py.skills_requeridas.every((s) => [3, 4, 6].includes(s.etapa) && s.skill));
+  assert.ok(py.skills_requeridas.every((s) => [2, 3, 5].includes(s.etapa) && s.skill), 'skills_requeridas con etapas v4 (2, 3 o 5)');
   assert.ok(!('lovable' in py), 'Lovable no es parte de la plantilla BACG');
   assert.ok(Array.isArray(py.circuito_prod) && py.circuito_prod[0].paso);
   for (const { paso } of py.circuito_prod) {

@@ -14,7 +14,9 @@ import { contexto } from '../salida.mjs';
 import { rutaCli } from '../cli.mjs';
 import { avisoAuditoria } from '../auditoria.mjs';
 import { etapaDerivada, cerradosConPendientes } from '../estado.mjs';
+import { NOMBRE_ETAPA } from '../etapas.mjs';
 import { lineaStack } from '../stack.mjs';
+import { reposDebajo, textoArranque } from '../arranque.mjs';
 
 export { rutaCli };
 
@@ -62,31 +64,7 @@ export const PLUGINS_REQUERIDOS = [
   'claude-md-management@claude-plugins-official',
 ];
 
-/**
- * Repos registrados debajo de dir (hasta dos niveles): con .bacg-lineamientos o, sin marcador, por su remoto origin
- * (proyecto.repos del proyecto registrado). Sin entrar a node_modules ni a carpetas ocultas.
- */
-export function reposDebajo(dir, niveles = 2, dirLin = dirLineamientos()) {
-  const out = [];
-  const visitar = (d, n) => {
-    let entradas;
-    try {
-      entradas = fs.readdirSync(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entradas) {
-      if (!e.isDirectory() || e.name.startsWith('.') || e.name === 'node_modules') continue;
-      const sub = path.join(d, e.name);
-      const esGit = fs.existsSync(path.join(sub, '.git'));
-      if (fs.existsSync(path.join(sub, '.bacg-lineamientos'))) out.push(sub);
-      else if (esGit && buscarRepo(sub, { dirLin })?.raiz === path.resolve(sub)) out.push(sub);
-      else if (n > 1) visitar(sub, n - 1);
-    }
-  };
-  visitar(dir, niveles);
-  return out;
-}
+export { reposDebajo };
 
 function leer(ruta) {
   try {
@@ -184,6 +162,11 @@ export async function handler(
       'Esta carpeta no es un repo de un proyecto: el plugin no sabe en cuál vas a trabajar. Antes de cualquier RQ, preguntale al usuario en qué proyecto y repo de la lista (o si es otro proyecto) y trabajá desde la raíz de ese repo; lo ideal es abrir la sesión ahí.',
       `CLI del RQ: node "${rutaCli(pluginRoot)}" (corrélo desde la raíz del repo; es el $RQ de la skill ciclo-rq).`,
     ];
+    try {
+      lineas.push(textoArranque({ raiz: cwd, proyecto: null, dirLin }));
+    } catch {
+      // el arranque sólo orienta: si falla, queda la lista de repos
+    }
     return contexto('SessionStart', lineas.join('\n\n'));
   }
 
@@ -210,7 +193,9 @@ export async function handler(
       partes.push(`RQ activo: ${rq.codigo}, pero su estado.yml falta o no se puede leer.`);
       continue;
     }
-    partes.push(`RQ activo: ${rq.codigo} (${rq.estado.tipo ?? '?'}), etapa ${etapaDerivada(rq.estado, repo.raiz)}. Detalle: rq.mjs estado / entregar.`);
+    const etapa = etapaDerivada(rq.estado, repo.raiz);
+    const nombre = NOMBRE_ETAPA[etapa] ? ` (${NOMBRE_ETAPA[etapa]})` : '';
+    partes.push(`RQ activo: ${rq.codigo} (${rq.estado.tipo ?? '?'}), etapa ${etapa}${nombre}. Detalle: rq.mjs estado / entregar.`);
     partes.push(encuadre(repo.raiz, rq.codigo, porRq));
   }
   const cerrados = cerradosConPendientes(repo.raiz);
@@ -223,6 +208,11 @@ export async function handler(
     proyecto = proyectoRegistrado(repo.proyectoId, dirLin, repo.raiz);
   } catch {
     // proyecto.yml inválido: lo reportan las compuertas
+  }
+  try {
+    partes.push(textoArranque({ raiz: repo.raiz, proyecto, dirLin }));
+  } catch {
+    // el arranque sólo orienta: si falla, el resto del contexto sigue
   }
   const stack = lineaStack(proyecto);
   if (stack) partes.push(stack);

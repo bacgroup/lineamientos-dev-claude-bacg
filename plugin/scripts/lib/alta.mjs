@@ -161,7 +161,7 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
 
   // Skills oficiales de Odoo (PLG-ODOO): obligatorias en un proyecto Odoo cuyos repos tienen addons, porque la CLI
   // las exige al tocar un addon.
-  if (usaOdoo(proyecto) && [repo.raiz, ...reposHermanos(repo.raiz, repo.proyectoId, proyecto)].some(tieneAddons)) {
+  if ([repo.raiz, ...reposHermanos(repo.raiz, repo.proyectoId, proyecto)].some((r) => usaOdoo(proyecto, r) && tieneAddons(r))) {
     const { faltan, origen } = estadoSkillsOdoo(home);
     const rama = ramaSkills(proyecto);
     sumar({

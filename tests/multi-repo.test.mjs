@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { main } from '../plugin/scripts/rq.mjs';
 import { cargarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { reposHermanos } from '../plugin/scripts/lib/multi-repo.mjs';
-import { correrHook } from './helpers.mjs';
+import { correrHook, sesionDePrueba, fraseDe } from './helpers.mjs';
 
 const git = (cwd, ...a) => spawnSync('git', a, { cwd, encoding: 'utf8' });
 
@@ -36,12 +36,18 @@ function montar() {
   return { dirLin, base, a: repo('pf-addons'), b: repo('pf-bi'), otro: repo('pf-addons-copia'), ajeno: repo('pf-ajeno', 'otro') };
 }
 
-async function rq(cwd, dirLin, args) {
+// Salvo `dijo: false`, el usuario escribió en la sesión la frase que se registra (ver tests/frase-cli.test.mjs).
+const SESION = sesionDePrueba();
+
+async function rq(cwd, dirLin, args, { dijo = true } = {}) {
   let out = '';
   let err = '';
+  const frase = fraseDe(args);
+  if (frase && dijo) SESION.dijo(frase);
   const code = await main(args, {
     cwd,
-    env: { ...process.env, BACG_LINEAMIENTOS_DIR: dirLin, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' },
+    home: SESION.home,
+    env: { ...process.env, ...SESION.env, BACG_LINEAMIENTOS_DIR: dirLin, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' },
     stdout: { write: (s) => { out += s; } },
     stderr: { write: (s) => { err += s; } },
   });
@@ -67,6 +73,16 @@ test('abrir en el segundo repo hereda aprobaciones; aprobar después se replica 
   const r2 = await rq(b, dirLin, ['aprobar', '3', 'Plan ok']);
   assert.match(r2.out, /también en pf-addons/);
   assert.deepEqual(cargarEstado(a, 'PF-X').aprobaciones.map((x) => x.frase), ['Diseño aprobado', 'Plan ok']);
+});
+
+test('aprobar con una frase que el usuario no escribió no toca ningún repo del RQ multi-repo', async () => {
+  const { dirLin, a, b } = montar();
+  await rq(a, dirLin, ['abrir', 'PF-F', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  await rq(b, dirLin, ['abrir', 'PF-F', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  const r = await rq(b, dirLin, ['aprobar', '1', 'esto nunca lo escribió nadie'], { dijo: false });
+  assert.equal(r.code, 1);
+  assert.match(r.err, /no aparece en lo que escribió el usuario/);
+  for (const x of [a, b]) assert.deepEqual(cargarEstado(x, 'PF-F').aprobaciones, [], path.basename(x));
 });
 
 test('una skill cargada en un repo queda en el RQ vinculado del otro, sin duplicar', async () => {
@@ -112,4 +128,28 @@ test('PLG-NUBE: commit corre los tests con la ruta del repo hermano', async () =
   fs.rmSync(b, { recursive: true, force: true });
   const r2 = await rq(a, dirLin, ['registrar-tests']);
   assert.match(r2.err + r2.out, /No encuentro el repo pf-bi/);
+});
+
+test('M2: RQ confirmado en el principal, abierto en el secundario: sale confirmado y con la misma clasificación', async () => {
+  const { dirLin, a, b } = montar();
+  await rq(a, dirLin, ['abrir', 'PF-C', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal((await rq(a, dirLin, ['clasificacion', 'cambiar', 'arquitectonico', 'es arquitectónico'])).code, 0);
+  const r = await rq(b, dirLin, ['abrir', 'PF-C', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal(r.code, 0, r.err);
+  const e = cargarEstado(b, 'PF-C');
+  assert.equal(e.clasificacion, 'arquitectonico');
+  assert.equal(e.clasificacion_pendiente, false);
+  assert.equal(e.clasificacion_confirmada.frase, 'es arquitectónico');
+});
+
+test('ejecucion elegida en el principal: el secundario la hereda al abrir; registrarla después se replica', async () => {
+  const { dirLin, a, b } = montar();
+  await rq(a, dirLin, ['abrir', 'PF-E', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal((await rq(a, dirLin, ['ejecucion', 'subagentes', 'con subagentes'])).code, 0);
+  const r = await rq(b, dirLin, ['abrir', 'PF-E', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal(r.code, 0, r.err);
+  const e = cargarEstado(b, 'PF-E').ejecucion;
+  assert.deepEqual({ modo: e.modo, frase: e.frase }, { modo: 'subagentes', frase: 'con subagentes' });
+  assert.equal((await rq(b, dirLin, ['ejecucion', 'inline', 'mejor en línea'])).code, 0);
+  assert.equal(cargarEstado(a, 'PF-E').ejecucion.modo, 'inline');
 });

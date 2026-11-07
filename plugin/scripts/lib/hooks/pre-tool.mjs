@@ -16,7 +16,20 @@ import { denegar } from '../salida.mjs';
 const CAMPO_RUTA = { Edit: 'file_path', Write: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' };
 const RAMAS = ['merge_branch', 'reset_branch'];
 
+// Terminales de MCP (terminal, desktop-commander y afines): corren comandos de shell, así que pasan por la misma
+// compuerta que Bash. Sufijo del nombre de la herramienta → campo con el comando.
+const TERMINALES = { start_process: 'command', run_in_terminal: 'command', execute_command: 'command', interact_with_process: 'input' };
+
 const esObjeto = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
+
+/** Comando de shell de Bash, PowerShell o una terminal de MCP; '' si es Bash sin comando; null si no es un shell. */
+function comandoDeShell(tool, input) {
+  if (tool === 'Bash' || tool === 'PowerShell') return typeof input.command === 'string' ? input.command : '';
+  if (typeof tool !== 'string') return null;
+  const sufijo = Object.keys(TERMINALES).find((s) => tool.endsWith(`__${s}`));
+  const comando = sufijo ? input[TERMINALES[sufijo]] : undefined;
+  return typeof comando === 'string' ? comando : null; // un campo que no es texto sigue por la compuerta de MCP
+}
 
 async function conTranscript(entrada, evaluar) {
   const r = await evaluar({ textosUsuario: [], skills: new Set() });
@@ -50,8 +63,8 @@ export async function handler(entrada, { dirLin = dirLineamientos() } = {}) {
     r = await conTranscript(entrada, ({ textosUsuario, skills }) =>
       evaluarEdicion({ raiz: repo.raiz, proyecto, rutaArchivo: abs, ctx: { textosUsuario, skills } }),
     );
-  } else if (tool === 'Bash' || tool === 'PowerShell') {
-    const comando = typeof input.command === 'string' ? input.command : '';
+  } else if (comandoDeShell(tool, input) !== null) {
+    const comando = comandoDeShell(tool, input);
     if (comando === '') return null;
     r = await conTranscript(entrada, ({ textosUsuario }) =>
       evaluarBash({ comando, cwd, ctx: { textosUsuario }, dirLin }),

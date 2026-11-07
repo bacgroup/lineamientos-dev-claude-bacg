@@ -3,13 +3,15 @@
 // el backlog y, al cerrar, el changelog, el log del proyecto (docs/log/rq.jsonl) y el commit de docs.
 
 import fs from 'node:fs';
+import os from 'node:os';
+import readline from 'node:readline';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
 import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, cola, conSpecs, shellDeTests } from './lib/cli.mjs';
-import { faltaParaEtapa, sensibleSinRevisar, skillsDe } from './lib/requisitos.mjs';
+import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, rutaBacklog, leerBacklog } from './lib/backlog.mjs';
@@ -20,27 +22,37 @@ import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
 import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
+import { textoArranque } from './lib/arranque.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
+import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
+import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs';
+import { enRamaProtegida, pasarARamaDelRq, ramaDelRq } from './lib/ramas.mjs';
+import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
+import { leerTranscript, vecesQueLoDijo, mismaFrase } from './lib/transcript.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
-const CLASIFICACIONES = ['spike', 'bounded', 'arquitectonico'];
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
+// verificacion-local: omite el recorrido local con el rol real en un RQ que toca UI.
 // ui: omite el refuerzo de UI del plugin (diseno-frontend, redesign y ## Diseño) en un cambio menor; el canon sigue.
-const COMPUERTAS = ['edicion', 'commit', 'push', 'e2e', 'skills', 'seguridad', 'ui'];
+const COMPUERTAS = ['edicion', 'commit', 'push', 'e2e', 'skills', 'seguridad', 'ui', 'verificacion-local', 'rama'];
 const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige entre varios RQ activos; sin --rq, el más reciente)
   alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
   odoo-skills [--rama <rama>]              (instala en ~/.claude/skills las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
   previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
-  abrir <código> --tipo rq|bug --clasificacion spike|bounded|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
-  etapa <n>                          (0-7; opcional: estado deriva la etapa de la evidencia)
-  aprobar <etapa> "<frase>"          (etapa 0-7; la frase es texto literal del usuario)
-  autonomia <hasta> "<frase>"        (hasta 1-5)
-  saltar <compuerta> "<frase>" "<motivo>"   (compuerta: edicion|commit|push|e2e|skills|seguridad)
+  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
+  clasificacion confirmar "<frase>"   (el usuario confirma la clasificación propuesta; hasta entonces no se edita código)
+  clasificacion cambiar <exploracion|acotado|arquitectonico> "<frase>"   (cambia y confirma; la frase es texto literal del usuario)
+  ejecucion inline|subagentes "<frase>"   (cómo se ejecuta el plan, antes del primer commit de código; acepta executing-plans y subagent-driven-development)
+  etapa <n>                          (0-6; opcional: estado deriva la etapa de la evidencia)
+  aprobar <etapa> "<frase>"          (etapa 0-6: 1 diseño y plan, 4 DEV en arquitectónico, 5 PROD; la frase es texto literal del usuario)
+  autonomia <hasta> "<frase>"        (hasta 1-4: cubre desarrollo (2) y DEV (4), nunca el diseño ni PROD)
+  saltar <compuerta> "<frase>" "<motivo>"   (compuerta: edicion|commit|push|e2e|skills|seguridad|ui|verificacion-local|rama)
   commit "<mensaje>" <rutas>…        (git add de las rutas, tests relacionados, registro y commit en un paso)
   registrar-tests                    (tests de commit sobre lo que está en stage; sin E2E)
   verificar [--completo] [<specs>…]  (E2E contra la app levantada; con {specs} en tests.e2e, sólo los del RQ salvo --completo)
+  verificar --local "<qué se recorrió con el rol real>" <capturas…>   (RQ que toca UI: capturas existentes en docs/rq/<código>/qa/)
   revision ok|bloqueante "<nota>"
   paso manual:<texto>|sync-lineamientos   (pasos manuales de circuito_prod)
   paso hecho <paso> "<evidencia>"    (paso hecho por fuera: merge desde GitHub, migración que ya estaba aplicada)
@@ -51,6 +63,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   agents                             (escribe en AGENTS.md la sección de lineamientos generada desde .bacg-dev/)
   auditar [--cerrar "<nota>"]        (commits de Lovable sin revisar; --cerrar mueve la marca y lo anota en docs/log/rq.jsonl)
   estado                             (avisa si la rama está atrasada o si el RQ ya figura cerrado en origin/main)
+  arranque                           (inicio o reanudación de la sesión: proyecto, repos, lo último trabajado o dónde quedó el RQ activo; sólo lee)
   cerrar [--resumen "<1-2 frases>"] [--alcance "<texto>"] [--sin-changelog]   (con --resumen: changelog, docs/log/rq.jsonl y commit de docs; --sin-changelog: sólo el log)
 `;
 
@@ -78,11 +91,118 @@ function textoNoVacio(valor, nombre) {
   return valor;
 }
 
-function etapaValida(s, nombre = 'etapa') {
-  const n = entero(s);
-  if (n === null || n > 7) throw new ErrorCli(`${nombre} inválida: "${s}" (tiene que ser un entero de 0 a 7).`);
+// Id de sesión de Claude Code (UUID). Cualquier otra forma se rechaza: el id arma una ruta.
+const RE_SESION = /^[0-9a-f-]{36}$/;
+
+/** Transcripciones de la sesión: <home>/.claude/projects/<carpeta>/<id>.jsonl (un nivel de carpeta). */
+function transcripcionesDe(home, id) {
+  const base = path.join(home, '.claude', 'projects');
+  let carpetas;
+  try {
+    carpetas = fs.readdirSync(base, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return carpetas
+    .filter((c) => c.isDirectory())
+    .map((c) => path.join(base, c.name, `${id}.jsonl`))
+    .filter((r) => {
+      try {
+        return fs.statSync(r).isFile();
+      } catch {
+        return false;
+      }
+    });
+}
+
+/** Home del usuario del sistema operativo: HOME y USERPROFILE no lo cambian (un agente podría apuntarlos a otro lado). */
+function homeReal() {
+  try {
+    return os.userInfo().homedir;
+  } catch {
+    return os.homedir();
+  }
+}
+
+/** Una línea tipeada en la terminal; si nadie escribe en 2 minutos, falla. */
+function leerLineaDeTerminal(pregunta, stderr) {
+  return new Promise((resolve, reject) => {
+    const rl = readline.createInterface({ input: process.stdin, terminal: false });
+    const t = setTimeout(() => { rl.close(); reject(new Error('sin respuesta')); }, 120000);
+    stderr.write(pregunta);
+    rl.once('line', (l) => { clearTimeout(t); rl.close(); resolve(l); });
+    rl.once('close', () => { clearTimeout(t); reject(new Error('sin respuesta')); });
+  });
+}
+
+/** Cuántas veces quedó registrada ya una frase en el RQ (aprobaciones, saltos, autonomía, ejecución, clasificación). */
+function usosDeFrase(estado, frase) {
+  let n = 0;
+  const visitar = (v, clave) => {
+    if (clave === 'frase' && typeof v === 'string' && mismaFrase(v, frase)) n += 1;
+    else if (Array.isArray(v)) v.forEach((x) => visitar(x));
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) visitar(x, k);
+  };
+  visitar(estado);
   return n;
 }
+
+/**
+ * La frase de aprobar, autonomia, saltar, clasificacion y ejecucion tiene que ser texto literal del usuario: un
+ * mensaje entero o una oración entera de lo que escribió en la sesión de Claude Code (CLAUDE_CODE_SESSION_ID), con
+ * las reglas de las compuertas (sin subagentes, mensajes meta, resultados de herramientas, eventos del sistema ni
+ * resúmenes de compactación). Cada vez que el usuario la dijo vale para un solo registro en el RQ. Sin sesión sólo
+ * vale desde una terminal interactiva y volviendo a tipear la frase (una persona). Falla cerrada.
+ */
+async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, estado) {
+  const id = env?.CLAUDE_CODE_SESSION_ID;
+  if (id === undefined) {
+    // Dentro de Claude Code la variable siempre está: si falta, alguien la borró.
+    if (env?.CLAUDECODE || env?.CLAUDE_CODE_ENTRYPOINT) {
+      throw new ErrorCli('Dentro de Claude Code sin id de sesión: no se puede verificar la frase.');
+    }
+    if (tty !== true) {
+      throw new ErrorCli('Sin sesión de Claude Code ni terminal interactiva: la frase sólo la puede registrar el usuario desde su terminal.');
+    }
+    let linea;
+    try {
+      linea = await leerLinea(`Para registrar "${frase}", tipeá de nuevo la frase: `, stderr);
+    } catch {
+      throw new ErrorCli('No se tipeó la frase: no se registra nada.');
+    }
+    if (!mismaFrase(linea, frase)) throw new ErrorCli('La frase tipeada no coincide: no se registra nada.');
+    return;
+  }
+  if (typeof id !== 'string' || !RE_SESION.test(id)) {
+    throw new ErrorCli(`Id de sesión inválido (${JSON.stringify(String(id))}): no se puede verificar la frase.`);
+  }
+  const rutas = transcripcionesDe(home, id);
+  if (rutas.length > 1) throw new ErrorCli(`Hay más de una transcripción de la sesión ${id}: no se puede verificar la frase.`);
+  let textos;
+  try {
+    if (rutas.length === 0) throw new Error('TRANSCRIPT_NO_DISPONIBLE');
+    ({ textosUsuario: textos } = await leerTranscript(rutas[0]));
+  } catch {
+    throw new ErrorCli(`No se encontró la transcripción de la sesión ${id}: no se puede verificar la frase.`);
+  }
+  const dichas = vecesQueLoDijo(frase, textos);
+  if (dichas === 0) {
+    throw new ErrorCli(`La frase "${frase}" no aparece en lo que escribió el usuario en esta sesión (tiene que ser un mensaje o una oración enteros). Registrá sólo palabras literales del usuario.`);
+  }
+  if (estado && usosDeFrase(estado, frase) >= dichas) {
+    throw new ErrorCli(`La frase "${frase}" ya está registrada en el RQ: cada vez que el usuario la escribe vale para un solo registro.`);
+  }
+}
+
+function etapaValida(s, nombre = 'etapa') {
+  const n = entero(s);
+  if (n === null || n > ETAPA.CIERRE) throw new ErrorCli(`${nombre} inválida: "${s}" (tiene que ser un entero de 0 a ${ETAPA.CIERRE}).`);
+  return n;
+}
+
+// En 3.x el OK de PROD era la etapa 6 (hoy Cierre): `aprobar 6` y `etapa 6` sobre un RQ abierto con 3.x (cargado con `_v3`) se
+// registra como 5, con aviso. Una vez guardado en v4, 6 es el cierre.
+const AVISO_PROD_V3 = `Etapa 6 de la numeración vieja: registrada como ${ETAPA.PROD} (${NOMBRE_ETAPA[ETAPA.PROD]}).`;
 
 // `nombres`: opciones con valor (--x <valor>); `banderas`: opciones sin valor (--x queda en true).
 function opciones(args, nombres, banderas = []) {
@@ -204,8 +324,9 @@ function abrir(repo, args, env, io) {
   const [codigo] = posicionales;
   if (!RE_CODIGO.test(codigo)) throw new ErrorCli(`Código inválido: "${codigo}" (letras, números, "_" y "-"; empieza con letra o número).`);
   if (!TIPOS.includes(res.tipo)) throw new ErrorCli(`--tipo inválido: "${res.tipo}" (rq | bug).`);
-  if (!CLASIFICACIONES.includes(res.clasificacion)) {
-    throw new ErrorCli(`--clasificacion inválida: "${res.clasificacion}" (spike | bounded | arquitectonico).`);
+  const clasificacion = clasificacionDe(res.clasificacion);
+  if (!clasificacion) {
+    throw new ErrorCli(`--clasificacion inválida: "${res.clasificacion}" (exploracion | acotado | arquitectonico).`);
   }
   const dir = path.join(raiz, 'docs', 'rq', codigo);
   let existente = null;
@@ -221,12 +342,22 @@ function abrir(repo, args, env, io) {
     io.stdout.write(`Validación previa:\n${lineas.join('\n')}\n\n`);
     if (bloqueos.length) throw new ErrorCli(mensajeBloqueo(codigo, bloqueos));
   }
+  // M7: en una rama que sólo recibe PR (o de PROD) el RQ trabaja en rq/<código>. Si no se puede, se abre igual.
+  let avisoRama = null;
+  if (enRamaProtegida(raiz, proyectoDe(repo, env))) {
+    const p = pasarARamaDelRq(raiz, codigo);
+    avisoRama = p.error
+      ? `No pude pasar a ${ramaDelRq(codigo)}: ${p.error}
+Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codigo)} si no existe; los cambios en stage viajan con el switch).`
+      : `Rama del RQ: ${p.rama} (desde ${p.desde}).`;
+  }
   let vinculo = null;
   if (!existente) {
     const nuevo = {
       codigo,
       tipo: res.tipo,
-      clasificacion: res.clasificacion,
+      clasificacion,
+      clasificacion_pendiente: true,
       ...(res.tarea ? { tarea: res.tarea } : {}),
       etapa: 0,
       autonomia: null,
@@ -245,6 +376,9 @@ function abrir(repo, args, env, io) {
   const otros = rqsActivos(raiz).filter((c) => c !== codigo);
   guardarActivos(raiz, [...otros, codigo]);
   io.stdout.write(existente ? `RQ ${codigo} retomado (etapa ${existente.etapa}).\n` : `RQ ${codigo} abierto.\n`);
+  if (avisoRama) io.stdout.write(`${avisoRama}
+`);
+  if (!existente) imprimirClasificacion(cargarEstado(raiz, codigo), io);
   if (vinculo) io.stdout.write(`RQ multi-repo: vinculado con ${vinculo} (hereda aprobaciones, autonomía, saltos y skills; los cambios nuevos se replican).\n`);
   if (otros.length) io.stdout.write(`Otros RQ activos: ${otros.join(', ')} (usá --rq para elegir).\n`);
   anotarBacklog(repo, env, codigo, {
@@ -254,6 +388,18 @@ function abrir(repo, args, env, io) {
     Estado: 'En curso',
     Link: `docs/rq/${codigo}/`,
   }, io);
+}
+
+/** Clasificación propuesta, lo que implica y cómo confirmarla (M2). */
+function imprimirClasificacion(estado, io) {
+  const c = estado.clasificacion;
+  const pendiente = estado.clasificacion_pendiente === true;
+  const l = [`Clasificación propuesta: ${nombreDe(c)}${pendiente ? ' (pendiente de confirmar por el usuario)' : ''}.`];
+  for (const x of implicancias(c, estado.tipo)) l.push(`  - ${x}`);
+  if (pendiente) {
+    l.push('Proponésela al usuario con su motivo; hasta que la confirme no se edita código. Con su respuesta: $RQ clasificacion confirmar "<su frase>" o $RQ clasificacion cambiar <exploracion|acotado|arquitectonico> "<su frase>".');
+  }
+  io.stdout.write(`${l.join('\n')}\n`);
 }
 
 function cambiar(raiz, elegido, io, fn) {
@@ -271,6 +417,17 @@ function cambiarVinculado(repo, env, elegido, io, fn) {
   if (tocados.length) io.stdout.write(`RQ multi-repo: también en ${tocados.join(', ')}.\n`);
 }
 
+/** Todo lo que hay en stage (libre o no, con los borrados; una movida cuenta como borrado y alta), relativo a la raíz. */
+function todoEnStage(raiz) {
+  try {
+    return execFileSync('git', ['diff', '--cached', '--name-only', '--no-renames', '-z', '--relative'], {
+      cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).split('\0').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 /** Archivos en stage, relativos a la raíz, que no son libres (los que tienen tests relacionados). */
 function enStageDeProducto(raiz, proyecto) {
   let out;
@@ -284,26 +441,42 @@ function enStageDeProducto(raiz, proyecto) {
   return out.split('\0').filter(Boolean).filter((r) => tipoArchivo(r, proyecto) !== 'libre');
 }
 
-const arbolEnStage = (raiz) => {
-  try {
-    return execFileSync('git', ['write-tree'], { cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  } catch (e) {
-    throw new ErrorCli(`No pude calcular el árbol (git write-tree): ${String(e.stderr || e.message).trim()}`);
-  }
-};
-
-/** ¿Hay cambios sin stagear en archivos trackeados? */
+/** ¿Hay cambios sin stagear en archivos trackeados? Lo que escribe la propia CLI (estado.yml, ACTIVO, backlog) no cuenta. */
 function hayCambiosSinStage(raiz) {
-  const r = spawnSync('git', ['diff', '--quiet'], { cwd: raiz, encoding: 'utf8' });
-  if (r.status === 0) return false;
-  if (r.status === 1) return true;
-  throw new ErrorCli(`git diff falló: ${String(r.stderr || r.error?.message).trim()}`);
+  const r = spawnSync('git', ['diff', '--name-only', '-z'], { cwd: raiz, encoding: 'utf8' });
+  if (r.status !== 0) throw new ErrorCli(`git diff falló: ${String(r.stderr || r.error?.message).trim()}`);
+  return r.stdout.split('\0').filter(Boolean).some((f) => !esPropioDeLaCli(f));
 }
 
-/** BUG sin causa o sin systematic-debugging (y RQ arquitectónico sin writing-plans): no se commitea código. */
-function exigirEtapa3(estado, raiz) {
-  const falta = faltaParaEtapa(estado, 3, raiz);
+/** Deja en stage lo que escribe la CLI (estado.yml del RQ, ACTIVO y backlog) si existe y cambió. */
+function stagearPropiosDeLaCli(raiz, codigo) {
+  const rutas = [`docs/rq/${codigo}/estado.yml`, 'docs/rq/ACTIVO', 'docs/backlog.md'].filter((p) => fs.existsSync(path.join(raiz, p)));
+  for (const p of rutas) {
+    const st = spawnSync('git', ['status', '--porcelain', '--', p], { cwd: raiz, encoding: 'utf8' });
+    if (st.status !== 0 || !st.stdout.trim()) continue;
+    const add = spawnSync('git', ['add', '--', p], { cwd: raiz, encoding: 'utf8' });
+    if (add.status !== 0) throw new ErrorCli(`No pude dejar ${p} en stage (git add): ${String(add.stderr || add.error?.message).trim()}`);
+  }
+}
+
+const MODOS_EJECUCION = { inline: 'inline', 'executing-plans': 'inline', subagentes: 'subagentes', 'subagent-driven-development': 'subagentes' };
+
+const MSG_EJECUCION = 'Antes del primer commit, preguntale al usuario cómo ejecutar el plan (executing-plans en línea o subagent-driven-development) y registralo: $RQ ejecucion inline|subagentes "<su frase>".';
+
+/** ¿El RQ ya tiene algún commit propio con archivos de producto (no docs ni tests)? */
+function hayCommitDeCodigo(raiz, codigo, estado, proyecto) {
+  return commitsDelRq(raiz, codigo, estado).some((h) =>
+    (salida(raiz, ['diff-tree', '--no-commit-id', '--name-only', '--no-renames', '-r', h]) ?? '').split('\n').some((r) => r && tipoArchivo(r, proyecto) !== 'libre'));
+}
+
+/**
+ * Sin brainstorming (y, según el tipo, causa, tareas o plan): no se commitea código. Y antes del primer commit de
+ * código (salvo Exploración, que va en línea) el usuario eligió cómo se ejecuta el plan.
+ */
+function exigirDesarrollo(estado, raiz, proyecto) {
+  const falta = faltaParaEtapa(estado, ETAPA.DESARROLLO, raiz);
   if (falta.length) throw new ErrorCli(`Antes de commitear código del ${estado.codigo} falta: ${falta.join('; ')}. Si el usuario decide saltearlo: $RQ saltar skills "<frase>" "<motivo>".`);
+  if (estado.clasificacion !== 'spike' && !estado.ejecucion && !hayCommitDeCodigo(raiz, estado.codigo, estado, proyecto)) throw new ErrorCli(MSG_EJECUCION);
 }
 
 /**
@@ -315,7 +488,7 @@ function correrTests(raiz, estado, proyecto, io, { silencioso = false } = {}) {
   if (comandos.length === 0) {
     throw new ErrorCli(`El proyecto no declara comandos de tests en proyecto.yml. ${PISTA_SIN_TESTS}`);
   }
-  const arbol = arbolEnStage(raiz);
+  const arbol = arbolTesteado(raiz);
   const archivos = enStageDeProducto(raiz, proyecto);
   const conocidos = rojosConocidos(proyecto);
   const corridos = [];
@@ -357,9 +530,10 @@ function registrarTests(repo, elegido, env, io) {
   if (hayCambiosSinStage(raiz)) {
     throw new ErrorCli('Hay cambios sin stagear en archivos trackeados: usá $RQ commit "<mensaje>" <rutas> (los deja aparte mientras corren los tests) o hacé git add antes.');
   }
-  if (enStageDeProducto(raiz, proyecto).length) exigirEtapa3(estado, raiz);
+  if (enStageDeProducto(raiz, proyecto).length) exigirDesarrollo(estado, raiz, proyecto);
   const r = correrTests(raiz, estado, proyecto, io);
   guardar(raiz, estado);
+  stagearPropiosDeLaCli(raiz, estado.codigo);
   return r;
 }
 
@@ -373,9 +547,28 @@ function conCodigo(mensaje, codigo) {
 // Un RQ abierto sólo para tener la fila en el backlog guarda una base vieja: al empezar el trabajo (primer commit o
 // paso de etapa desde 0) sin commits propios, la base pasa a HEAD para que el diff del RQ no traiga commits ajenos.
 function rebasarSiNoEmpezo(raiz, codigo, estado) {
-  if (etapaDerivada(estado, raiz) > 2 || commitsDelRq(raiz, codigo, estado).length > 0) return;
+  if (etapaDerivada(estado, raiz) > ETAPA.DISENO || commitsDelRq(raiz, codigo, estado).length > 0) return;
   const head = commitHead(raiz);
   if (head && head !== estado.base) estado.base = head;
+}
+
+/**
+ * git add -A de las rutas. Si alguna está en .gitignore, git no agrega nada: se reintenta ruta por ruta y de las
+ * ignoradas se toman los cambios de lo ya trackeado (git add -u); una ignorada y sin trackear es un error.
+ */
+function agregarRutas(raiz, rutas) {
+  const add = spawnSync('git', ['add', '-A', '--', ...rutas], { cwd: raiz, encoding: 'utf8' });
+  if (add.status === 0) return;
+  for (const ruta of rutas) {
+    const una = spawnSync('git', ['add', '-A', '--', ruta], { cwd: raiz, encoding: 'utf8' });
+    if (una.status === 0) continue;
+    const ignorada = spawnSync('git', ['check-ignore', '-q', '--no-index', '--', ruta], { cwd: raiz }).status === 0;
+    if (!ignorada) throw new ErrorCli(`git add falló: ${String(una.stderr).trim()}`);
+    const trackeada = spawnSync('git', ['ls-files', '--', ruta], { cwd: raiz, encoding: 'utf8' }).stdout.trim() !== '';
+    if (!trackeada) throw new ErrorCli(`${ruta} está en .gitignore y no está trackeada: sacala de las rutas o forzala a mano con git add -f.`);
+    const u = spawnSync('git', ['add', '-u', '--', ruta], { cwd: raiz, encoding: 'utf8' });
+    if (u.status !== 0) throw new ErrorCli(`git add falló: ${String(u.stderr).trim()}`);
+  }
 }
 
 /**
@@ -389,14 +582,18 @@ function commit(repo, elegido, args, env, io) {
   if (rutas.length === 0) throw new ErrorUso();
   const { codigo, estado } = activo(raiz, elegido);
   const proyecto = proyectoDe(repo, env);
-  const add = spawnSync('git', ['add', '-A', '--', ...rutas], { cwd: raiz, encoding: 'utf8' });
-  if (add.status !== 0) throw new ErrorCli(`git add falló: ${String(add.stderr).trim()}`);
+  agregarRutas(raiz, rutas);
   rebasarSiNoEmpezo(raiz, codigo, estado);
   const producto = enStageDeProducto(raiz, proyecto);
+  const protegida = enRamaProtegida(raiz, proyecto);
+  if (protegida && producto.length && !saltoValido(estado, 'rama')) {
+    throw new ErrorCli(`${protegida} sólo recibe cambios por PR: el código del RQ va en su rama. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}; los cambios en stage viajan con el switch) y volvé a commitear.`);
+  }
   let tests = 'sólo docs y tests: sin correr tests';
+  if (fueraDeSonda(estado, todoEnStage(raiz))) throw new ErrorCli(MSG_EXPLORACION_FUERA(codigo));
   if (producto.length && saltoValido(estado, 'commit')) tests = 'tests salteados (saltar commit)';
   else if (producto.length) {
-    exigirEtapa3(estado, raiz);
+    exigirDesarrollo(estado, raiz, proyecto);
     const aparte = hayCambiosSinStage(raiz);
     if (aparte) {
       const st = spawnSync('git', ['stash', 'push', '-q', '--keep-index', '-m', `rq.mjs commit ${codigo}`], { cwd: raiz, encoding: 'utf8' });
@@ -434,14 +631,41 @@ function specsDelRq(raiz, estado) {
   return (rutasDelRq(raiz, estado) ?? []).filter((r) => esSpec(r) && fs.existsSync(path.join(raiz, r)));
 }
 
+/** Verificación local con el rol real (M1): qué se recorrió y capturas que existan bajo docs/rq/<código>/qa/. */
+function verificarLocal(repo, elegido, que, capturas, env, io) {
+  const raiz = repo.raiz;
+  const { codigo } = activo(raiz, elegido);
+  textoNoVacio(que, 'Lo que se recorrió');
+  if (capturas.length === 0) {
+    throw new ErrorCli(`La verificación local necesita al menos una captura, guardada en docs/rq/${codigo}/qa/ ($RQ verificar --local "<qué se recorrió>" docs/rq/${codigo}/qa/<archivo>.png).`);
+  }
+  const carpeta = path.join(raiz, 'docs', 'rq', codigo, 'qa');
+  const rel = [];
+  for (const c of capturas) {
+    const abs = path.resolve(raiz, c);
+    const dentro = path.relative(carpeta, abs);
+    if (dentro === '' || dentro.startsWith('..') || path.isAbsolute(dentro)) {
+      throw new ErrorCli(`La captura "${c}" no está en docs/rq/${codigo}/qa/: guardala ahí.`);
+    }
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw new ErrorCli(`La captura "${c}" no existe.`);
+    rel.push(path.relative(raiz, abs).split(path.sep).join('/'));
+  }
+  cambiarVinculado(repo, env, elegido, io, (s) => {
+    s.verificacion_local = { que: que.trim(), capturas: rel, fecha: ahora() };
+    return `Verificación local de ${codigo} registrada (${rel.length} captura(s)).`;
+  });
+  return 0;
+}
+
 /**
  * Corre tests.e2e del proyecto y registra el resultado contra HEAD. Si el comando trae {specs}, corre los specs dados
  * o los del RQ; --completo (o ningún spec) corre la suite entera, que es la que exige publicar en PROD.
  */
 function verificar(repo, elegido, args, env, io) {
   const raiz = repo.raiz;
-  const { res, posicionales } = opciones(args, [], ['completo']);
+  const { res, posicionales } = opciones(args, ['local'], ['completo']);
   const { codigo: rq, estado } = activo(raiz, elegido);
+  if (res.local !== undefined) return verificarLocal(repo, elegido, res.local, posicionales, env, io);
   const proyecto = proyectoDe(repo, env);
   const base = comandoE2e(proyecto);
   if (!base) {
@@ -485,7 +709,7 @@ const gitOk = (raiz, args) => spawnSync('git', args, { cwd: raiz, stdio: 'ignore
 const detrasDe = (raiz, ref) => Number(salida(raiz, ['rev-list', '--count', `HEAD..${ref}`]) ?? 0);
 
 // Un worktree atrasado lee su docs/rq/ACTIVO y su estado.yml viejos (pasó con R-VTA-FUT2: 175 commits atrás,
-// mostraba etapa 6 de un RQ que en main ya estaba cerrado). Avisos para estado y entregar.
+// mostraba la etapa de PROD de un RQ que en main ya estaba cerrado). Avisos para estado y entregar.
 function avisosDeAtraso(raiz, codigo, estado) {
   const avisos = [];
   const principal = refPrincipal(raiz);
@@ -494,8 +718,8 @@ function avisosDeAtraso(raiz, codigo, estado) {
     if (n > 0) avisos.push(`Aviso: la rama está ${n} commit(s) detrás de ${ref} (según el último fetch): actualizala (git merge ${ref}) antes de seguir; lo que se lee acá puede estar viejo.`);
   }
   const remoto = principal ? estadoCommiteado(raiz, codigo, principal) : null;
-  if (remoto?.etapa === 7 && estado?.etapa !== 7) {
-    avisos.push(`Aviso: en ${principal} el RQ ${codigo} figura cerrado (etapa 7). Este docs/rq/ACTIVO es local: actualizá la rama antes de seguir.`);
+  if (remoto?.etapa === ETAPA.CIERRE && estado?.etapa !== ETAPA.CIERRE) {
+    avisos.push(`Aviso: en ${principal} el RQ ${codigo} figura cerrado (etapa ${ETAPA.CIERRE}). Este docs/rq/ACTIVO es local: actualizá la rama antes de seguir.`);
   }
   return avisos;
 }
@@ -523,6 +747,8 @@ function entregar(repo, elegido, env, io) {
   const { codigo, estado } = activo(raiz, elegido);
   const l = [`Entrega de ${codigo}`, ...avisosDeAtraso(raiz, codigo, estado)];
   const rama = salida(raiz, ['rev-parse', '--abbrev-ref', 'HEAD']) ?? '?';
+  const protegida = enRamaProtegida(raiz, proyectoDe(repo, env));
+  if (protegida) l.push(`Rama equivocada: ${protegida} sólo recibe cambios por PR. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}).`);
   const cuenta = salida(raiz, ['rev-list', '--left-right', '--count', '@{u}...HEAD']);
   if (cuenta === null) l.push(`Rama: ${rama}, sin upstream (git push -u origin ${rama}).`);
   else {
@@ -535,8 +761,11 @@ function entregar(repo, elegido, env, io) {
   const saltoE2e = lista(estado.saltos).some((s) => s?.compuerta === 'e2e');
   const parcial = e?.ok && e.completo === false ? ' (sólo specs del RQ: antes de PROD, $RQ verificar --completo)' : '';
   l.push(`E2E: ${e ? (e.ok ? `ok${parcial}` : 'falló') : saltoE2e ? 'salteado por el usuario' : 'sin correr ($RQ verificar)'}.`);
-  const falta6 = faltaParaEtapa(estado, 6, raiz);
-  if (falta6.length) l.push(`Falta para PROD: ${falta6.join('; ')}.`);
+  if (tocaUi(estado, raiz, proyectoDe(repo, env), rutasDelRq(raiz, estado)) && !verificacionLocalOk(estado)) {
+    l.push('Verificación local: sin registrar ($RQ verificar --local "<qué se recorrió>" <capturas>).');
+  }
+  const faltaProd = faltaParaEtapa(estado, ETAPA.PROD, raiz);
+  if (faltaProd.length) l.push(`Falta para PROD: ${faltaProd.join('; ')}.`);
   const rv = estado.revision;
   l.push(`Revisión: ${rv ? (rv.ok ? 'ok' : 'bloqueante') : 'sin registrar'}.`);
   // Commits ya integrados en la rama principal (merge hecho, o commiteados directo en main): no hay PR que abrir.
@@ -869,7 +1098,7 @@ function desplegar(repo, elegido, args, env, io) {
         ? `${aplicar} sobre ${ref}${r ? ` (${r.nombre})` : ''}${bl ? `; bloques del handoff en orden: ${bl}` : ''}`
         : enSupabase || motorDatos(proyecto) === 'supabase'
           ? `execute_sql del conector (no la CLI) con project_id ${ref}${r ? ` (${r.nombre})` : ''}, una llamada por bloque${bl ? `, en orden: ${bl}` : ''}`
-          : `aplicar las migraciones en ${ref} con el mecanismo de ${motorDatos(proyecto)} (declaralo en datos.aplicar de proyecto.yml)`;
+          : `aplicar las migraciones en ${ref} con el mecanismo del motor de datos${motorDatos(proyecto) ? ` (${motorDatos(proyecto)})` : ''} (declaralo en datos.aplicar de proyecto.yml)`;
     } else if (/^merge-prs-sync:/i.test(p)) {
       const sede = p.slice('merge-prs-sync:'.length);
       como = cuenta
@@ -882,28 +1111,34 @@ function desplegar(repo, elegido, args, env, io) {
   io.stdout.write(`${l.join('\n')}\n`);
 }
 
-function imprimirEstado(repo, codigo, estado, io) {
+function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   const l = [];
   l.push(`Código: ${estado.codigo}`);
   l.push(`Tipo: ${estado.tipo}`);
-  l.push(`Clasificación: ${estado.clasificacion}`);
+  l.push(`Clasificación: ${nombreDe(estado.clasificacion)}${estado.clasificacion_pendiente === true ? ' (pendiente de confirmar)' : ''}`);
+  const protegida = enRamaProtegida(repo.raiz, proyectoDe(repo, env));
+  if (protegida) l.push(`Rama equivocada: ${protegida} sólo recibe cambios por PR. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}).`);
   const derivada = etapaDerivada(estado, repo.raiz);
   l.push(`Etapa: ${derivada}${derivada !== estado.etapa ? ` (según la evidencia; registrada: ${estado.etapa})` : ''}`);
   const sk = skillsDe(estado);
   l.push(`Skills del RQ: ${sk.length ? sk.join(', ') : 'ninguna'}`);
-  const proxima = [3, 4, 6].find((n) => n > derivada - 1 && faltaParaEtapa(estado, n, repo.raiz).length);
+  const proxima = [ETAPA.DESARROLLO, ETAPA.VERIFICACION, ETAPA.PROD].find((n) => n > derivada - 1 && faltaParaEtapa(estado, n, repo.raiz).length);
   if (proxima) l.push(`Falta para la etapa ${proxima}: ${faltaParaEtapa(estado, proxima, repo.raiz).join('; ')}`);
   const aps = lista(estado.aprobaciones);
   l.push(aps.length ? 'Aprobaciones:' : 'Aprobaciones: ninguna');
   for (const a of aps) l.push(`  ${a.etapa}: ${a.frase}`);
   const au = estado.autonomia;
-  const porDefecto = ['spike', 'bounded'].includes(estado.clasificacion) ? 'hasta etapa 5 (por defecto)' : 'ninguna';
+  const porDefecto = ['spike', 'bounded'].includes(estado.clasificacion) ? `hasta etapa ${ETAPA.DEV} (por defecto)` : 'ninguna';
   l.push(au ? `Autonomía: hasta etapa ${au.hasta} ("${au.frase}")` : `Autonomía: ${porDefecto}`);
   const t = estado.tests;
   const rojos = lista(t?.rojos_conocidos).length;
   l.push(t ? `Tests: ${t.ok ? 'ok' : 'fallaron'} (${t.fecha})${rojos ? `, con ${rojos} rojos conocidos` : ''}` : 'Tests: sin registrar');
   const e = estado.e2e;
   l.push(e ? `E2E: ${e.ok ? 'ok' : 'falló'} (${e.fecha})` : 'E2E: sin correr');
+  if (tocaUi(estado, repo.raiz, proyectoDe(repo, env), rutasDelRq(repo.raiz, estado))) {
+    const v = estado.verificacion_local;
+    l.push(verificacionLocalOk(estado) ? `Verificación local: ok${v ? ` (${v.fecha}, ${lista(v.capturas).length} captura(s))` : ' (salteada por el usuario)'}` : 'Verificación local: sin registrar');
+  }
   const r = estado.revision;
   l.push(r ? `Revisión: ${r.ok ? 'ok' : 'bloqueante'}${r.nota ? ` — ${r.nota}` : ''}` : 'Revisión: sin registrar');
   const circuito = lista(estado.circuito);
@@ -916,7 +1151,7 @@ function imprimirEstado(repo, codigo, estado, io) {
 /** Pasos del circuito que le faltan al RQ (en una sede, sólo los de esa sede). Sin despliegue empezado, ninguno. */
 function pendientesDel(repo, estado, proyecto, env) {
   const raiz = repo.raiz;
-  const desplego = (Number(estado.etapa) || 0) >= 5 || etapaDerivada(estado, raiz) >= 5 || lista(estado.circuito).length > 0;
+  const desplego = (Number(estado.etapa) || 0) >= ETAPA.DEV || etapaDerivada(estado, raiz) >= ETAPA.DEV || lista(estado.circuito).length > 0;
   if (!proyecto || !desplego) return [];
   const sedes = env.BACG_DEV_SIN_GH !== '1' ? migracionesEnSync(proyecto) : {};
   let pend = pendientes({ proyecto, estado, raiz, rutas: rutasDelRq(raiz, estado), sedes });
@@ -936,7 +1171,7 @@ function pendientesDel(repo, estado, proyecto, env) {
 // y los lleva a estado.yml, a la fila del backlog y al log (línea pendiente-resuelto).
 function trasPasoDeCerrado(repo, elegido, env, io) {
   const { codigo, estado } = activo(repo.raiz, elegido);
-  if (estado.etapa !== 7) return;
+  if (estado.etapa !== ETAPA.CIERRE) return;
   let proyecto = null;
   try {
     proyecto = exigirProyecto(repo, env);
@@ -979,7 +1214,7 @@ function cerrar(repo, elegido, args, env, io) {
   const previa = filaDelBacklog(repo, env, codigo);
   const spec = datosDelSpec(raiz, codigo);
   if (!estado.tarea && (previa.Tarea || spec.Tarea)) estado.tarea = previa.Tarea || spec.Tarea;
-  estado.etapa = 7;
+  estado.etapa = ETAPA.CIERRE;
   if (pend.length) estado.pendientes = pend;
   else delete estado.pendientes;
   guardar(raiz, estado);
@@ -1044,8 +1279,13 @@ function sacarRq(argv) {
   return { argv: out, rq };
 }
 
-export async function main(argvCompleto, { cwd = process.cwd(), env = process.env, stdout = process.stdout, stderr = process.stderr } = {}) {
+// home, tty y leerLinea se inyectan sólo desde código (tests); por línea de comandos son los del proceso.
+export async function main(
+  argvCompleto,
+  { cwd = process.cwd(), env = process.env, stdout = process.stdout, stderr = process.stderr, home = homeReal(), tty = process.stdin.isTTY === true, leerLinea = leerLineaDeTerminal } = {},
+) {
   const io = { stdout, stderr };
+  const verificacion = { env, home, tty, leerLinea, stderr };
   let sub;
   try {
     const { argv, rq: elegido } = sacarRq(argvCompleto);
@@ -1072,13 +1312,14 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'cerrar'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
-    const aridad = { etapa: 1, aprobar: 2, autonomia: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0 };
+    const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
     if (sub === 'paso' && (args[0] === 'no-aplica' || args[0] === 'hecho')) uso(n === 3);
     else if (sub === 'paso' && args[0] === 'reabrir') uso(n === 2);
     else if (sub === 'desplegar' || sub === 'previa') uso(n <= 1);
+    else if (sub === 'clasificacion') uso((args[0] === 'confirmar' && n === 2) || (args[0] === 'cambiar' && n === 3));
     else if (sub === 'commit') uso(n >= 2);
     else if (sub === 'auditar') uso(n === 0 || (n === 2 && args[0] === '--cerrar'));
     else if (!['abrir', 'cerrar', 'verificar'].includes(sub)) uso(n === aridad[sub]);
@@ -1117,20 +1358,27 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         abrir(repo, args, env, io);
         break;
       case 'etapa': {
-        const e = etapaValida(args[0]);
+        const pedida = etapaValida(args[0]);
         const { codigo, estado } = activo(raiz, elegido);
+        // Como en aprobar: el 6 de un RQ abierto con 3.x era PROD.
+        const e = pedida === ETAPA.CIERRE && estado._v3 === true ? ETAPA.PROD : pedida;
+        if (e !== pedida) io.stdout.write(`${AVISO_PROD_V3}\n`);
         const falta = faltaParaEtapa(estado, e, raiz);
         // Aviso, no bloqueo: la etapa es opcional; lo exigen revision, el commit de código y la publicación a PROD.
         if (falta.length) io.stderr.write(`Aviso: para la etapa ${e} del ${codigo} falta: ${falta.join('; ')}.\n`);
-        if (e >= 1) rebasarSiNoEmpezo(raiz, codigo, estado);
+        if (e >= ETAPA.DISENO) rebasarSiNoEmpezo(raiz, codigo, estado);
         estado.etapa = e;
         guardar(raiz, estado);
         io.stdout.write(`Etapa ${e}.\n`);
         break;
       }
       case 'aprobar': {
-        const e = etapaValida(args[0]);
+        const pedida = etapaValida(args[0]);
         const frase = textoNoVacio(args[1], 'La frase');
+        // ETAPA.CIERRE es el 6 de hoy; en un RQ abierto con 3.x, ese número era el OK de PROD.
+        const e = pedida === ETAPA.CIERRE && activo(raiz, elegido).estado._v3 === true ? ETAPA.PROD : pedida;
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
+        if (e !== pedida) io.stdout.write(`${AVISO_PROD_V3}\n`);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.aprobaciones = [...lista(s.aprobaciones), { etapa: e, frase, fecha: ahora() }];
           return `Aprobación de la etapa ${e} registrada.`;
@@ -1139,9 +1387,35 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       }
       case 'autonomia': {
         const h = entero(args[0]);
-        if (h === null || h < 1 || h > 5) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de 1 a 5).`);
+        if (h === null || h < ETAPA.DISENO || h > ETAPA.DEV) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de ${ETAPA.DISENO} a ${ETAPA.DEV}).`);
         const frase = textoNoVacio(args[1], 'La frase');
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
         cambiarVinculado(repo, env, elegido, io, (s) => { s.autonomia = { hasta: h, frase, fecha: ahora() }; return `Autonomía hasta la etapa ${h} registrada.`; });
+        break;
+      }
+      case 'clasificacion': {
+        const accion = args[0];
+        let nueva = null;
+        if (accion === 'cambiar') {
+          nueva = clasificacionDe(args[1]);
+          if (!nueva) throw new ErrorCli(`Clasificación inválida: "${args[1]}" (exploracion | acotado | arquitectonico).`);
+        }
+        const frase = textoNoVacio(args[accion === 'cambiar' ? 2 : 1], 'La frase');
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
+        cambiarVinculado(repo, env, elegido, io, (s) => {
+          if (nueva) s.clasificacion = nueva;
+          s.clasificacion_pendiente = false;
+          s.clasificacion_confirmada = { frase, fecha: ahora() };
+          return `Clasificación ${nombreDe(s.clasificacion)} confirmada.`;
+        });
+        break;
+      }
+      case 'ejecucion': {
+        const modo = MODOS_EJECUCION[String(args[0]).trim().toLowerCase()];
+        if (!modo) throw new ErrorCli(`Ejecución inválida: "${args[0]}" (inline | subagentes; también executing-plans o subagent-driven-development).`);
+        const frase = textoNoVacio(args[1], 'La frase');
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
+        cambiarVinculado(repo, env, elegido, io, (s) => { s.ejecucion = { modo, frase, fecha: ahora() }; return `Ejecución ${modo} registrada.`; });
         break;
       }
       case 'saltar': {
@@ -1149,6 +1423,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         if (!COMPUERTAS.includes(compuerta)) throw new ErrorCli(`Compuerta inválida: "${compuerta}" (${COMPUERTAS.join(' | ')}).`);
         textoNoVacio(frase, 'La frase');
         textoNoVacio(motivo, 'El motivo');
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.saltos = [...lista(s.saltos), { compuerta, frase, motivo, fecha: ahora() }];
           return `Salto de la compuerta ${compuerta} registrado.`;
@@ -1160,7 +1435,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         if (veredicto !== 'ok' && veredicto !== 'bloqueante') throw new ErrorCli(`Veredicto inválido: "${veredicto}" (ok | bloqueante).`);
         const { codigo, estado } = activo(raiz, elegido);
         if (veredicto === 'ok') {
-          const falta = faltaParaEtapa(estado, 4, raiz);
+          const falta = faltaParaEtapa(estado, ETAPA.VERIFICACION, raiz);
           if (falta.length) throw new ErrorCli(`Antes de la revisión del ${codigo} falta: ${falta.join('; ')}. Si el usuario decide saltearlo: $RQ saltar skills "<frase>" "<motivo>".`);
           const sensible = sensibleSinRevisar(estado, rutasDelRq(raiz, estado), proyectoDe(repo, env));
           if (sensible) throw new ErrorCli(`El ${codigo} toca ${sensible} (ruta sensible): falta claude-security (Skill "claude-security:claude-security") o, si el usuario lo decide, $RQ saltar seguridad "<frase>" "<motivo>".`);
@@ -1195,12 +1470,16 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
       case 'desplegar':
         desplegar(repo, elegido, args, env, io);
         break;
+      case 'arranque':
+        io.stdout.write(`${textoArranque({ raiz, proyecto: proyectoDe(repo, env), dirLin: dirLineamientos({ env }) })}
+`);
+        break;
       case 'estado': {
         const cerrados = cerradosConPendientes(raiz).filter((c) => c.codigo !== elegido);
         if (!elegido && rqsActivos(raiz).length === 0) io.stdout.write('RQ activo: ninguno.\n');
         else {
           const { codigo, estado } = activo(raiz, elegido);
-          imprimirEstado(repo, codigo, estado, io);
+          imprimirEstado(repo, codigo, estado, io, env);
           for (const a of avisosDeAtraso(raiz, codigo, estado)) io.stdout.write(`${a}\n`);
         }
         for (const c of cerrados) io.stdout.write(`Cerrado con pendientes: ${c.codigo} (falta: ${c.pendientes.join(', ')}; al hacerlos, $RQ paso … --rq ${c.codigo}).\n`);

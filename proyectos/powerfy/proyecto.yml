@@ -1,6 +1,7 @@
 # Contrato de Powerfy ERP (Odoo 18 CE). Vive en el repo central de lineamientos; los repos de PowerFy no llevan archivos
 # del plugin (se reconocen por su remoto bacgroup/<nombre>). Infra: powerfy-docker/docs/AMBIENTES.md.
 
+version_ciclo: 4                       # etapas 0-6 (plugin 4.x)
 id: powerfy
 nombre: Powerfy ERP
 cuenta_github: bacgroup                # se opera con la cuenta gh nlopez-bacg (nkick25: invitar como colaborador si opera Powerfy)

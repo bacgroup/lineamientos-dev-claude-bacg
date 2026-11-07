@@ -1,12 +1,12 @@
 // Compuerta de herramientas MCP: servidores de PROD declarados (`mcp_prod`: n8n, Odoo u otro), Supabase a PROD y Lovable.
 //
 // - `mcp_prod` (ver mcp-prod.mjs): la lectura pasa; toda otra herramienta del servidor es escritura a PROD y
-//   exige un RQ activo con el OK de PROD (etapa 6). Falla cerrada: lo que no se reconoce como lectura, escribe.
+//   exige un RQ activo con el OK de PROD (etapa 5). Falla cerrada: lo que no se reconoce como lectura, escribe.
 // - SQL (`execute_sql`, `apply_migration`) a un ref de `entornos.prod.supabase_refs`: la lectura pura
-//   pasa; la escritura exige un RQ activo con el OK de PROD (etapa 6) y que estén hechos los pasos de
+//   pasa; la escritura exige un RQ activo con el OK de PROD (etapa 5) y que estén hechos los pasos de
 //   los que depende en `circuito_prod` (ver circuito.mjs). Los saltos nunca aplican.
 // - Otras herramientas de Supabase que tocan PROD (`deploy_edge_function`, `merge_branch`,
-//   `reset_branch`, `restore_project`, `pause_project`): RQ activo con etapa 6.
+//   `reset_branch`, `restore_project`, `pause_project`): RQ activo con el OK de PROD (etapa 5).
 //   `merge_branch`/`reset_branch` sólo reciben `branch_id`: con refs de PROD declarados son siempre
 //   PROD, sin mirar `project_id` (falla cerrada, pero se puede pasar con el OK).
 // - En las herramientas con SQL, todo valor string de la entrada (salvo project_id/name) tiene que ser
@@ -24,6 +24,7 @@
 // `circuito_prod`, no hay chequeo de orden.
 
 import { etapaCumplida } from './estado.mjs';
+import { ETAPA } from './etapas.mjs';
 import { cli } from './cli.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad } from './circuito.mjs';
 import { clasificarMcp } from './mcp-prod.mjs';
@@ -228,10 +229,10 @@ const SQL_SUPABASE = ['apply_migration', 'execute_sql'];
 const PROD_SUPABASE = ['deploy_edge_function', 'restore_project', 'pause_project'];
 const RAMAS_SUPABASE = ['merge_branch', 'reset_branch'];
 
-/** Algún RQ activo con el OK de PROD (etapa 6). Devuelve el deny o null. */
+/** Algún RQ activo con el OK de PROD (etapa 5). Devuelve el deny o null. */
 function exigirProd(estados, c, sinRq, sinOk) {
   if (estados.length === 0) return deny(sinRq, true);
-  if (!estados.some((e) => etapaCumplida(e, 6, c))) return deny(sinOk, true);
+  if (!estados.some((e) => etapaCumplida(e, ETAPA.PROD, c))) return deny(sinOk, true);
   return null;
 }
 
@@ -260,7 +261,7 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
         ests,
         c,
         `${corto} en ${mcp.destino} (PROD) sin RQ activo.`,
-        `${corto} en ${mcp.destino} es escritura a PROD: falta el OK del usuario para PROD (etapa 6).`,
+        `${corto} en ${mcp.destino} es escritura a PROD: falta el OK del usuario para PROD (etapa ${ETAPA.PROD}).`,
       ) ?? allow(true)
     );
   }
@@ -275,12 +276,12 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
       ests,
       c,
       `SQL de escritura a PROD (${id}) sin RQ activo.`,
-      `SQL de escritura a PROD (${id}): falta el OK del usuario para PROD (etapa 6).`,
+      `SQL de escritura a PROD (${id}): falta el OK del usuario para PROD (etapa ${ETAPA.PROD}).`,
     );
     if (r) return r;
     const paso = `sql:${id}`;
     let primero = null;
-    for (const e of ests.filter((x) => etapaCumplida(x, 6, c))) {
+    for (const e of ests.filter((x) => etapaCumplida(x, ETAPA.PROD, c))) {
       if (lista(e.circuito).some((p) => p?.no_aplica === true && norm(p?.paso) === paso)) {
         primero = primero ?? deny(`${paso} figura como no aplica en este RQ: si hace falta correr SQL, corré ${cli()} paso reabrir ${paso}.`, true);
         continue;
@@ -312,7 +313,7 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
         ests,
         c,
         `${corto} a PROD (${destino}) sin RQ activo.`,
-        `${corto} a PROD (${destino}): falta el OK del usuario para PROD (etapa 6).`,
+        `${corto} a PROD (${destino}): falta el OK del usuario para PROD (etapa ${ETAPA.PROD}).`,
       ) ?? allow(true)
     );
   }
@@ -324,7 +325,7 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
         ests,
         c,
         'Deploy de Lovable sin RQ activo.',
-        'Deploy de Lovable es PROD: falta el OK del usuario para PROD (etapa 6).',
+        `Deploy de Lovable es PROD: falta el OK del usuario para PROD (etapa ${ETAPA.PROD}).`,
       ) ?? allow(true)
     );
   }
@@ -335,7 +336,7 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
         ests,
         c,
         'Aprobar una acción del agente de Lovable sin RQ activo.',
-        'Aprobar una acción del agente de Lovable es PROD: falta el OK del usuario para PROD (etapa 6).',
+        `Aprobar una acción del agente de Lovable es PROD: falta el OK del usuario para PROD (etapa ${ETAPA.PROD}).`,
       ) ?? allow(true)
     );
   }
@@ -350,7 +351,7 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
         ests,
         c,
         `SQL de escritura a Lovable (${id}) sin RQ activo.`,
-        `SQL de escritura a Lovable (${id}) es PROD: falta el OK del usuario para PROD (etapa 6).`,
+        `SQL de escritura a Lovable (${id}) es PROD: falta el OK del usuario para PROD (etapa ${ETAPA.PROD}).`,
       ) ?? allow(true)
     );
   }

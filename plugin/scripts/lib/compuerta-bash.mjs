@@ -38,8 +38,11 @@ import { cli, comandosTests, comandoE2e, PISTA_SIN_TESTS } from './cli.mjs';
 import { norm } from './contexto.mjs';
 import { rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad, migracionesEnSync } from './circuito.mjs';
-import { faltaParaEtapa } from './requisitos.mjs';
+import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA } from './requisitos.mjs';
+import { ETAPA } from './etapas.mjs';
 import { ramasProd, ramasSoloPr } from './stack.mjs';
+import { testsValenParaStage } from './arbol.mjs';
+import { enRamaProtegida, ramaDelRq } from './ramas.mjs';
 
 // Opciones de `git push` que consumen el siguiente argumento.
 const CON_VALOR_PUSH = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
@@ -72,7 +75,7 @@ const MSG_PREVIO = (archivo) =>
   `git add && git commit en un comando sólo vale para docs y tests${archivo ? `, y ${archivo} no lo es` : ''}. Con código: ${cli()} commit "<mensaje>" <rutas>.`;
 const MSG_FRASE = (sub) =>
   `La frase de rq.mjs ${sub} tiene que ser texto literal del usuario (un "Dale" vale si fue el mensaje entero). Si el usuario no lo dijo, pedíselo.`;
-const SUBS_CON_FRASE = new Set(['aprobar', 'autonomia', 'saltar']);
+const SUBS_CON_FRASE = new Set(['aprobar', 'autonomia', 'saltar', 'clasificacion', 'ejecucion']);
 const MSG_TESTS = () => `Corré los tests sobre lo que está en stage: ${cli()} registrar-tests`;
 
 // ---------------------------------------------------------------------------
@@ -451,15 +454,17 @@ function analizarGit(args, dir, compartido, tocar, info) {
   return ops;
 }
 
-// `node <…rq.mjs|$RQ> aprobar|autonomia|saltar …`: la frase que se va a registrar ({ op: 'frase' }), o null.
+// `node <…rq.mjs|$RQ> aprobar|autonomia|saltar|clasificacion|ejecucion …`: la frase que se va a registrar ({ op: 'frase' }), o null.
 function fraseDeRq(args, dir) {
   const ws = [];
   for (let k = 0; k < args.length; k++) {
     if (args[k] === '--rq') k++;
     else ws.push(args[k]);
   }
-  const [script, sub, , frase] = ws;
+  const [script, sub, accion] = ws;
   if (!SUBS_CON_FRASE.has(sub)) return null;
+  // `clasificacion cambiar <c> "<frase>"`: la frase va un lugar más adelante.
+  const frase = sub === 'clasificacion' && accion === 'cambiar' ? ws[4] : ws[3];
   const s = String(script ?? '');
   if (!/rq\.mjs$/i.test(s.replace(/\\/g, '/')) && !/\$\{?RQ\b/.test(s)) return null;
   return { op: 'frase', dir, sub, frase: typeof frase === 'string' ? frase : '' };
@@ -888,6 +893,29 @@ function primerAgregadoNoLibre(op, raiz, proyecto) {
   return null;
 }
 
+// Rutas (relativas a la raíz; null = fuera del repo) que agrega el git add del mismo comando; una carpeta se expande.
+function rutasAgregadas(op, raiz) {
+  const out = [];
+  for (const { dir, ruta } of op.agregados ?? []) {
+    const abs = path.resolve(dir, ruta);
+    const rel = relativaAlRepo(raiz, abs);
+    if (rel === null || rel === '') { out.push(null); continue; }
+    let esCarpeta = false;
+    try {
+      esCarpeta = fs.statSync(abs).isDirectory();
+    } catch {
+      // no existe: un borrado, se toma la ruta
+    }
+    if (!esCarpeta) { out.push(rel); continue; }
+    try {
+      out.push(...relativasARaiz(raiz, raiz, git(raiz, ['ls-files', '-m', '-d', '-o', '--exclude-standard', '-z', '--', rel]).split('\0').filter(Boolean)));
+    } catch {
+      out.push(null);
+    }
+  }
+  return out;
+}
+
 function evaluarCommit(op, ctx, dirLin) {
   const repo = buscarRepo(op.dir);
   if (!repo) return null;
@@ -905,6 +933,15 @@ function evaluarCommit(op, ctx, dirLin) {
   const rels = relativasARaiz(op.dir, repo.raiz, enStage);
   const iNoLibre = rels.findIndex((rel) => rel === null || tipoArchivo(rel, proyecto) !== 'libre');
   const stageLibre = iNoLibre === -1;
+  // Exploración: todo lo que va a stage (libre o no) queda en docs/rq/<código>/, salvo lo que escribe la CLI.
+  const todas = [...rels, ...(op.agregados ? rutasAgregadas(op, repo.raiz) : [])];
+  if (todas.length) {
+    for (const codigo of rqsActivos(repo.raiz)) {
+      let estado;
+      try { estado = cargarEstado(repo.raiz, codigo); } catch { continue; }
+      if (fueraDeSonda(estado, todas) !== null) return deny(MSG_EXPLORACION_FUERA(estado.codigo));
+    }
+  }
   if (op.agregados) {
     const traba = stageLibre ? primerAgregadoNoLibre(op, repo.raiz, proyecto) : `${enStage[iNoLibre]} (ya estaba en stage)`;
     return traba === null ? null : deny(MSG_PREVIO(traba));
@@ -913,11 +950,15 @@ function evaluarCommit(op, ctx, dirLin) {
 
   const r = cargarRqs(repo.raiz, 'commitear código', ctx);
   if (r.deny) return r.deny;
-  const arbol = arbolEnStage(op.dir);
+  // M7: código de un RQ directo en una rama que sólo recibe PR (o en una de PROD) no se commitea.
+  const protegida = enRamaProtegida(op.dir, proyecto);
+  if (protegida && !r.rqs.some(({ estado }) => saltoValido(estado, 'rama'))) {
+    const codigo = r.rqs[0]?.codigo ?? '<código>';
+    return deny(`${protegida} sólo recibe cambios por PR: el código del RQ va en su rama. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}; los cambios en stage viajan con el switch) y commiteá ahí.`);
+  }
   for (const { estado } of r.rqs) {
     if (saltoValido(estado, 'commit')) return null;
-    const t = estado.tests;
-    if (t?.ok === true && typeof t.arbol === 'string' && t.arbol === arbol) return null;
+    if (testsValenParaStage(estado.tests, op.dir)) return null;
   }
   if (comandosTests(proyecto).length === 0) return deny(`${MSG_TESTS()} ${PISTA_SIN_TESTS}`);
   return deny(MSG_TESTS());
@@ -1049,21 +1090,21 @@ function pushSoloLibres(op, dest) {
 
 /** Evalúa la publicación contra un RQ. Devuelve el deny o null. */
 function publicacionDeRq(op, dest, codigo, estado, ctxEtapa, real, ctx) {
-  // El salto de push saltea sólo la etapa 4: nunca la 6 ni el circuito de un destino PROD.
-  if (!saltoValido(estado, 'push') && !etapaCumplida(estado, 4, ctxEtapa)) {
-    return deny(`Falta la etapa 4 (tests en verde y revisión sin bloqueantes) del RQ ${codigo}.`);
+  // El salto de push saltea sólo la verificación (etapa 3): nunca el OK de PROD (5) ni el circuito de un destino PROD.
+  if (!saltoValido(estado, 'push') && !etapaCumplida(estado, ETAPA.VERIFICACION, ctxEtapa)) {
+    return deny(`Falta la etapa ${ETAPA.VERIFICACION} (tests en verde y revisión sin bloqueantes) del RQ ${codigo}.`);
   }
   // E2E obligatorio si el proyecto lo declara: verde registrado con rq.mjs verificar, o salto e2e del usuario.
   if (comandoE2e(dest.proyecto) && estado.e2e?.ok !== true && !saltoValido(estado, 'e2e') && !saltoValido(estado, 'push')) {
     return deny(`Falta el E2E en verde del RQ ${codigo}: corré ${cli()} verificar con la app levantada.`);
   }
   if (!dest.prod) return null;
-  if (!etapaCumplida(estado, 6, ctxEtapa)) {
-    return deny(`Publicar ${dest.nombre} es PROD: falta el OK del usuario para PROD (etapa 6) en el RQ ${codigo}.`);
+  if (!etapaCumplida(estado, ETAPA.PROD, ctxEtapa)) {
+    return deny(`Publicar ${dest.nombre} es PROD: falta el OK del usuario para PROD (etapa ${ETAPA.PROD}) en el RQ ${codigo}.`);
   }
   // Skills de proceso por etapa (requisitos.mjs) y, si el E2E corrió sólo los specs del RQ, la suite completa.
-  // El salto de push (etapa 4 salteada por el usuario) también saltea lo que exige la verificación.
-  const faltan = saltoValido(estado, 'push') ? [] : faltaParaEtapa(estado, 6, dest.raiz);
+  // El salto de push (verificación salteada por el usuario) también saltea lo que exige la verificación.
+  const faltan = saltoValido(estado, 'push') ? [] : faltaParaEtapa(estado, ETAPA.PROD, dest.raiz);
   if (faltan.length) return deny(`PROD del RQ ${codigo}: falta ${faltan.join('; ')}. Si el usuario decide saltearlo: ${cli()} saltar skills "<frase>" "<motivo>".`);
   if (estado.e2e?.ok === true && estado.e2e.completo === false && !saltoValido(estado, 'e2e') && !saltoValido(estado, 'push')) {
     return deny(`PROD del RQ ${codigo}: el E2E corrió sólo los specs del RQ; corré ${cli()} verificar --completo.`);
@@ -1135,20 +1176,49 @@ function evaluarFrase(op, ctx) {
 
 const resumirError = (e) => String(e?.message ?? e).replace(/\s+/g, ' ').trim().slice(0, 300);
 
+// Red de seguridad para las frases (falla cerrada). Se miran las menciones del CLI del RQ (rq.mjs, $RQ o ${RQ})
+// y toda variable ($X, ${X}), con o sin comillas, y el subcomando que les sigue (salteando --rq <X>):
+// - subcomando con frase (aprobar, autonomia, saltar, clasificacion, ejecucion) detrás de una mención o de una
+//   variable: tiene que haberlo leído el parser (op frase); si hay más que las leídas, se niega.
+// - mención con un subcomando literal sin frase (abrir, commit, estado…): no cuenta, así que ni
+//   `--clasificacion acotado` ni un mensaje de commit la disparan.
+// - mención con cualquier otra cosa (una variable, una opción, el código de node -e o de un import) o sin
+//   subcomando (una asignación `X=/ruta/rq.mjs`, un grep): ilegible. Si el texto nombra alguna de esas palabras
+//   fuera de una posición de subcomando ya contada, se niega.
+const RE_INVOCACION = /(rq\.mjs|\$\{?RQ\b\}?)['"]?|\$\{?[A-Za-z_]\w*\}?['"]?/gi;
+const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion)\b/gi;
+
+function mencionesDeRq(texto) {
+  let frases = 0;
+  let ilegibles = 0;
+  for (const m of texto.matchAll(RE_INVOCACION)) {
+    const deRq = m[1] !== undefined;
+    const resto = texto.slice(m.index + m[0].length).replace(/^\s+--rq(?:=|\s+)\S+/, '');
+    const sub = /^\s+(['"]?)([A-Za-z][\w-]*)\1(?=$|[\s;&|])/.exec(resto)?.[2];
+    if (sub && SUBS_CON_FRASE.has(sub.toLowerCase())) frases++;
+    else if (deRq && !sub) ilegibles++;
+  }
+  return { frases, ilegibles };
+}
+
+function redDeFrases(texto, ops) {
+  const { frases, ilegibles } = mencionesDeRq(texto);
+  const leidas = ops.filter((o) => o.op === 'frase').length;
+  if (frases > leidas) return true;
+  // Con una mención ilegible, cada palabra tiene que ser un subcomando ya contado (y leído por el parser).
+  const palabras = (texto.match(RE_SUB_FRASE) ?? []).length;
+  return ilegibles > 0 && palabras > frases;
+}
+
 /**
  * Decide si un comando Bash (o PowerShell) puede correr.
  * ctx = { textosUsuario, real?, sedes? } (real y sedes, inyectables en los tests). Devuelve { decision, motivo?, critica }.
  */
-// Red de seguridad para las frases: si el texto nombra el CLI del RQ (rq.mjs o $RQ) junto a aprobar, autonomia o
-// saltar y el parser no armó la operación (node -e, un script que lo importa, variables), se niega.
-const RE_CLI_RQ = /rq\.mjs|\$\{?RQ\b/i;
-const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar)\b/i;
-
 export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
   const ops = operacionesGit(comando, cwd);
   const texto = String(comando ?? '');
-  if (RE_CLI_RQ.test(texto) && RE_SUB_FRASE.test(texto) && !ops.some((o) => o.op === 'frase') && buscarRepo(cwd)) {
-    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia o saltar en una forma que la compuerta no puede leer: corrélo como ${cli()} <subcomando> "<frase>".`), critica: false };
+  if (redDeFrases(texto, ops) && buscarRepo(cwd)) {
+    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar, clasificacion o ejecucion en una forma que la compuerta no puede leer: corrélo como ${cli()} <subcomando> "<frase>".`), critica: false };
   }
   // `critica` se calcula para todas las operaciones antes de evaluar ninguna.
   const destinos = ops.map((op) => {

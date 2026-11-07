@@ -6,6 +6,9 @@ import { buscarRepo } from './config.mjs';
 import { rqsActivos, cargarEstado, etapaCumplida, saltoValido } from './estado.mjs';
 import { cli } from './cli.mjs';
 import { skillsDe } from './requisitos.mjs';
+import { dentroDeAddon, usaOdoo } from './odoo-skills.mjs';
+import { ETAPA } from './etapas.mjs';
+import { nombreDe } from './clasificacion.mjs';
 
 const allow = () => ({ decision: 'allow' });
 const deny = (motivo) => ({ decision: 'deny', motivo });
@@ -43,6 +46,20 @@ function seccionDiseno(raiz, codigo) {
 // Cambio menor (un texto, un ícono, un espaciado puntual, sin componentes ni pantallas nuevas): el agente le pregunta
 // al usuario en el chat, con palabras, si omite el refuerzo; un botón no queda como frase del usuario.
 const PISTA_MENOR = ' Si el cambio es menor, preguntale al usuario en el chat (texto, no botones) si omite el refuerzo; con su respuesta: $RQ saltar ui "<su frase>" "<motivo>".';
+
+/**
+ * Skill oficial de Odoo que exige editar este archivo (M6): odoo-web-guidelines bajo static/ de un addon,
+ * odoo-guidelines en el resto del addon; null fuera de un addon o en un proyecto sin Odoo.
+ */
+export function skillOdooDeRuta(raiz, rel, proyecto) {
+  if (!proyecto || !usaOdoo(proyecto, raiz)) return null;
+  const enAddon = dentroDeAddon(raiz, rel);
+  if (enAddon === null) return null;
+  return /^static\//.test(enAddon) ? 'odoo-web-guidelines' : 'odoo-guidelines';
+}
+
+/** ¿La clasificación del RQ espera la confirmación del usuario (M2)? Los RQ abiertos antes de 3.3.0 no la tienen. */
+export const clasificacionPendiente = (estado) => estado?.clasificacion_pendiente === true;
 
 const RE_ESTADO_O_ACTIVO = /(?:^|\/)docs\/rq\/(?:ACTIVO|[^/]+\/estado\.yml)$/i;
 
@@ -96,9 +113,24 @@ export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
     }
     const ctxEtapa = { raiz };
     if (saltoValido(estado, 'edicion')) return allow();
-    if (!etapaCumplida(estado, 2, ctxEtapa)) {
+    if (clasificacionPendiente(estado)) {
       ultimo = ultimo ?? deny(
-        `Falta el diseño del RQ ${codigo}: en bounded y spike alcanza con escribir docs/rq/${codigo}/spec.md; en arquitectónico, plan aprobado (etapa 2).`,
+        `La clasificación del RQ ${codigo} (${nombreDe(estado.clasificacion)}) espera la confirmación del usuario: proponésela con su motivo y lo que implica, y registrá su respuesta con ${cli()} clasificacion confirmar "<su frase>" (o clasificacion cambiar <exploracion|acotado|arquitectonico> "<su frase>").`,
+      );
+      continue;
+    }
+    // v4: el diseño (y el plan) aprobado con `aprobar 1` en toda clasificación; la autonomía (por defecto en bounded y
+    // spike) cubre desarrollo y DEV, nunca el diseño.
+    if (!etapaCumplida(estado, ETAPA.DISENO, ctxEtapa)) {
+      ultimo = ultimo ?? deny(
+        `Falta el diseño aprobado del RQ ${codigo}: docs/rq/${codigo}/spec.md y la aprobación del usuario con ${cli()} aprobar ${ETAPA.DISENO} "<su frase>" (etapa ${ETAPA.DISENO}, en toda clasificación).`,
+      );
+      continue;
+    }
+    const odoo = saltoValido(estado, 'skills') ? null : skillOdooDeRuta(raiz, rel, proyecto);
+    if (odoo && !skillCargada(new Set([...skillsSesion, ...skillsDe(estado)]), odoo)) {
+      ultimo = ultimo ?? deny(
+        `Archivo de un addon de Odoo: cargá antes la skill ${odoo} (Skill "${odoo}"; reglas oficiales de Odoo, sección 2.0.1 de ciclo-rq). Si el usuario decide saltearla: ${cli()} saltar skills "<frase>" "<motivo>".`,
       );
       continue;
     }

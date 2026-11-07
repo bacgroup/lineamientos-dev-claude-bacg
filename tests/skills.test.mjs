@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import yaml from '../plugin/scripts/vendor/js-yaml.mjs';
+import { NOMBRE_ETAPA } from '../plugin/scripts/lib/etapas.mjs';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dirSkills = join(raiz, 'plugin', 'skills');
@@ -24,10 +25,13 @@ function subcomandosRq() {
   const subs = new Set([...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]));
   const uso = fuente.match(/const USO = `([\s\S]*?)`;/);
   assert.ok(uso, 'no encontré el texto USO en rq.mjs');
+  const conUso = new Set();
   for (const linea of uso[1].split('\n').slice(1)) {
     const sub = linea.trim().split(/\s+/)[0];
     if (sub) assert.ok(subs.has(sub), `el uso nombra "${sub}" pero no está en SUBS`);
+    if (sub) conUso.add(sub);
   }
+  for (const s of subs) assert.ok(conUso.has(s), `"${s}" está en SUBS pero el uso no lo explica`);
   return subs;
 }
 
@@ -51,23 +55,53 @@ test('cada SKILL.md tiene frontmatter con name (igual a su carpeta) y descriptio
   }
 });
 
-test('ciclo-rq: description y las 8 etapas', () => {
+const escapar = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+test('ciclo-rq: description y las 7 etapas v4 con su nombre', () => {
   const { datos, cuerpo } = frontmatter(leer(join(dirSkills, 'ciclo-rq', 'SKILL.md')));
   assert.ok(
     datos.description.startsWith('Usar antes de cualquier cambio de código o base de datos en un repo con .bacg-lineamientos'),
     'description de ciclo-rq',
   );
-  for (let e = 0; e <= 7; e++) assert.match(cuerpo, new RegExp(`^\\|\\s*${e}\\s*\\|`, 'm'), `falta la fila de la etapa ${e}`);
+  assert.deepEqual(Object.keys(NOMBRE_ETAPA).map(Number), [0, 1, 2, 3, 4, 5, 6]);
+  for (const [e, nombre] of Object.entries(NOMBRE_ETAPA)) {
+    assert.match(cuerpo, new RegExp(`^\\|\\s*${e}\\s*\\|\\s*${escapar(nombre)}\\s*\\|`, 'm'), `falta la fila de la etapa ${e} (${nombre})`);
+  }
+  assert.doesNotMatch(cuerpo, /^\|\s*7\s*\|/m, 'la etapa 7 es de 3.x');
+});
+
+test('ciclo-rq: nombra los subcomandos y compuertas nuevos de la v4', () => {
+  const texto = leer(join(dirSkills, 'ciclo-rq', 'SKILL.md'));
+  for (const s of ['$RQ arranque', '$RQ clasificacion confirmar', '$RQ clasificacion cambiar', '$RQ ejecucion inline|subagentes', '$RQ verificar --local']) {
+    assert.ok(texto.includes(s), `ciclo-rq no explica ${s}`);
+  }
+  const fuente = leer(join(raiz, 'plugin', 'scripts', 'rq.mjs'));
+  const compuertas = [...fuente.match(/const COMPUERTAS = \[([^\]]*)\]/)[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  for (const c of compuertas) assert.ok(texto.includes(`\`${c}\``), `ciclo-rq no nombra la compuerta ${c}`);
+  for (const n of ['Exploración', 'Acotado', 'Arquitectónico']) assert.ok(texto.includes(n), `ciclo-rq no nombra ${n}`);
+  assert.doesNotMatch(texto, /m[aá]s de 5 tareas independientes/, 'la ejecución ya no es una regla fija');
+});
+
+// Textos genéricos: sin supuestos de un proyecto puntual, salvo en líneas que empiezan con "Ejemplo".
+test('ciclo-rq, proceso.md y los comandos no suponen un proyecto puntual', () => {
+  const archivos = [
+    join(dirSkills, 'ciclo-rq', 'SKILL.md'),
+    join(raiz, 'plugin', 'general', 'proceso.md'),
+    ...readdirSync(dirComandos).filter((f) => f.endsWith('.md')).map((f) => join(dirComandos, f)),
+  ];
+  for (const archivo of archivos) {
+    leer(archivo).split(/\r?\n/).forEach((linea, i) => {
+      if (/^\s*Ejemplo/.test(linea)) return;
+      assert.doesNotMatch(linea, /PowerFy|18\.0-dev|8069|8070/i, `${archivo}:${i + 1} nombra un proyecto puntual`);
+    });
+  }
 });
 
 test('ciclo-rq: sólo usa subcomandos de rq.mjs que existen, y usa todos', () => {
   const reales = subcomandosRq();
   const texto = leer(join(dirSkills, 'ciclo-rq', 'SKILL.md'));
   const u = usados(texto);
-  assert.deepEqual(
-    [...reales].sort(),
-    ['abrir', 'agents', 'alta', 'aprobar', 'auditar', 'autonomia', 'cerrar', 'commit', 'desplegar', 'entregar', 'estado', 'etapa', 'odoo-skills', 'paso', 'previa', 'registrar-tests', 'revision', 'saltar', 'verificar'],
-  );
+  for (const s of ['arranque', 'clasificacion', 'ejecucion']) assert.ok(reales.has(s), `rq.mjs no tiene ${s} en SUBS`);
   for (const s of u) assert.ok(reales.has(s), `ciclo-rq usa "rq.mjs ${s}", que no existe`);
   for (const s of reales) assert.ok(u.has(s), `ciclo-rq no explica "rq.mjs ${s}"`);
   assert.match(texto, /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/rq\.mjs/);
@@ -122,7 +156,7 @@ test('ciclo-rq: precisión de compuertas y ruta del CLI', () => {
   for (const s of ['docs/**', 'tests/**', 'e2e/**', '*.test.*', '*.spec.*', '.bacg-lineamientos']) {
     assert.ok(texto.includes(s), `commits libres: falta ${s}`);
   }
-  assert.match(texto, /`apply_migration`[^\n]*siempre/, 'apply_migration a PROD siempre exige la etapa 6');
+  assert.match(texto, /`apply_migration`[^\n]*siempre/, 'apply_migration a PROD siempre exige la etapa 5');
   assert.ok(texto.includes('CLI del RQ'), 'ciclo-rq no manda a usar la ruta de SessionStart');
   for (const c of ['bacg-rq', 'bacg-estado']) {
     assert.ok(leer(join(dirComandos, `${c}.md`)).includes('CLI del RQ'), `/${c} no usa la ruta de SessionStart`);

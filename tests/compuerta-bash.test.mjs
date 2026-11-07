@@ -13,11 +13,12 @@ import {
 } from '../plugin/scripts/lib/compuerta-bash.mjs';
 import { guardarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { cli } from '../plugin/scripts/lib/cli.mjs';
+import { arbolTesteado } from '../plugin/scripts/lib/arbol.mjs';
 import { crearRepoTemporal } from './helpers.mjs';
 
 const DIR_LIN = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'lineamientos');
 const CWD = path.resolve(os.tmpdir(), 'base');
-const FRASE6 = 'Publicá demo-app a producción';
+const FRASE_PROD = 'Publicá demo-app a producción';
 const MSG_TESTS = `Corré los tests sobre lo que está en stage: ${cli()} registrar-tests`;
 
 function git(cwd, ...args) {
@@ -29,16 +30,23 @@ function git(cwd, ...args) {
 function activar(raiz, estado) {
   if (estado) guardarEstado(raiz, estado);
   fs.mkdirSync(path.join(raiz, 'docs', 'rq'), { recursive: true });
+  // Etapa 2 v4: un Acotado necesita ## Tareas en spec.md y un Arquitectónico, plan.md (los fixtures los registran).
+  const cod = estado?.codigo ?? 'R-B1';
+  const dirRq = path.join(raiz, 'docs', 'rq', cod);
+  if (estado?.clasificacion === 'bounded' && !fs.existsSync(path.join(dirRq, 'spec.md'))) {
+    fs.mkdirSync(dirRq, { recursive: true });
+    fs.writeFileSync(path.join(dirRq, 'spec.md'), '# spec\n\n## Tareas\n\n- [ ] una\n');
+  }
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), `${estado?.codigo ?? 'R-B1'}\n`);
 }
 
 const base = (extra = {}) => ({
-  codigo: 'R-B1', tipo: 'rq', clasificacion: 'bounded', etapa: 6,
+  codigo: 'R-B1', tipo: 'rq', clasificacion: 'bounded', etapa: 5,
   autonomia: null, aprobaciones: [], saltos: [], circuito: [], ...extra,
 });
-const SKILLS_PROD = ['superpowers:test-driven-development', { skill: 'superpowers:verification-before-completion', etapa: 4 }];
+const SKILLS_PROD = ['superpowers:brainstorming', 'superpowers:test-driven-development', { skill: 'superpowers:verification-before-completion', etapa: 3 }];
 const verde = { tests: { ok: true, arbol: 'x' }, revision: { ok: true }, skills: SKILLS_PROD };
-const ok6 = { etapa: 6, frase: FRASE6, fecha: '2026-10-23T12:00:00Z' };
+const okProd = { etapa: 5, frase: FRASE_PROD, fecha: '2026-10-23T12:00:00Z' };
 const paso = (p) => ({ paso: p, fecha: '2026-10-23T12:00:00Z' });
 
 const evaluar = (comando, cwd, textosUsuario = []) =>
@@ -368,21 +376,21 @@ test('C1: subcomandos que mencionan push/merge sin publicar -> allow sin RQ', ()
   assert.equal(evaluar('G=git; $G push', raiz).decision, 'deny');
 });
 
-test('push a push_prod sin OK de etapa 6 -> deny, crítica', () => {
+test('push a push_prod sin OK de etapa 5 -> deny, crítica', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
   activar(raiz, base({ ...verde, circuito: [paso('sql:refprod1')] }));
   const r = evaluar('git push origin main', raiz);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
-  assert.equal(r.motivo, 'Publicar demo-app es PROD: falta el OK del usuario para PROD (etapa 6) en el RQ R-B1.');
+  assert.equal(r.motivo, 'Publicar demo-app es PROD: falta el OK del usuario para PROD (etapa 5) en el RQ R-B1.');
 });
 
-test('push sin etapa 4 -> deny', () => {
+test('push sin etapa 3 -> deny', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
-  activar(raiz, base({ tests: { ok: true }, aprobaciones: [ok6] }));
-  const r = evaluar('git push', raiz, [FRASE6]);
+  activar(raiz, base({ tests: { ok: true }, aprobaciones: [okProd] }));
+  const r = evaluar('git push', raiz, [FRASE_PROD]);
   assert.equal(r.decision, 'deny');
-  assert.equal(r.motivo, 'Falta la etapa 4 (tests en verde y revisión sin bloqueantes) del RQ R-B1.');
+  assert.equal(r.motivo, 'Falta la etapa 3 (tests en verde y revisión sin bloqueantes) del RQ R-B1.');
   assert.equal(r.critica, true);
 });
 
@@ -396,8 +404,8 @@ test('push sin RQ activo -> deny, crítica', () => {
 
 test('push con OK pero sin sql:refprod1 -> deny nombrando el paso', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
-  activar(raiz, base({ ...verde, aprobaciones: [ok6] }));
-  const r = evaluar('git push', raiz, [FRASE6]);
+  activar(raiz, base({ ...verde, aprobaciones: [okProd] }));
+  const r = evaluar('git push', raiz, [FRASE_PROD]);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
   assert.equal(r.motivo, 'Circuito de PROD: falta el paso sql:refprod1 antes de push:demo-app.');
@@ -405,22 +413,22 @@ test('push con OK pero sin sql:refprod1 -> deny nombrando el paso', () => {
 
 test('push completo -> allow, crítica', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
-  activar(raiz, base({ ...verde, aprobaciones: [ok6], circuito: [paso('sql:refprod1')] }));
-  assert.deepEqual(evaluar('git push', raiz, [FRASE6]), { decision: 'allow', critica: true });
+  activar(raiz, base({ ...verde, aprobaciones: [okProd], circuito: [paso('sql:refprod1')] }));
+  assert.deepEqual(evaluar('git push', raiz, [FRASE_PROD]), { decision: 'allow', critica: true });
 });
 
 test('OK de PROD: se vuelve a comprobar contra la sesión al publicar (registrado por fuera no alcanza)', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
-  activar(raiz, base({ ...verde, aprobaciones: [ok6], circuito: [paso('sql:refprod1')] }));
+  activar(raiz, base({ ...verde, aprobaciones: [okProd], circuito: [paso('sql:refprod1')] }));
   assert.equal(evaluar('git push', raiz, []).decision, 'deny');
-  assert.deepEqual(evaluar('git push', raiz, [FRASE6]), { decision: 'allow', critica: true });
+  assert.deepEqual(evaluar('git push', raiz, [FRASE_PROD]), { decision: 'allow', critica: true });
 });
 
 test('rq.mjs con aprobar|autonomia|saltar que el parser no puede leer -> deny (red de seguridad)', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
   for (const cmd of [
-    'node -e "import(\'/x/rq.mjs\').then((m) => m.main([\'aprobar\', \'6\', \'OK PROD\']))"',
-    'node ./otro.mjs /x/rq.mjs aprobar 6 x',
+    'node -e "import(\'/x/rq.mjs\').then((m) => m.main([\'aprobar\', \'5\', \'OK PROD\']))"',
+    'node ./otro.mjs /x/rq.mjs aprobar 5 x',
   ]) {
     const r = evaluar(cmd, raiz, ['OK PROD']);
     assert.equal(r.decision, 'deny', cmd);
@@ -429,7 +437,7 @@ test('rq.mjs con aprobar|autonomia|saltar que el parser no puede leer -> deny (r
   assert.deepEqual(evaluar('grep -n aprobar plugin/scripts/rq.mjs', crearRepoTemporal({})), { decision: 'allow', critica: false }, 'fuera de un repo registrado');
 });
 
-test('salto "push" en sesión saltea la etapa 4 pero nunca la 6 ni el circuito en PROD', () => {
+test('salto "push" en sesión saltea la etapa 3 pero nunca la 5 ni el circuito en PROD', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
   const frase = 'Pusheá igual, me hago cargo';
   const salto = { compuerta: 'push', frase, motivo: 'm', fecha: 'f' };
@@ -437,24 +445,24 @@ test('salto "push" en sesión saltea la etapa 4 pero nunca la 6 ni el circuito e
   let r = evaluar('git push', raiz, [frase]);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
-  assert.equal(r.motivo, 'Publicar demo-app es PROD: falta el OK del usuario para PROD (etapa 6) en el RQ R-B1.');
+  assert.equal(r.motivo, 'Publicar demo-app es PROD: falta el OK del usuario para PROD (etapa 5) en el RQ R-B1.');
 
-  activar(raiz, base({ saltos: [salto], aprobaciones: [ok6] }));
-  r = evaluar('git push', raiz, [frase, FRASE6]);
+  activar(raiz, base({ saltos: [salto], aprobaciones: [okProd] }));
+  r = evaluar('git push', raiz, [frase, FRASE_PROD]);
   assert.equal(r.motivo, 'Circuito de PROD: falta el paso sql:refprod1 antes de push:demo-app.');
 
-  activar(raiz, base({ saltos: [salto], aprobaciones: [ok6], circuito: [paso('sql:refprod1')] }));
-  assert.deepEqual(evaluar('git push', raiz, [frase, FRASE6]), { decision: 'allow', critica: true });
+  activar(raiz, base({ saltos: [salto], aprobaciones: [okProd], circuito: [paso('sql:refprod1')] }));
+  assert.deepEqual(evaluar('git push', raiz, [frase, FRASE_PROD]), { decision: 'allow', critica: true });
 });
 
-test('salto "push" registrado: saltea la etapa 4 en cualquier sesión, nunca la 6', () => {
+test('salto "push" registrado: saltea la etapa 3 en cualquier sesión, nunca la 5', () => {
   const salto = { compuerta: 'push', frase: 'x', motivo: 'm', fecha: 'f' };
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
   activar(raiz, base({ saltos: [salto] }));
   let r = evaluar('git push', raiz, []);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
-  assert.match(r.motivo, /etapa 6/);
+  assert.match(r.motivo, /etapa 5/);
 
   const dirLin = fs.mkdtempSync(path.join(os.tmpdir(), 'lin '));
   fs.mkdirSync(path.join(dirLin, 'proyectos', 'dev'), { recursive: true });
@@ -467,7 +475,7 @@ test('salto "push" registrado: saltea la etapa 4 en cualquier sesión, nunca la 
   r = evaluarBash({ comando: 'git push', cwd: dev, ctx: { textosUsuario: [] }, dirLin });
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, false);
-  assert.match(r.motivo, /^Falta la etapa 4/);
+  assert.match(r.motivo, /^Falta la etapa 3/);
   activar(dev, base({ saltos: [salto] }));
   r = evaluarBash({ comando: 'git push', cwd: dev, ctx: { textosUsuario: [] }, dirLin });
   assert.deepEqual(r, { decision: 'allow', critica: false });
@@ -493,9 +501,9 @@ test('gh pr merge con URL desde un repo registrado resuelve el destino en el pro
   const r = evaluar('gh pr merge https://github.com/nkick25/demo-app/pull/12', raiz, []);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
-  assert.equal(r.motivo, 'Publicar demo-app es PROD: falta el OK del usuario para PROD (etapa 6) en el RQ R-B1.');
+  assert.equal(r.motivo, 'Publicar demo-app es PROD: falta el OK del usuario para PROD (etapa 5) en el RQ R-B1.');
   const r2 = evaluar('gh pr merge https://github.com/nkick25/desconocido/pull/12', raiz, []);
-  assert.equal(r2.motivo, 'Publicar desconocido es PROD: falta el OK del usuario para PROD (etapa 6) en el RQ R-B1.');
+  assert.equal(r2.motivo, 'Publicar desconocido es PROD: falta el OK del usuario para PROD (etapa 5) en el RQ R-B1.');
 });
 
 test('git add <código> && git commit en el mismo comando -> deny; con sólo docs o tests -> allow', () => {
@@ -551,20 +559,20 @@ test('repo con .bacg-lineamientos que no figura en proyecto.repos -> push_prod (
   const r = evaluar('git push', raiz);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
-  assert.equal(r.motivo, 'Publicar otro-nombre es PROD: falta el OK del usuario para PROD (etapa 6) en el RQ R-B1.');
-  // con OK: el paso push:otro-nombre no está en circuito_prod -> sólo exige la etapa 6
-  activar(raiz, base({ ...verde, aprobaciones: [ok6] }));
-  assert.deepEqual(evaluar('git push', raiz, [FRASE6]), { decision: 'allow', critica: true });
+  assert.equal(r.motivo, 'Publicar otro-nombre es PROD: falta el OK del usuario para PROD (etapa 5) en el RQ R-B1.');
+  // con OK: el paso push:otro-nombre no está en circuito_prod -> sólo exige la etapa 5
+  activar(raiz, base({ ...verde, aprobaciones: [okProd] }));
+  assert.deepEqual(evaluar('git push', raiz, [FRASE_PROD]), { decision: 'allow', critica: true });
 });
 
 test('nombre del repo sin distinguir mayúsculas', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'Demo-App' });
-  activar(raiz, base({ ...verde, aprobaciones: [ok6] }));
-  const r = evaluar('git push', raiz, [FRASE6]);
+  activar(raiz, base({ ...verde, aprobaciones: [okProd] }));
+  const r = evaluar('git push', raiz, [FRASE_PROD]);
   assert.equal(r.motivo, 'Circuito de PROD: falta el paso sql:refprod1 antes de push:demo-app.');
 });
 
-test('push a repo sin push_prod con etapa 4 -> allow, no crítica', () => {
+test('push a repo sin push_prod con etapa 3 -> allow, no crítica', () => {
   const dirLin = fs.mkdtempSync(path.join(os.tmpdir(), 'lin '));
   fs.mkdirSync(path.join(dirLin, 'proyectos', 'dev'), { recursive: true });
   fs.writeFileSync(
@@ -585,13 +593,13 @@ test('push a repo sin push_prod con etapa 4 -> allow, no crítica', () => {
 
 test('gh pr merge --repo a demo-app desde otro repo del proyecto -> merge-prs-sync', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'otro-nombre' });
-  activar(raiz, base({ ...verde, aprobaciones: [ok6] }));
+  activar(raiz, base({ ...verde, aprobaciones: [okProd] }));
   const cmd = 'gh pr merge 12 --merge --repo nkick25/demo-app';
-  // merge-prs-sync:demo-app no está en circuito_prod -> sólo etapa 6
-  assert.deepEqual(evaluar(cmd, raiz, [FRASE6]), { decision: 'allow', critica: true });
+  // merge-prs-sync:demo-app no está en circuito_prod -> sólo etapa 5
+  assert.deepEqual(evaluar(cmd, raiz, [FRASE_PROD]), { decision: 'allow', critica: true });
   const r = evaluar(cmd, raiz, []);
   assert.equal(r.decision, 'deny');
-  assert.equal(r.motivo, 'Publicar demo-app es PROD: falta el OK del usuario para PROD (etapa 6) en el RQ R-B1.');
+  assert.equal(r.motivo, 'Publicar demo-app es PROD: falta el OK del usuario para PROD (etapa 5) en el RQ R-B1.');
 });
 
 test('varias operaciones: gana el primer deny; crítica si alguna es push_prod', () => {
@@ -604,10 +612,10 @@ test('varias operaciones: gana el primer deny; crítica si alguna es push_prod',
 
 test('cd hacia el repo antes del push se sigue', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
-  activar(raiz, base({ ...verde, aprobaciones: [ok6], circuito: [paso('sql:refprod1')] }));
-  assert.deepEqual(evaluar(`cd "${raiz}" && git push`, os.tmpdir(), [FRASE6]), { decision: 'allow', critica: true });
+  activar(raiz, base({ ...verde, aprobaciones: [okProd], circuito: [paso('sql:refprod1')] }));
+  assert.deepEqual(evaluar(`cd "${raiz}" && git push`, os.tmpdir(), [FRASE_PROD]), { decision: 'allow', critica: true });
   activar(raiz, base({ ...verde, circuito: [paso('sql:refprod1')] }));
-  const r = evaluar(`cd "${raiz}" && git push`, os.tmpdir(), [FRASE6]);
+  const r = evaluar(`cd "${raiz}" && git push`, os.tmpdir(), [FRASE_PROD]);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
 });
@@ -617,9 +625,9 @@ test('cd hacia el repo antes del push se sigue', () => {
 test('rq.mjs aprobar|autonomia|saltar: la frase tiene que ser texto literal del usuario en la sesión', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
   const cmds = [
-    'node "$RQ" aprobar 6 "OK PROD sedes"',
-    'node "C:/x/rq.mjs" aprobar 6 "OK PROD sedes" --rq R-1',
-    'RQ=/x/rq.mjs; node "$RQ" --rq R-1 autonomia 5 "OK PROD sedes"',
+    'node "$RQ" aprobar 5 "OK PROD sedes"',
+    'node "C:/x/rq.mjs" aprobar 5 "OK PROD sedes" --rq R-1',
+    'RQ=/x/rq.mjs; node "$RQ" --rq R-1 autonomia 4 "OK PROD sedes"',
     'node /x/rq.mjs saltar push "OK PROD sedes" "tests rojos ajenos"',
   ];
   for (const cmd of cmds) {
@@ -629,10 +637,10 @@ test('rq.mjs aprobar|autonomia|saltar: la frase tiene que ser texto literal del 
     assert.deepEqual(evaluar(cmd, raiz, ['Dale, OK PROD sedes.']), { decision: 'allow', critica: false }, cmd);
   }
   // Un "Dale" vale si fue el mensaje entero, también para PROD.
-  assert.deepEqual(evaluar('node "$RQ" aprobar 6 "Dale"', raiz, ['Dale']), { decision: 'allow', critica: false });
-  assert.equal(evaluar('node "$RQ" aprobar 6 "Dale"', raiz, ['Dale, pero mañana']).decision, 'deny');
+  assert.deepEqual(evaluar('node "$RQ" aprobar 5 "Dale"', raiz, ['Dale']), { decision: 'allow', critica: false });
+  assert.equal(evaluar('node "$RQ" aprobar 5 "Dale"', raiz, ['Dale, pero mañana']).decision, 'deny');
   // Otros subcomandos y otros scripts no se miran.
-  assert.deepEqual(evaluar('node "$RQ" etapa 3', raiz, []), { decision: 'allow', critica: false });
+  assert.deepEqual(evaluar('node "$RQ" etapa 2', raiz, []), { decision: 'allow', critica: false });
   assert.deepEqual(evaluar('node build.mjs aprobar 1 x', raiz, []), { decision: 'allow', critica: false });
 });
 
@@ -670,11 +678,11 @@ test('push que sólo publica docs o tests -> allow sin RQ; con código, la compu
 test('varios RQ activos: publica si alguno cumple', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
   guardarEstado(raiz, base({ codigo: 'R-B2' }));
-  activar(raiz, base({ ...verde, aprobaciones: [ok6], circuito: [paso('sql:refprod1')] }));
+  activar(raiz, base({ ...verde, aprobaciones: [okProd], circuito: [paso('sql:refprod1')] }));
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-B1\nR-B2\n');
-  assert.deepEqual(evaluar('git push', raiz, [FRASE6]), { decision: 'allow', critica: true });
+  assert.deepEqual(evaluar('git push', raiz, [FRASE_PROD]), { decision: 'allow', critica: true });
   fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-B2\n');
-  assert.equal(evaluar('git push', raiz, [FRASE6]).decision, 'deny');
+  assert.equal(evaluar('git push', raiz, [FRASE_PROD]).decision, 'deny');
 });
 
 test('circuito: sql:<ref> no corresponde si el RQ no trae migraciones; despues_de y estado real deciden el orden', () => {
@@ -699,8 +707,8 @@ test('circuito: sql:<ref> no corresponde si el RQ no trae migraciones; despues_d
   fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
   git(raiz, 'add', '.');
   git(raiz, 'commit', '-q', '-m', 'código');
-  activar(raiz, base({ ...verde, aprobaciones: [ok6], base: head }));
-  const ev = (cmd, real = () => false, sedes = {}) => evaluarBash({ comando: cmd, cwd: raiz, ctx: { textosUsuario: [FRASE6], real, sedes }, dirLin });
+  activar(raiz, base({ ...verde, aprobaciones: [okProd], base: head }));
+  const ev = (cmd, real = () => false, sedes = {}) => evaluarBash({ comando: cmd, cwd: raiz, ctx: { textosUsuario: [FRASE_PROD], real, sedes }, dirLin });
   // Sin migraciones, sql:refprod1 no corresponde: el push pasa.
   assert.deepEqual(ev('git push'), { decision: 'allow', critica: true });
   const merge = 'gh pr merge 3 --merge --repo dueno/sede';
@@ -719,10 +727,10 @@ test('circuito: sql:<ref> no corresponde si el RQ no trae migraciones; despues_d
 test('I3c/M11: escribir estado.yml, ACTIVO o el transcript desde Bash -> deny', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
   for (const cmd of [
-    'echo "etapa: 6" > docs/rq/R-1/estado.yml',
+    'echo "etapa: 5" > docs/rq/R-1/estado.yml',
     'cat >> docs/rq/ACTIVO <<EOF\nR-9\nEOF',
     'printf x 2> docs/rq/R-1/estado.yml',
-    "sed -i 's/etapa: 3/etapa: 6/' docs/rq/R-1/estado.yml",
+    "sed -i 's/etapa: 2/etapa: 5/' docs/rq/R-1/estado.yml",
     'echo R-9 | tee docs/rq/ACTIVO',
     'cp /tmp/falso.yml docs/rq/R-1/estado.yml',
     'mv otro.yml docs/rq/R-1/estado.yml',
@@ -752,10 +760,10 @@ test('M6: el orden del circuito compara pasos y repos sin distinguir mayúsculas
       'circuito_prod:\n  - { paso: "SQL:RefProd1" }\n  - { paso: "Push:Demo-App" }\n',
   );
   const raiz = crearRepoTemporal({ proyectoId: 'p', nombre: 'demo-app' });
-  const ev = () => evaluarBash({ comando: 'git push', cwd: raiz, ctx: { textosUsuario: [FRASE6] }, dirLin });
-  activar(raiz, base({ ...verde, aprobaciones: [ok6] }));
+  const ev = () => evaluarBash({ comando: 'git push', cwd: raiz, ctx: { textosUsuario: [FRASE_PROD] }, dirLin });
+  activar(raiz, base({ ...verde, aprobaciones: [okProd] }));
   assert.match(ev().motivo ?? '', /^Circuito de PROD: falta el paso SQL:RefProd1 antes de /);
-  activar(raiz, base({ ...verde, aprobaciones: [ok6], circuito: [paso('sql:refprod1')] }));
+  activar(raiz, base({ ...verde, aprobaciones: [okProd], circuito: [paso('sql:refprod1')] }));
   assert.deepEqual(ev(), { decision: 'allow', critica: true });
 });
 
@@ -814,13 +822,13 @@ function repoConCambio(archivos = {}) {
   return { raiz, baseSha };
 }
 const conNoAplica = (baseSha, pasos = ['sql:refprod1']) =>
-  base({ ...verde, aprobaciones: [ok6], base: baseSha, circuito: pasos.map(noAplica) });
+  base({ ...verde, aprobaciones: [okProd], base: baseSha, circuito: pasos.map(noAplica) });
 
 test('push con sql:refprod1 marcado como no aplica y sin migraciones -> allow', () => {
   const { raiz, baseSha } = repoConCambio({ 'src/a.tsx': 'x\n' });
   activar(raiz, conNoAplica(baseSha));
-  assert.deepEqual(evaluar('git push', raiz, [FRASE6]), { decision: 'allow', critica: true });
-  assert.deepEqual(evaluar('git push origin HEAD', raiz, [FRASE6]), { decision: 'allow', critica: true });
+  assert.deepEqual(evaluar('git push', raiz, [FRASE_PROD]), { decision: 'allow', critica: true });
+  assert.deepEqual(evaluar('git push origin HEAD', raiz, [FRASE_PROD]), { decision: 'allow', critica: true });
 });
 
 test('push con sql:refprod1 no aplica pero con una migración publicada o suelta -> deny con la salida', () => {
@@ -831,7 +839,7 @@ test('push con sql:refprod1 no aplica pero con una migración publicada o suelta
       fs.writeFileSync(path.join(raiz, suelta), 's\n');
     }
     activar(raiz, conNoAplica(baseSha));
-    const r = evaluar('git push', raiz, [FRASE6]);
+    const r = evaluar('git push', raiz, [FRASE_PROD]);
     assert.equal(r.decision, 'deny');
     assert.equal(r.critica, true);
     assert.equal(
@@ -845,7 +853,7 @@ test('push con un paso no aplica y refspec de otra rama, --all o --mirror -> den
   const { raiz, baseSha } = repoConCambio({ 'src/a.tsx': 'x\n' });
   activar(raiz, conNoAplica(baseSha));
   for (const cmd of ['git push origin otra:main', 'git push origin otra', 'git push --all origin', 'git push --mirror origin']) {
-    const r = evaluar(cmd, raiz, [FRASE6]);
+    const r = evaluar(cmd, raiz, [FRASE_PROD]);
     assert.equal(r.decision, 'deny', cmd);
     assert.match(r.motivo, /^Circuito de PROD: con pasos marcados como no aplica sólo se pushea la rama actual \(HEAD\)/, cmd);
   }
@@ -853,8 +861,8 @@ test('push con un paso no aplica y refspec de otra rama, --all o --mirror -> den
 
 test('push con un paso no aplica y sin base en el estado -> deny', () => {
   const { raiz } = repoConCambio({ 'src/a.tsx': 'x\n' });
-  activar(raiz, base({ ...verde, aprobaciones: [ok6], circuito: [noAplica('sql:refprod1')] }));
-  const r = evaluar('git push', raiz, [FRASE6]);
+  activar(raiz, base({ ...verde, aprobaciones: [okProd], circuito: [noAplica('sql:refprod1')] }));
+  const r = evaluar('git push', raiz, [FRASE_PROD]);
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /^Circuito de PROD: el RQ no tiene base \(estado\.base\)/);
 });
@@ -877,21 +885,216 @@ test('push de código: con tests.e2e declarado exige el E2E en verde (o salto e2
 
 test('PROD exige las skills de proceso del tipo (o saltar skills) y el E2E completo si corrió parcial', () => {
   const { raiz } = repoConCambio({ 'src/a.tsx': 'x\n' });
-  const listo = { ...verde, aprobaciones: [ok6], circuito: [paso('sql:refprod1')] };
+  const listo = { ...verde, aprobaciones: [okProd], circuito: [paso('sql:refprod1')] };
   activar(raiz, base({ ...listo, skills: [] }));
-  let r = evaluar('git push', raiz, [FRASE6]);
+  let r = evaluar('git push', raiz, [FRASE_PROD]);
   assert.equal(r.decision, 'deny');
-  assert.match(r.motivo, /^PROD del RQ R-B1: falta superpowers:test-driven-development; superpowers:verification-before-completion/);
+  assert.match(r.motivo, /^PROD del RQ R-B1: falta superpowers:brainstorming; superpowers:test-driven-development; superpowers:verification-before-completion/);
   activar(raiz, base({ ...listo, skills: [], saltos: [{ compuerta: 'skills', frase: 'salteá las skills', motivo: 'urgente' }] }));
-  assert.equal(evaluar('git push', raiz, [FRASE6]).decision, 'allow');
+  assert.equal(evaluar('git push', raiz, [FRASE_PROD]).decision, 'allow');
   activar(raiz, base({ ...listo, e2e: { ok: true, completo: false } }));
-  r = evaluar('git push', raiz, [FRASE6]);
+  r = evaluar('git push', raiz, [FRASE_PROD]);
   assert.match(r.motivo, /verificar --completo/);
 });
 
 test('$RQ armado con node adentro (RQ=\'node …/rq.mjs\'; $RQ aprobar …) se lee y valida la frase', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
-  const cmd = (f) => `RQ='node C:/x/rq.mjs'; $RQ aprobar 6 "${f}" --rq E-1 2>&1 | tail -2`;
+  const cmd = (f) => `RQ='node C:/x/rq.mjs'; $RQ aprobar 5 "${f}" --rq E-1 2>&1 | tail -2`;
   assert.equal(evaluar(cmd('OK PROD sedes'), raiz, ['OK PROD sedes']).decision, 'allow');
   assert.equal(evaluar(cmd('inventada'), raiz, ['OK PROD sedes']).decision, 'deny');
+});
+
+// ---------- M5 y M7: árbol testeado, ramas sólo-PR y frase de clasificacion ----------
+
+// Copia de los lineamientos de prueba con `ramas_solo_pr` declarada en el proyecto demo.
+function dirLinSoloPr(ramas) {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-solo-pr-'));
+  fs.cpSync(DIR_LIN, d, { recursive: true });
+  const yml = path.join(d, 'proyectos', 'demo', 'proyecto.yml');
+  fs.appendFileSync(yml, `ramas_solo_pr: [${ramas.join(', ')}]\n`);
+  return d;
+}
+
+test('commit en rama sólo-PR se niega; con saltar rama se permite', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  git(raiz, 'branch', '-M', '18.0-dev');
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
+  git(raiz, 'add', '.');
+  const dirLin = dirLinSoloPr(['18.0-dev']);
+  const ev = (textos = []) => evaluarBash({ comando: 'git commit -m x', cwd: raiz, ctx: { textosUsuario: textos }, dirLin });
+
+  activar(raiz, base({ tests: { ok: true, arbol: arbolEnStage(raiz) } }));
+  const r = ev();
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /sólo recibe cambios por PR/);
+  assert.match(r.motivo, /rq\/R-B1/);
+
+  const frase = 'Commiteá en la rama protegida, lo asumo';
+  activar(raiz, base({ tests: { ok: true, arbol: arbolEnStage(raiz) }, saltos: [{ compuerta: 'rama', frase, motivo: 'm', fecha: 'f' }] }));
+  assert.deepEqual(ev([frase]), { decision: 'allow', critica: false });
+
+  // En la rama del RQ el mismo commit pasa sin salto.
+  git(raiz, 'switch', '-q', '-c', 'rq/R-B1');
+  activar(raiz, base({ tests: { ok: true, arbol: arbolEnStage(raiz) } }));
+  assert.deepEqual(ev(), { decision: 'allow', critica: false });
+});
+
+test('commit con estado.yml en stage tras registrar-tests pasa', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
+  git(raiz, 'add', 'src/a.ts');
+  activar(raiz, base({ tests: { ok: true, arbol: arbolTesteado(raiz) } }));
+  // La CLI escribió estado.yml después de registrar y el commit lo lleva en stage.
+  git(raiz, 'add', 'docs/rq/R-B1/estado.yml', 'docs/rq/ACTIVO');
+  assert.ok(archivosEnStage(raiz).includes('docs/rq/R-B1/estado.yml'));
+  assert.notEqual(arbolEnStage(raiz), arbolTesteado(raiz));
+  assert.deepEqual(evaluar('git commit -m x', raiz), { decision: 'allow', critica: false });
+});
+
+test('clasificacion cambiar sin frase literal se niega; con la frase se permite', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const frase = 'Pasalo a arquitectónico';
+  const cmd = `node "$RQ" clasificacion cambiar arquitectonico "${frase}" --rq R-B1`;
+  const r = evaluar(cmd, raiz, ['otra cosa']);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /tiene que ser texto literal del usuario/);
+  assert.deepEqual(evaluar(cmd, raiz, [`Dale, ${frase}.`]), { decision: 'allow', critica: false });
+  // Forma sin `cambiar`: la frase va en la posición 3.
+  const cmd2 = `node "$RQ" clasificacion bounded "${frase}"`;
+  assert.equal(evaluar(cmd2, raiz, ['otra cosa']).decision, 'deny');
+  assert.equal(evaluar(cmd2, raiz, [frase]).decision, 'allow');
+});
+
+test('Exploración: el commit de código fuera de docs/rq/<código>/ se niega; la sonda se permite', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const msg = 'Exploración: el código de la sonda va a docs/rq/R-1/sonda/; construirlo es un RQ nuevo.';
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.js'), 'x');
+  git(raiz, 'add', '.');
+  activar(raiz, base({ codigo: 'R-1', clasificacion: 'spike', tests: { ok: true, arbol: arbolEnStage(raiz) } }));
+  const r = evaluar('git commit -m x', raiz);
+  assert.equal(r.decision, 'deny');
+  assert.equal(r.motivo, msg);
+
+  git(raiz, 'reset', '-q');
+  fs.rmSync(path.join(raiz, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda', 'a.js'), 'x');
+  git(raiz, 'add', 'docs/rq/R-1/sonda/a.js');
+  assert.equal(evaluar('git commit -m x', raiz).decision, 'allow');
+});
+
+test('Exploración: también se niegan los archivos libres fuera de la carpeta del RQ; lo de la CLI y la sonda pasan', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const msg = 'Exploración: el código de la sonda va a docs/rq/R-1/sonda/; construirlo es un RQ nuevo.';
+  activar(raiz, base({ codigo: 'R-1', clasificacion: 'spike' }));
+  for (const f of ['tests/probe.test.js', 'docs/otra.md']) {
+    fs.mkdirSync(path.join(raiz, path.dirname(f)), { recursive: true });
+    fs.writeFileSync(path.join(raiz, f), 'x');
+    git(raiz, 'add', f);
+    const r = evaluar('git commit -m x', raiz);
+    assert.equal(r.decision, 'deny', f);
+    assert.equal(r.motivo, msg, f);
+    git(raiz, 'reset', '-q');
+  }
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda', 'a.js'), 'x');
+  fs.writeFileSync(path.join(raiz, 'docs', 'backlog.md'), 'x');
+  git(raiz, 'add', 'docs/rq/R-1/sonda/a.js', 'docs/rq/R-1/estado.yml', 'docs/backlog.md');
+  assert.equal(evaluar('git commit -m x', raiz).decision, 'allow');
+});
+
+test('Exploración: lo que agrega el mismo comando del commit también queda en la carpeta del RQ', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  activar(raiz, base({ codigo: 'R-1', clasificacion: 'spike' }));
+  for (const f of ['docs/otro.md', 'tests/probe.test.js']) {
+    fs.mkdirSync(path.join(raiz, path.dirname(f)), { recursive: true });
+    fs.writeFileSync(path.join(raiz, f), 'x');
+    assert.equal(evaluar(`git add ${f} && git commit -m x`, raiz).decision, 'deny', f);
+  }
+  assert.equal(evaluar('git add -A && git commit -m x', raiz).decision, 'deny', 'add amplio');
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'sonda', 'a.js'), 'x');
+  const r = evaluar('git add docs/rq/R-1/sonda/a.js && git commit -m x', raiz);
+  assert.equal(r.decision, 'allow', r.motivo);
+});
+
+test('ejecucion sin frase literal se niega; con la frase se permite', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const frase = 'Con subagentes';
+  const cmd = `node "$RQ" ejecucion subagentes "${frase}" --rq R-B1`;
+  const r = evaluar(cmd, raiz, ['otra cosa']);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /tiene que ser texto literal del usuario/);
+  assert.deepEqual(evaluar(cmd, raiz, [`Dale, ${frase}.`]), { decision: 'allow', critica: false });
+  // Una forma que la compuerta no sabe leer también se niega.
+  const ilegible = evaluar('node -e "x" $RQ ejecucion inline', raiz, []);
+  assert.equal(ilegible.decision, 'deny');
+  assert.match(ilegible.motivo, /aprobar, autonomia, saltar, clasificacion o ejecucion/);
+});
+
+test('red de frases: sólo mira el subcomando de rq.mjs; --clasificacion y los mensajes de commit no la disparan', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  const red = /en una forma que la compuerta no puede leer/;
+  // abrir con --clasificacion, como lo indica SKILL.md.
+  for (const cmd of [
+    'node "$RQ" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"',
+    'node "C:/x/rq.mjs" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"',
+    'node "${RQ}" --rq R-9 abrir R-9 --tipo bug --clasificacion exploracion --tarea "y"',
+  ]) {
+    assert.deepEqual(evaluar(cmd, raiz, []), { decision: 'allow', critica: false }, cmd);
+  }
+  // Mensajes de commit con las palabras de las frases: la red no se mete (otras compuertas pueden).
+  for (const cmd of [
+    'node "$RQ" commit "feat: ejecucion del cierre" src/a.js',
+    'node "$RQ" commit "fix: clasificacion al aprobar" src/a.js',
+    'node /x/rq.mjs commit "feat: saltar y autonomia" src/a.js && git status',
+  ]) {
+    const r = evaluar(cmd, raiz, []);
+    assert.doesNotMatch(r.motivo ?? '', red, cmd);
+  }
+  // clasificacion confirmar: la frase tiene que ser texto literal del usuario.
+  const frase = 'Sí, acotado está bien';
+  const conf = `node "$RQ" clasificacion confirmar "${frase}"`;
+  const r = evaluar(conf, raiz, ['otra cosa']);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /tiene que ser texto literal del usuario/);
+  assert.deepEqual(evaluar(conf, raiz, [frase]), { decision: 'allow', critica: false });
+  // Las formas que el parser no lee siguen negadas.
+  for (const cmd of [
+    'node -e "require(\'/x/rq.mjs\').main([\'aprobar\', \'1\', \'Dale\'])"',
+    'node -e "x" /x/rq.mjs aprobar 1 "Dale"',
+    'S=aprobar; node "$RQ" $S 1 "Dale"',
+    'S=aprobar; node /x/rq.mjs --$S 1 "Dale"',
+    'S=aprobar; eval "node /x/rq.mjs \$S 1 Dale"',
+    'node --import /x/rq.mjs -e "main([\'aprobar\'])"',
+  ]) {
+    const d = evaluar(cmd, raiz, ['Dale']);
+    assert.equal(d.decision, 'deny', cmd);
+    assert.match(d.motivo, red, cmd);
+  }
+});
+
+test('red de frases: falla cerrada ante rq.mjs en una variable o sin subcomando legible', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  // La variable no se llama RQ: el parser no la lee y la frase no puede pasar sin validar.
+  let r = evaluar('X=/ruta/rq.mjs; node $X aprobar 5 "dale"', raiz, []);
+  assert.equal(r.decision, 'deny');
+  r = evaluar('X=/ruta/rq.mjs; node "${X}" --rq R-1 autonomia 4 "dale"', raiz, []);
+  assert.equal(r.decision, 'deny');
+  // Asignada y usada desde código que el parser no lee.
+  r = evaluar('X=/ruta/rq.mjs; node -e "import(process.env.X).then((m) => m.main([\'aprobar\', \'5\', \'dale\']))"', raiz, []);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /en una forma que la compuerta no puede leer/);
+  // Con $RQ el parser lee la frase y la valida contra los mensajes del usuario.
+  r = evaluar('RQ=/ruta/rq.mjs && node "$RQ" clasificacion confirmar "si"', raiz, ['otra cosa']);
+  assert.equal(r.decision, 'deny');
+  assert.deepEqual(evaluar('RQ=/ruta/rq.mjs && node "$RQ" clasificacion confirmar "si"', raiz, ['si']), { decision: 'allow', critica: false });
+  // Sólo la asignación, sin ninguna de las palabras: no hay nada que validar.
+  assert.deepEqual(evaluar('RQ=/ruta/rq.mjs', raiz, []), { decision: 'allow', critica: false });
+  // Asignación en el mismo comando y una de las palabras fuera de un subcomando: falla cerrada (sin la
+  // asignación, como lo indica SKILL.md, `abrir … --clasificacion` pasa; ver el test anterior).
+  assert.equal(evaluar('RQ=/ruta/rq.mjs; node "$RQ" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"', raiz, []).decision, 'deny');
 });

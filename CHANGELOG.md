@@ -1,5 +1,22 @@
 # Changelog
 
+## 4.0.0: ciclo RQ v4, el ciclo humano (2026-11-06)
+
+Cambia la numeración de etapas: los RQ y `proyecto.yml` viejos se convierten solos (ver más abajo). El circuito autómata llega en 4.1.
+- Etapas 0 a 6: Arranque y clasificación, Diseño y plan (antes dos etapas), Desarrollo, Verificación, DEV / Preview, PROD y entrega, Cierre. `aprobar 1` aprueba siempre el diseño y plan; un `aprobar 6` sobre un RQ de versión 3 se traduce a 5 con aviso.
+- Arranque que distingue inicio de reanudación: `rq.mjs arranque` dice si hay un RQ abierto en el repo (y su etapa) o si hay que empezar uno, también desde la carpeta padre de los repos y sin escribir nada en ellos.
+- Clasificación confirmada por el usuario, con los nombres Exploración / Acotado / Arquitectónico; el diseño y el plan (brainstorming) valen para todo RQ y BUG. La exploración sólo commitea su carpeta.
+- Elección de ejecución: antes del primer commit el usuario elige entre `executing-plans` y subagentes, y queda en `estado.yml`.
+- Odoo detectado, no supuesto: las skills y reglas de Odoo aplican sólo si el proyecto lo declara o tiene addons.
+- Verificación local con el rol real en los RQ que tocan UI (etapa 3).
+- Una rama por RQ: se abre sin necesidad de upstream, `estado.yml` y los demás archivos de la CLI van en el mismo commit, pero quedan fuera del árbol testeado: escribirlos después de `registrar-tests` no invalida los tests.
+- Conversión automática: un `estado.yml` sin `version_ciclo` se lee como v3 (etapas registradas y aprobaciones ≥ 2 se corren una) y no se reescribe hasta el próximo comando que escriba; los RQ abiertos con 3.x conservan su diseño. `proyecto.yml` viejos siguen valiendo sin cambios.
+- RQ Arquitectónico abiertos con 3.x que tenían el diseño aprobado (`aprobar 1`) pueden editar código sin la aprobación del plan, porque en v4 diseño y plan son una sola etapa; el commit de código sigue exigiendo `writing-plans` y `plan.md`.
+- Textos, plantilla y `AGENTS.md` sin supuestos de un proyecto, con la numeración nueva.
+- Seguridad: `rq.mjs` mismo verifica que la frase de `aprobar`, `autonomia`, `saltar`, `clasificacion` y `ejecucion` la escribió el usuario en la sesión de Claude Code (su transcripción), sin importar cómo se haya escrito el comando; la frase tiene que ser un mensaje o una oración enteros y cada vez que el usuario la escribió vale para un solo registro; se busca en el home real del usuario (no el de HOME/USERPROFILE) y los eventos del sistema (CI, otras sesiones, agentes) no cuentan como texto del usuario; sin sesión sólo se acepta desde una terminal interactiva, volviendo a tipear la frase. Las terminales de MCP (`run_in_terminal`, `start_process`, `interact_with_process`, `execute_command`) pasan por la compuerta de Bash.
+- Tests: cada proceso usa su propia carpeta temporal y la borra; la búsqueda de repos hermanos descarta sin lanzar git las carpetas vecinas sin `.git` (la suite bajó de ~1 h a minutos).
+
+
 ## 3.2.0: validación previa, proyecto explícito y skills de Odoo (2026-11-04)
 
 - PLG-PREVIA: `rq.mjs abrir` corre antes una validación previa: `git fetch` de los repos del proyecto en la PC, atraso contra la rama de DEV (`rama_dev` del repo, `entornos.dev.rama` o `ramas_solo_pr`), ramas remotas activas (30 días) y PR abiertos contra DEV con sus módulos, y el backlog remoto (upstream de la copia de lineamientos o `docs/backlog.md` de origin). Un RQ nuevo no se abre si el código ya figura En curso o Hecho en el backlog remoto, o lo nombra una rama o un PR; `--sin-previa` sólo si el usuario lo pide. `rq.mjs previa [<código>]` muestra el informe sin abrir nada.

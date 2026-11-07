@@ -16,11 +16,11 @@
 
 ## Cuándo aplica `claude-security`
 
-Si el RQ toca rutas de `sensible.rutas` de `proyecto.yml`, se corre un escaneo profundo con la skill `claude-security:claude-security` en la etapa 4, antes de pedir PROD. `security-guidance` actúa sola en todos los RQ por hooks al editar; atendé sus avisos antes de registrar la revisión.
+Si el RQ toca rutas de `sensible.rutas` de `proyecto.yml`, se corre un escaneo profundo con la skill `claude-security:claude-security` en la etapa 3 (verificación), antes de pedir PROD. `security-guidance` actúa sola en todos los RQ por hooks al editar; atendé sus avisos antes de registrar la revisión.
 
 ## PROD
 
-- La etapa 6 exige el OK explícito del usuario **en la sesión en la que se publica**. Un OK de otra sesión no vale.
+- La etapa 5 (PROD y entrega) exige el OK explícito del usuario **en la sesión en la que se publica**. Un OK de otra sesión no vale.
 - SQL a PROD: sólo `SELECT` de lectura pasa sin etapa. Cualquier escritura va con pre-chequeo de lo que se toca y verificación posterior ("sellado"), en el orden de `circuito_prod`.
 - **Un repo es PROD salvo `push_prod: false` explícito** en `proyecto.yml`. Si el campo no está, el repo es PROD. Con `ramas_prod`, sólo un push o merge a esas ramas es PROD; si la rama destino no se puede resolver (`--all`, `--mirror`, sin upstream, PR ilegible), también.
 - Las compuertas de PROD fallan cerradas: si el hook no puede evaluar, bloquea.
@@ -46,7 +46,7 @@ Lo que la red de seguridad agrega bloquea, pero no cuenta como paso cumplido del
 
 **Archivos protegidos.** `docs/rq/<código>/estado.yml`, `docs/rq/ACTIVO` y el transcript de la sesión (`~/.claude/projects/*.jsonl`) no se escriben a mano: Edit, Write y MultiEdit se niegan siempre, y desde Bash se niegan las redirecciones de salida (`>`, `>>`, `2>`), `sed -i`, `tee`, `cp` y `mv` hacia ellos. Es best effort: no se ven `dd of=`, `install`, intérpretes (`python -c`, `node -e`), editores ni scripts. Un commit que trae `estado.yml` en stage con aprobaciones, autonomía o saltos nuevos respecto de `HEAD` exige que cada frase esté en un mensaje del usuario de esta sesión.
 
-**MCP (Supabase y Lovable).** Estas compuertas cubren los conectores de Supabase y Lovable. Con otro motor (`datos.motor`), el SQL o la actualización de PROD por CLI o por scripts no tiene compuerta propia: lo cubren el OK de la etapa 6 y el circuito (pasos `sql:<base>` con `entornos.prod.bases`). La lectura de SQL se decide con un chequeo léxico, no con un parser:
+**MCP (Supabase y Lovable).** Estas compuertas cubren los conectores de Supabase y Lovable. Con otro motor (`datos.motor`), el SQL o la actualización de PROD por CLI o por scripts no tiene compuerta propia: lo cubren el OK de la etapa 5 y el circuito (pasos `sql:<base>` con `entornos.prod.bases`). La lectura de SQL se decide con un chequeo léxico, no con un parser:
 
 - no se detectan funciones invocadas indirectamente por vistas, triggers o reglas, operadores definidos por el usuario ni llamadas con notación de atributo (`(t).f`);
 - la lista blanca de funciones se aplica por nombre: una función propia con el mismo nombre que una de la lista, en otro schema del `search_path`, pasaría;

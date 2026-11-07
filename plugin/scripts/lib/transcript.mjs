@@ -2,8 +2,12 @@ import fs from 'node:fs';
 import readline from 'node:readline';
 import path from 'node:path';
 
-// Envoltorios que inyecta el sistema dentro de mensajes humanos; una etiqueta sin cerrar se come hasta el final.
-const RE_ENVOLTORIOS = /<(system-reminder|bash-stdout|bash-stderr|local-command-stdout)>[\s\S]*?(?:<\/\1>|$)/gi;
+// Envoltorios que inyecta el sistema o la app dentro de mensajes "user" (avisos, eventos de CI y de otras sesiones,
+// mensajes de agentes, elementos de una página); una etiqueta sin cerrar se come hasta el final.
+const RE_ENVOLTORIOS =
+  /<(system-reminder|bash-stdout|bash-stderr|local-command-stdout|ci-monitor-event|side-sessions-event|task-notification|agent-message|launch-selected-element)(?:\s[^>]*)?>[\s\S]*?(?:<\/\1>|$)/gi;
+// Avisos del sistema que llegan como mensaje "user" sin marca de origen.
+const RE_AVISO_SISTEMA = /^\[Request interrupted by user/;
 
 export function normalizar(texto) {
   return String(texto)
@@ -40,6 +44,21 @@ export function fraseDelUsuario(frase, textosUsuario) {
   });
 }
 
+/** ¿Son la misma frase, sin contar mayúsculas, tildes, puntuación ni espacios? */
+export function mismaFrase(a, b) {
+  const x = paraComparar(a ?? '');
+  return x !== '' && x === paraComparar(b ?? '');
+}
+
+/**
+ * En cuántos mensajes del usuario la frase es el mensaje entero o una oración entera (separadas por . ! ? ; o salto
+ * de línea). Más estricto que fraseDelUsuario: un tramo suelto de una oración no cuenta.
+ */
+export function vecesQueLoDijo(frase, textosUsuario) {
+  if (paraComparar(frase ?? '') === '') return 0;
+  return textosUsuario.filter((t) => mismaFrase(t, frase) || String(t).split(/[.!?¡¿;\n]+/).some((o) => mismaFrase(o, frase))).length;
+}
+
 // Devuelve el texto tipeado por el humano, o null si la entrada no es suyo.
 // Sólo cuenta: type "user", sin isMeta (cuerpos de skills), sin tool_result,
 // y origen ausente o humano (los hand-backs de subagentes son origin peer).
@@ -61,7 +80,7 @@ function textoHumano(entry) {
     return null;
   }
   texto = texto.replace(RE_ENVOLTORIOS, '').trim();
-  return texto === '' ? null : texto;
+  return texto === '' || RE_AVISO_SISTEMA.test(texto) ? null : texto;
 }
 
 function skillsDe(entry) {

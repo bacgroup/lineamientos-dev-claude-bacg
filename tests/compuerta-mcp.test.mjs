@@ -9,14 +9,14 @@ const DIR_LIN = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixture
 const proyecto = cargarProyecto('demo', DIR_LIN);
 const SB = 'mcp__c57e95c1-9b90-4ee5-a961-dcd94156bdf7__';
 const LOV = 'mcp__1d1c8098-ee55-4718-b381-babd223e1b53__';
-const FRASE6 = 'Publicá demo-app a producción';
-const ok6 = { etapa: 6, frase: FRASE6, fecha: '2026-10-23T12:00:00Z' };
+const FRASE_PROD = 'Publicá demo-app a producción';
+const okProd = { etapa: 5, frase: FRASE_PROD, fecha: '2026-10-23T12:00:00Z' };
 
 const base = (extra = {}) => ({
-  codigo: 'R-M1', tipo: 'rq', clasificacion: 'bounded', etapa: 6,
+  codigo: 'R-M1', tipo: 'rq', clasificacion: 'bounded', etapa: 5,
   autonomia: null, aprobaciones: [], saltos: [], circuito: [], ...extra,
 });
-const ctxSesion = { textosUsuario: [FRASE6], commiteado: null, raiz: null };
+const ctxSesion = { textosUsuario: [FRASE_PROD], commiteado: null, raiz: null };
 const ctxVacio = { textosUsuario: [], commiteado: null, raiz: null };
 
 const ev = (toolName, toolInput, estado = null, ctx = ctxVacio, p = proyecto) =>
@@ -71,7 +71,7 @@ test('apply_migration a refprod1 sin OK → deny crítica', () => {
   const r = ev(SB + 'apply_migration', { project_id: 'refprod1', name: 'm', query: 'create table t()' }, base());
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
-  assert.match(r.motivo, /etapa 6/);
+  assert.match(r.motivo, /etapa 5/);
 });
 
 test('T8: el sufijo de la herramienta no distingue mayúsculas', () => {
@@ -90,29 +90,29 @@ test('apply_migration a refprod1 sin RQ → deny crítica', () => {
 
 test('apply_migration a refprod1 con OK de sesión → allow crítica', () => {
   const r = ev(SB + 'apply_migration', { project_id: 'refprod1', name: 'm', query: 'create table t()' },
-    base({ aprobaciones: [ok6] }), ctxSesion);
+    base({ aprobaciones: [okProd] }), ctxSesion);
   assert.equal(r.decision, 'allow');
   assert.equal(r.critica, true);
 });
 
-test('OK de etapa 6: tiene que estar en la sesión al usarlo; sin OK → deny', () => {
-  const r = ev(SB + 'apply_migration', { project_id: 'refprod1', name: 'm', query: 'drop table t' }, base({ aprobaciones: [ok6] }));
+test('OK de etapa 5: tiene que estar en la sesión al usarlo; sin OK → deny', () => {
+  const r = ev(SB + 'apply_migration', { project_id: 'refprod1', name: 'm', query: 'drop table t' }, base({ aprobaciones: [okProd] }));
   assert.equal(r.decision, 'deny');
-  assert.deepEqual(ev(SB + 'apply_migration', { project_id: 'refprod1', name: 'm', query: 'drop table t' }, base({ aprobaciones: [ok6] }), ctxSesion),
+  assert.deepEqual(ev(SB + 'apply_migration', { project_id: 'refprod1', name: 'm', query: 'drop table t' }, base({ aprobaciones: [okProd] }), ctxSesion),
     { decision: 'allow', critica: true });
   const sin = ev(SB + 'apply_migration', { project_id: 'refprod1', name: 'm', query: 'drop table t' }, base());
-  assert.equal(sin.motivo, 'SQL de escritura a PROD (refprod1): falta el OK del usuario para PROD (etapa 6).');
+  assert.equal(sin.motivo, 'SQL de escritura a PROD (refprod1): falta el OK del usuario para PROD (etapa 5).');
 });
 
 test('varios RQ activos: alcanza con que uno tenga el OK de PROD y el circuito', () => {
   const r = evaluarMcp({ toolName: SB + 'apply_migration', toolInput: { project_id: 'refprod1', name: 'm', query: 'drop table t' },
-    proyecto, estado: base(), estados: [base({ codigo: 'R-M2', aprobaciones: [ok6] }), base()], ctx: ctxSesion });
+    proyecto, estado: base(), estados: [base({ codigo: 'R-M2', aprobaciones: [okProd] }), base()], ctx: ctxSesion });
   assert.deepEqual(r, { decision: 'allow', critica: true });
 });
 
 test('apply_migration a refprod2 con OK pero sin push:demo-app → deny', () => {
   const r = ev(SB + 'apply_migration', { project_id: 'refprod2', name: 'm', query: 'create table t()' },
-    base({ aprobaciones: [ok6], circuito: [{ paso: 'sql:refprod1', fecha: 'x' }] }), ctxSesion);
+    base({ aprobaciones: [okProd], circuito: [{ paso: 'sql:refprod1', fecha: 'x' }] }), ctxSesion);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
   assert.equal(r.motivo, 'Circuito de PROD: falta el paso push:demo-app antes de sql:refprod2.');
@@ -120,13 +120,13 @@ test('apply_migration a refprod2 con OK pero sin push:demo-app → deny', () => 
 
 test('apply_migration a refprod2 con circuito completo → allow', () => {
   const r = ev(SB + 'apply_migration', { project_id: 'refprod2', name: 'm', query: 'create table t()' },
-    base({ aprobaciones: [ok6], circuito: [{ paso: 'sql:refprod1' }, { paso: 'push:demo-app' }] }), ctxSesion);
+    base({ aprobaciones: [okProd], circuito: [{ paso: 'sql:refprod1' }, { paso: 'push:demo-app' }] }), ctxSesion);
   assert.equal(r.decision, 'allow');
   assert.equal(r.critica, true);
 });
 
 test('los saltos no saltean la compuerta de SQL a PROD', () => {
-  const est = base({ saltos: [{ compuerta: 'push', frase: FRASE6 }, { compuerta: 'sql', frase: FRASE6 }] });
+  const est = base({ saltos: [{ compuerta: 'push', frase: FRASE_PROD }, { compuerta: 'sql', frase: FRASE_PROD }] });
   const r = ev(SB + 'execute_sql', { project_id: 'refprod1', query: 'delete from t' }, est, ctxSesion);
   assert.equal(r.decision, 'deny');
 });
@@ -169,11 +169,11 @@ test('deploy_project sin OK de sesión → deny crítica', () => {
   const r = ev(LOV + 'deploy_project', { project_id: 'lovprj1' }, base());
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
-  assert.equal(r.motivo, 'Deploy de Lovable es PROD: falta el OK del usuario para PROD (etapa 6).');
+  assert.equal(r.motivo, 'Deploy de Lovable es PROD: falta el OK del usuario para PROD (etapa 5).');
 });
 
-test('deploy_project con etapa 6 en sesión → allow crítica', () => {
-  const r = ev(LOV + 'deploy_project', { project_id: 'lovprj1' }, base({ aprobaciones: [ok6] }), ctxSesion);
+test('deploy_project con etapa 5 en sesión → allow crítica', () => {
+  const r = ev(LOV + 'deploy_project', { project_id: 'lovprj1' }, base({ aprobaciones: [okProd] }), ctxSesion);
   assert.equal(r.decision, 'allow');
   assert.equal(r.critica, true);
 });
@@ -281,14 +281,14 @@ test('I6: herramientas de Supabase que tocan PROD', () => {
     assert.equal(sinRq.decision, 'deny', t);
     assert.equal(sinRq.critica, true, t);
     assert.equal(ev(SB + t, { project_id: 'refprod1' }, base()).decision, 'deny', t);
-    const ok = ev(SB + t, { project_id: 'refprod1' }, base({ aprobaciones: [ok6] }), ctxSesion);
+    const ok = ev(SB + t, { project_id: 'refprod1' }, base({ aprobaciones: [okProd] }), ctxSesion);
     assert.deepEqual(ok, { decision: 'allow', critica: true }, t);
     assert.deepEqual(ev(SB + t, { project_id: 'refdev' }), { decision: 'allow', critica: false }, t);
     assert.equal(ev(SB + t, {}).decision, 'deny', t);
   }
   for (const t of ['merge_branch', 'reset_branch']) {
     assert.equal(ev(SB + t, { branch_id: 'b1' }).decision, 'deny', t);
-    const ok = ev(SB + t, { branch_id: 'b1' }, base({ aprobaciones: [ok6] }), ctxSesion);
+    const ok = ev(SB + t, { branch_id: 'b1' }, base({ aprobaciones: [okProd] }), ctxSesion);
     assert.deepEqual(ok, { decision: 'allow', critica: true }, t);
     assert.deepEqual(ev(SB + t, { branch_id: 'b1' }, null, ctxVacio, null), { decision: 'allow', critica: false }, t);
   }
@@ -303,7 +303,7 @@ test('I6: query_database de Lovable', () => {
   assert.equal(w.critica, true);
   assert.equal(ev(LOV + 'query_database', { project_id: 'lovprj1', sql: 'delete from t' }, base()).decision, 'deny');
   assert.deepEqual(
-    ev(LOV + 'query_database', { project_id: 'lovprj1', sql: 'delete from t' }, base({ aprobaciones: [ok6] }), ctxSesion),
+    ev(LOV + 'query_database', { project_id: 'lovprj1', sql: 'delete from t' }, base({ aprobaciones: [okProd] }), ctxSesion),
     { decision: 'allow', critica: true });
   assert.deepEqual(ev(LOV + 'query_database', { project_id: 'otro', sql: 'delete from t' }),
     { decision: 'allow', critica: false });
@@ -315,9 +315,9 @@ test('I6: respond_to_approval de Lovable', () => {
   assert.equal(sinRq.critica, true);
   const sinOk = ev(LOV + 'respond_to_approval', { project_id: 'otro', decision: 'approved' }, base());
   assert.equal(sinOk.motivo,
-    'Aprobar una acción del agente de Lovable es PROD: falta el OK del usuario para PROD (etapa 6).');
+    'Aprobar una acción del agente de Lovable es PROD: falta el OK del usuario para PROD (etapa 5).');
   assert.deepEqual(
-    ev(LOV + 'respond_to_approval', { project_id: 'lovprj1' }, base({ aprobaciones: [ok6] }), ctxSesion),
+    ev(LOV + 'respond_to_approval', { project_id: 'lovprj1' }, base({ aprobaciones: [okProd] }), ctxSesion),
     { decision: 'allow', critica: true });
 });
 
@@ -359,8 +359,8 @@ test('R2-4: herramientas de ramas ignoran project_id', () => {
     const r = ev(SB + t, { branch_id: 'b1', project_id: 'refdev' }, base());
     assert.equal(r.decision, 'deny', t);
     assert.equal(r.critica, true, t);
-    assert.match(r.motivo, /etapa 6/, t);
-    assert.deepEqual(ev(SB + t, { branch_id: 'b1', project_id: 'refdev' }, base({ aprobaciones: [ok6] }), ctxSesion),
+    assert.match(r.motivo, /etapa 5/, t);
+    assert.deepEqual(ev(SB + t, { branch_id: 'b1', project_id: 'refdev' }, base({ aprobaciones: [okProd] }), ctxSesion),
       { decision: 'allow', critica: true }, t);
   }
 });
@@ -368,7 +368,7 @@ test('R2-4: herramientas de ramas ignoran project_id', () => {
 test('SQL a refprod2 con sql:refprod1 marcado como no aplica → deny: correr SQL contradice el no aplica', () => {
   const circuito = [{ paso: 'sql:refprod1', no_aplica: true, motivo: 'sin SQL' }, { paso: 'push:demo-app' }];
   const r = ev(SB + 'apply_migration', { project_id: 'refprod2', name: 'm', query: 'create table t()' },
-    base({ aprobaciones: [ok6], circuito }), ctxSesion);
+    base({ aprobaciones: [okProd], circuito }), ctxSesion);
   assert.equal(r.decision, 'deny');
   assert.equal(r.motivo, 'Circuito de PROD: falta el paso sql:refprod1 antes de sql:refprod2.');
 });
@@ -376,7 +376,7 @@ test('SQL a refprod2 con sql:refprod1 marcado como no aplica → deny: correr SQ
 test('SQL a un ref marcado como no aplica → deny con la salida', () => {
   const circuito = [{ paso: 'sql:refprod1', no_aplica: true, motivo: 'sin SQL' }];
   const r = ev(SB + 'apply_migration', { project_id: 'refprod1', name: 'm', query: 'create table t()' },
-    base({ aprobaciones: [ok6], circuito }), ctxSesion);
+    base({ aprobaciones: [okProd], circuito }), ctxSesion);
   assert.equal(r.decision, 'deny');
   assert.equal(r.critica, true);
   assert.match(r.motivo, /^sql:refprod1 figura como no aplica en este RQ: si hace falta correr SQL, corré .* paso reabrir sql:refprod1\.$/);
