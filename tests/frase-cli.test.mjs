@@ -9,6 +9,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { main } from '../plugin/scripts/rq.mjs';
 import { crearRepoTemporal, sesionDePrueba } from './helpers.mjs';
+import { registrarSesion, transcripcionRegistrada, dirSesiones } from '../plugin/scripts/lib/sesiones.mjs';
+import { escrituraProhibida } from '../plugin/scripts/lib/compuerta-edicion.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const DIR_LIN = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-fixture-'));
@@ -194,4 +196,51 @@ test('eventos del sistema y de la app con la frase no cuentan como texto del usu
   const r = await correr(raiz, ['aprobar', '1', FRASE], { sesion });
   assert.equal(r.code, 1);
   assert.equal(r.err, NO_DIJO(FRASE));
+});
+
+// Otra cuenta de Claude en la misma PC (CLAUDE_CONFIG_DIR): la transcripción vive fuera de ~/.claude/projects y el
+// hook PreToolUse la anota en el registro de sesiones del home real.
+test('otra cuenta (CLAUDE_CONFIG_DIR): la transcripción anotada por el hook vale', async () => {
+  const raiz = await rqAbierto();
+  const sesion = sesionDePrueba();
+  const config = fs.mkdtempSync(path.join(os.tmpdir(), 'cuenta2-'));
+  const ruta = path.join(config, 'projects', 'C--repo', `${sesion.id}.jsonl`);
+  fs.mkdirSync(path.dirname(ruta), { recursive: true });
+  fs.writeFileSync(ruta, `${JSON.stringify({ type: 'user', message: { content: FRASE } })}\n`);
+  fs.rmSync(sesion.ruta); // en el home real no hay transcripción de esta sesión
+  let r = await correr(raiz, ['aprobar', '1', FRASE], { sesion });
+  assert.equal(r.code, 1, 'sin registro no la encuentra');
+  assert.match(r.err, /No se encontró la transcripción/);
+  assert.equal(registrarSesion({ session_id: sesion.id, transcript_path: ruta }, { home: sesion.home }), true);
+  assert.equal(registrarSesion({ session_id: sesion.id, transcript_path: ruta }, { home: sesion.home }), false, 'ya anotada');
+  r = await correr(raiz, ['aprobar', '1', FRASE], { sesion });
+  assert.equal(r.code, 0, r.err);
+});
+
+test('registro de sesiones: sólo anota transcripciones con forma válida y fuera del home', () => {
+  const sesion = sesionDePrueba();
+  const id = sesion.id;
+  const otra = (n) => path.join(os.tmpdir(), 'cfg', 'projects', 'x', n);
+  assert.equal(registrarSesion({ session_id: id, transcript_path: sesion.ruta }, { home: sesion.home }), false, 'en el home: no hace falta');
+  assert.equal(registrarSesion({ session_id: 'no-uuid', transcript_path: otra('no-uuid.jsonl') }, { home: sesion.home }), false);
+  assert.equal(registrarSesion({ session_id: id, transcript_path: otra('otro.jsonl') }, { home: sesion.home }), false, 'nombre distinto del id');
+  assert.equal(registrarSesion({ session_id: id, transcript_path: path.join(os.tmpdir(), 'x', `${id}.jsonl`) }, { home: sesion.home }), false, 'fuera de projects/');
+  assert.equal(registrarSesion({ session_id: id, transcript_path: `cfg/projects/x/${id}.jsonl` }, { home: sesion.home }), false, 'relativa');
+  // Un registro editado a mano que apunta a otro archivo no se usa.
+  const archivo = path.join(sesion.home, '.claude', 'bacg-dev', 'sesiones', `${id}.json`);
+  fs.mkdirSync(path.dirname(archivo), { recursive: true });
+  fs.writeFileSync(archivo, JSON.stringify({ transcript: path.join(sesion.home, 'falsa.jsonl') }));
+  assert.equal(transcripcionRegistrada(id, { home: sesion.home }), null);
+});
+
+test('el registro de sesiones y las transcripciones de CLAUDE_CONFIG_DIR no se editan', () => {
+  assert.match(escrituraProhibida(path.join(dirSesiones(), '0000.json')), /transcript/i);
+  const antes = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = path.join(os.tmpdir(), 'cuenta2');
+  try {
+    assert.match(escrituraProhibida(path.join(os.tmpdir(), 'cuenta2', 'projects', 'x', 'a.jsonl')), /transcript/i);
+  } finally {
+    if (antes === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = antes;
+  }
 });
