@@ -46,7 +46,12 @@ export function reposHermanos(raiz, proyectoId, proyecto) {
   } catch {
     // carpeta padre ilegible
   }
-  for (const d of vecinos) sumar(path.join(path.dirname(raiz), d.name));
+  // Sólo una carpeta con .git (carpeta, o archivo en un worktree) puede ser la raíz de un repo: el resto se descarta
+  // sin lanzar git, que en una carpeta con miles de vecinos (p. ej. el temp) costaba minutos por comando.
+  for (const d of vecinos) {
+    const dir = path.join(path.dirname(raiz), d.name);
+    if (fs.existsSync(path.join(dir, '.git'))) sumar(dir);
+  }
   return [...out.values()];
 }
 

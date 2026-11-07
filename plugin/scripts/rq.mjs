@@ -4,6 +4,7 @@
 
 import fs from 'node:fs';
 import os from 'node:os';
+import readline from 'node:readline';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -27,7 +28,7 @@ import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
 import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs';
 import { enRamaProtegida, pasarARamaDelRq, ramaDelRq } from './lib/ramas.mjs';
 import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
-import { leerTranscript, fraseDelUsuario } from './lib/transcript.mjs';
+import { leerTranscript, vecesQueLoDijo, mismaFrase } from './lib/transcript.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -114,31 +115,82 @@ function transcripcionesDe(home, id) {
     });
 }
 
+/** Home del usuario del sistema operativo: HOME y USERPROFILE no lo cambian (un agente podría apuntarlos a otro lado). */
+function homeReal() {
+  try {
+    return os.userInfo().homedir;
+  } catch {
+    return os.homedir();
+  }
+}
+
+/** Una línea tipeada en la terminal; si nadie escribe en 2 minutos, falla. */
+function leerLineaDeTerminal(pregunta, stderr) {
+  return new Promise((resolve, reject) => {
+    const rl = readline.createInterface({ input: process.stdin, terminal: false });
+    const t = setTimeout(() => { rl.close(); reject(new Error('sin respuesta')); }, 120000);
+    stderr.write(pregunta);
+    rl.once('line', (l) => { clearTimeout(t); rl.close(); resolve(l); });
+    rl.once('close', () => { clearTimeout(t); reject(new Error('sin respuesta')); });
+  });
+}
+
+/** Cuántas veces quedó registrada ya una frase en el RQ (aprobaciones, saltos, autonomía, ejecución, clasificación). */
+function usosDeFrase(estado, frase) {
+  let n = 0;
+  const visitar = (v, clave) => {
+    if (clave === 'frase' && typeof v === 'string' && mismaFrase(v, frase)) n += 1;
+    else if (Array.isArray(v)) v.forEach((x) => visitar(x));
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) visitar(x, k);
+  };
+  visitar(estado);
+  return n;
+}
+
 /**
- * La frase de aprobar, autonomia, saltar, clasificacion y ejecucion tiene que ser texto literal del usuario: se busca
- * en lo que escribió en la sesión de Claude Code (CLAUDE_CODE_SESSION_ID), con las reglas de las compuertas (sin
- * subagentes, mensajes meta, resultados de herramientas ni resúmenes de compactación). Sin sesión sólo vale desde una
- * terminal interactiva (una persona). Falla cerrada: si la transcripción no se puede leer, no se registra nada.
+ * La frase de aprobar, autonomia, saltar, clasificacion y ejecucion tiene que ser texto literal del usuario: un
+ * mensaje entero o una oración entera de lo que escribió en la sesión de Claude Code (CLAUDE_CODE_SESSION_ID), con
+ * las reglas de las compuertas (sin subagentes, mensajes meta, resultados de herramientas, eventos del sistema ni
+ * resúmenes de compactación). Cada vez que el usuario la dijo vale para un solo registro en el RQ. Sin sesión sólo
+ * vale desde una terminal interactiva y volviendo a tipear la frase (una persona). Falla cerrada.
  */
-async function verificarFrase(frase, { env, home, tty }) {
+async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, estado) {
   const id = env?.CLAUDE_CODE_SESSION_ID;
-  if (id === undefined || id === '') {
-    if (tty === true) return;
-    throw new ErrorCli('Sin sesión de Claude Code ni terminal interactiva: la frase sólo la puede registrar el usuario desde su terminal.');
+  if (id === undefined) {
+    // Dentro de Claude Code la variable siempre está: si falta, alguien la borró.
+    if (env?.CLAUDECODE || env?.CLAUDE_CODE_ENTRYPOINT) {
+      throw new ErrorCli('Dentro de Claude Code sin id de sesión: no se puede verificar la frase.');
+    }
+    if (tty !== true) {
+      throw new ErrorCli('Sin sesión de Claude Code ni terminal interactiva: la frase sólo la puede registrar el usuario desde su terminal.');
+    }
+    let linea;
+    try {
+      linea = await leerLinea(`Para registrar "${frase}", tipeá de nuevo la frase: `, stderr);
+    } catch {
+      throw new ErrorCli('No se tipeó la frase: no se registra nada.');
+    }
+    if (!mismaFrase(linea, frase)) throw new ErrorCli('La frase tipeada no coincide: no se registra nada.');
+    return;
   }
   if (typeof id !== 'string' || !RE_SESION.test(id)) {
     throw new ErrorCli(`Id de sesión inválido (${JSON.stringify(String(id))}): no se puede verificar la frase.`);
   }
   const rutas = transcripcionesDe(home, id);
-  const textos = [];
+  if (rutas.length > 1) throw new ErrorCli(`Hay más de una transcripción de la sesión ${id}: no se puede verificar la frase.`);
+  let textos;
   try {
     if (rutas.length === 0) throw new Error('TRANSCRIPT_NO_DISPONIBLE');
-    for (const r of rutas) textos.push(...(await leerTranscript(r)).textosUsuario);
+    ({ textosUsuario: textos } = await leerTranscript(rutas[0]));
   } catch {
     throw new ErrorCli(`No se encontró la transcripción de la sesión ${id}: no se puede verificar la frase.`);
   }
-  if (!fraseDelUsuario(frase, textos)) {
-    throw new ErrorCli(`La frase "${frase}" no aparece en lo que escribió el usuario en esta sesión. Registrá sólo palabras literales del usuario.`);
+  const dichas = vecesQueLoDijo(frase, textos);
+  if (dichas === 0) {
+    throw new ErrorCli(`La frase "${frase}" no aparece en lo que escribió el usuario en esta sesión (tiene que ser un mensaje o una oración enteros). Registrá sólo palabras literales del usuario.`);
+  }
+  if (estado && usosDeFrase(estado, frase) >= dichas) {
+    throw new ErrorCli(`La frase "${frase}" ya está registrada en el RQ: cada vez que el usuario la escribe vale para un solo registro.`);
   }
 }
 
@@ -1227,13 +1279,13 @@ function sacarRq(argv) {
   return { argv: out, rq };
 }
 
-// home y tty se inyectan sólo desde código (tests); por línea de comandos son los del proceso.
+// home, tty y leerLinea se inyectan sólo desde código (tests); por línea de comandos son los del proceso.
 export async function main(
   argvCompleto,
-  { cwd = process.cwd(), env = process.env, stdout = process.stdout, stderr = process.stderr, home = os.homedir(), tty = process.stdin.isTTY === true } = {},
+  { cwd = process.cwd(), env = process.env, stdout = process.stdout, stderr = process.stderr, home = homeReal(), tty = process.stdin.isTTY === true, leerLinea = leerLineaDeTerminal } = {},
 ) {
   const io = { stdout, stderr };
-  const verificacion = { env, home, tty };
+  const verificacion = { env, home, tty, leerLinea, stderr };
   let sub;
   try {
     const { argv, rq: elegido } = sacarRq(argvCompleto);
@@ -1325,7 +1377,7 @@ export async function main(
         const frase = textoNoVacio(args[1], 'La frase');
         // ETAPA.CIERRE es el 6 de hoy; en un RQ abierto con 3.x, ese número era el OK de PROD.
         const e = pedida === ETAPA.CIERRE && activo(raiz, elegido).estado._v3 === true ? ETAPA.PROD : pedida;
-        await verificarFrase(frase, verificacion);
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
         if (e !== pedida) io.stdout.write(`${AVISO_PROD_V3}\n`);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.aprobaciones = [...lista(s.aprobaciones), { etapa: e, frase, fecha: ahora() }];
@@ -1337,7 +1389,7 @@ export async function main(
         const h = entero(args[0]);
         if (h === null || h < ETAPA.DISENO || h > ETAPA.DEV) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de ${ETAPA.DISENO} a ${ETAPA.DEV}).`);
         const frase = textoNoVacio(args[1], 'La frase');
-        await verificarFrase(frase, verificacion);
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
         cambiarVinculado(repo, env, elegido, io, (s) => { s.autonomia = { hasta: h, frase, fecha: ahora() }; return `Autonomía hasta la etapa ${h} registrada.`; });
         break;
       }
@@ -1349,7 +1401,7 @@ export async function main(
           if (!nueva) throw new ErrorCli(`Clasificación inválida: "${args[1]}" (exploracion | acotado | arquitectonico).`);
         }
         const frase = textoNoVacio(args[accion === 'cambiar' ? 2 : 1], 'La frase');
-        await verificarFrase(frase, verificacion);
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           if (nueva) s.clasificacion = nueva;
           s.clasificacion_pendiente = false;
@@ -1362,7 +1414,7 @@ export async function main(
         const modo = MODOS_EJECUCION[String(args[0]).trim().toLowerCase()];
         if (!modo) throw new ErrorCli(`Ejecución inválida: "${args[0]}" (inline | subagentes; también executing-plans o subagent-driven-development).`);
         const frase = textoNoVacio(args[1], 'La frase');
-        await verificarFrase(frase, verificacion);
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
         cambiarVinculado(repo, env, elegido, io, (s) => { s.ejecucion = { modo, frase, fecha: ahora() }; return `Ejecución ${modo} registrada.`; });
         break;
       }
@@ -1371,7 +1423,7 @@ export async function main(
         if (!COMPUERTAS.includes(compuerta)) throw new ErrorCli(`Compuerta inválida: "${compuerta}" (${COMPUERTAS.join(' | ')}).`);
         textoNoVacio(frase, 'La frase');
         textoNoVacio(motivo, 'El motivo');
-        await verificarFrase(frase, verificacion);
+        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.saltos = [...lista(s.saltos), { compuerta, frase, motivo, fecha: ahora() }];
           return `Salto de la compuerta ${compuerta} registrado.`;
