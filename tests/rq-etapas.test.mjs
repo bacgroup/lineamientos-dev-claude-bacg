@@ -8,14 +8,20 @@ import { execFileSync } from 'node:child_process';
 import { main } from '../plugin/scripts/rq.mjs';
 import { cargarEstado, guardarEstado, etapaDerivada } from '../plugin/scripts/lib/estado.mjs';
 import { faltaParaEtapa, sensibleSinRevisar } from '../plugin/scripts/lib/requisitos.mjs';
-import { crearRepoTemporal } from './helpers.mjs';
+import { crearRepoTemporal, sesionDePrueba, fraseDe } from './helpers.mjs';
+
+// El usuario escribió en la sesión la frase que se registra (la verificación la prueba tests/frase-cli.test.mjs).
+const SESION = sesionDePrueba();
 
 async function correr(cwd, args, env) {
   let out = '';
   let err = '';
+  const frase = fraseDe(args);
+  if (frase) SESION.dijo(frase);
   const code = await main(args, {
     cwd,
-    env: { BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1', ...env },
+    home: SESION.home,
+    env: { BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1', ...SESION.env, ...env },
     stdout: { write: (s) => { out += s; } },
     stderr: { write: (s) => { err += s; } },
   });

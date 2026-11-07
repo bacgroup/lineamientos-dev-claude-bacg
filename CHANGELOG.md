@@ -13,6 +13,7 @@ Cambia la numeración de etapas: los RQ y `proyecto.yml` viejos se convierten so
 - Conversión automática: un `estado.yml` sin `version_ciclo` se lee como v3 (etapas registradas y aprobaciones ≥ 2 se corren una) y no se reescribe hasta el próximo comando que escriba; los RQ abiertos con 3.x conservan su diseño. `proyecto.yml` viejos siguen valiendo sin cambios.
 - RQ Arquitectónico abiertos con 3.x que tenían el diseño aprobado (`aprobar 1`) pueden editar código sin la aprobación del plan, porque en v4 diseño y plan son una sola etapa; el commit de código sigue exigiendo `writing-plans` y `plan.md`.
 - Textos, plantilla y `AGENTS.md` sin supuestos de un proyecto, con la numeración nueva.
+- Seguridad: `rq.mjs` mismo verifica que la frase de `aprobar`, `autonomia`, `saltar`, `clasificacion` y `ejecucion` la escribió el usuario en la sesión de Claude Code (su transcripción), sin importar cómo se haya escrito el comando; sin sesión sólo se acepta desde una terminal interactiva. Las terminales de MCP (`run_in_terminal`, `start_process`, `interact_with_process`, `execute_command`) pasan por la compuerta de Bash.
 
 
 ## 3.2.0: validación previa, proyecto explícito y skills de Odoo (2026-11-04)

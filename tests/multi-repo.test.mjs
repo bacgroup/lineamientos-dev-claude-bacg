@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { main } from '../plugin/scripts/rq.mjs';
 import { cargarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { reposHermanos } from '../plugin/scripts/lib/multi-repo.mjs';
-import { correrHook } from './helpers.mjs';
+import { correrHook, sesionDePrueba, fraseDe } from './helpers.mjs';
 
 const git = (cwd, ...a) => spawnSync('git', a, { cwd, encoding: 'utf8' });
 
@@ -36,12 +36,18 @@ function montar() {
   return { dirLin, base, a: repo('pf-addons'), b: repo('pf-bi'), otro: repo('pf-addons-copia'), ajeno: repo('pf-ajeno', 'otro') };
 }
 
-async function rq(cwd, dirLin, args) {
+// Salvo `dijo: false`, el usuario escribió en la sesión la frase que se registra (ver tests/frase-cli.test.mjs).
+const SESION = sesionDePrueba();
+
+async function rq(cwd, dirLin, args, { dijo = true } = {}) {
   let out = '';
   let err = '';
+  const frase = fraseDe(args);
+  if (frase && dijo) SESION.dijo(frase);
   const code = await main(args, {
     cwd,
-    env: { ...process.env, BACG_LINEAMIENTOS_DIR: dirLin, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' },
+    home: SESION.home,
+    env: { ...process.env, ...SESION.env, BACG_LINEAMIENTOS_DIR: dirLin, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' },
     stdout: { write: (s) => { out += s; } },
     stderr: { write: (s) => { err += s; } },
   });
@@ -67,6 +73,16 @@ test('abrir en el segundo repo hereda aprobaciones; aprobar después se replica 
   const r2 = await rq(b, dirLin, ['aprobar', '3', 'Plan ok']);
   assert.match(r2.out, /también en pf-addons/);
   assert.deepEqual(cargarEstado(a, 'PF-X').aprobaciones.map((x) => x.frase), ['Diseño aprobado', 'Plan ok']);
+});
+
+test('aprobar con una frase que el usuario no escribió no toca ningún repo del RQ multi-repo', async () => {
+  const { dirLin, a, b } = montar();
+  await rq(a, dirLin, ['abrir', 'PF-F', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  await rq(b, dirLin, ['abrir', 'PF-F', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  const r = await rq(b, dirLin, ['aprobar', '1', 'esto nunca lo escribió nadie'], { dijo: false });
+  assert.equal(r.code, 1);
+  assert.match(r.err, /no aparece en lo que escribió el usuario/);
+  for (const x of [a, b]) assert.deepEqual(cargarEstado(x, 'PF-F').aprobaciones, [], path.basename(x));
 });
 
 test('una skill cargada en un repo queda en el RQ vinculado del otro, sin duplicar', async () => {

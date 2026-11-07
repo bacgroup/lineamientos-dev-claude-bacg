@@ -3,6 +3,7 @@
 // el backlog y, al cerrar, el changelog, el log del proyecto (docs/log/rq.jsonl) y el commit de docs.
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -26,6 +27,7 @@ import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
 import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs';
 import { enRamaProtegida, pasarARamaDelRq, ramaDelRq } from './lib/ramas.mjs';
 import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
+import { leerTranscript, fraseDelUsuario } from './lib/transcript.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -86,6 +88,58 @@ const normPaso = (p) => (typeof p === 'string' ? p.trim().toLowerCase() : '');
 function textoNoVacio(valor, nombre) {
   if (typeof valor !== 'string' || valor.trim() === '') throw new ErrorCli(`${nombre} no puede estar vacío.`);
   return valor;
+}
+
+// Id de sesión de Claude Code (UUID). Cualquier otra forma se rechaza: el id arma una ruta.
+const RE_SESION = /^[0-9a-f-]{36}$/;
+
+/** Transcripciones de la sesión: <home>/.claude/projects/<carpeta>/<id>.jsonl (un nivel de carpeta). */
+function transcripcionesDe(home, id) {
+  const base = path.join(home, '.claude', 'projects');
+  let carpetas;
+  try {
+    carpetas = fs.readdirSync(base, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return carpetas
+    .filter((c) => c.isDirectory())
+    .map((c) => path.join(base, c.name, `${id}.jsonl`))
+    .filter((r) => {
+      try {
+        return fs.statSync(r).isFile();
+      } catch {
+        return false;
+      }
+    });
+}
+
+/**
+ * La frase de aprobar, autonomia, saltar, clasificacion y ejecucion tiene que ser texto literal del usuario: se busca
+ * en lo que escribió en la sesión de Claude Code (CLAUDE_CODE_SESSION_ID), con las reglas de las compuertas (sin
+ * subagentes, mensajes meta, resultados de herramientas ni resúmenes de compactación). Sin sesión sólo vale desde una
+ * terminal interactiva (una persona). Falla cerrada: si la transcripción no se puede leer, no se registra nada.
+ */
+async function verificarFrase(frase, { env, home, tty }) {
+  const id = env?.CLAUDE_CODE_SESSION_ID;
+  if (id === undefined || id === '') {
+    if (tty === true) return;
+    throw new ErrorCli('Sin sesión de Claude Code ni terminal interactiva: la frase sólo la puede registrar el usuario desde su terminal.');
+  }
+  if (typeof id !== 'string' || !RE_SESION.test(id)) {
+    throw new ErrorCli(`Id de sesión inválido (${JSON.stringify(String(id))}): no se puede verificar la frase.`);
+  }
+  const rutas = transcripcionesDe(home, id);
+  const textos = [];
+  try {
+    if (rutas.length === 0) throw new Error('TRANSCRIPT_NO_DISPONIBLE');
+    for (const r of rutas) textos.push(...(await leerTranscript(r)).textosUsuario);
+  } catch {
+    throw new ErrorCli(`No se encontró la transcripción de la sesión ${id}: no se puede verificar la frase.`);
+  }
+  if (!fraseDelUsuario(frase, textos)) {
+    throw new ErrorCli(`La frase "${frase}" no aparece en lo que escribió el usuario en esta sesión. Registrá sólo palabras literales del usuario.`);
+  }
 }
 
 function etapaValida(s, nombre = 'etapa') {
@@ -1173,8 +1227,13 @@ function sacarRq(argv) {
   return { argv: out, rq };
 }
 
-export async function main(argvCompleto, { cwd = process.cwd(), env = process.env, stdout = process.stdout, stderr = process.stderr } = {}) {
+// home y tty se inyectan sólo desde código (tests); por línea de comandos son los del proceso.
+export async function main(
+  argvCompleto,
+  { cwd = process.cwd(), env = process.env, stdout = process.stdout, stderr = process.stderr, home = os.homedir(), tty = process.stdin.isTTY === true } = {},
+) {
   const io = { stdout, stderr };
+  const verificacion = { env, home, tty };
   let sub;
   try {
     const { argv, rq: elegido } = sacarRq(argvCompleto);
@@ -1266,6 +1325,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         const frase = textoNoVacio(args[1], 'La frase');
         // ETAPA.CIERRE es el 6 de hoy; en un RQ abierto con 3.x, ese número era el OK de PROD.
         const e = pedida === ETAPA.CIERRE && activo(raiz, elegido).estado._v3 === true ? ETAPA.PROD : pedida;
+        await verificarFrase(frase, verificacion);
         if (e !== pedida) io.stdout.write(`${AVISO_PROD_V3}\n`);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.aprobaciones = [...lista(s.aprobaciones), { etapa: e, frase, fecha: ahora() }];
@@ -1277,6 +1337,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         const h = entero(args[0]);
         if (h === null || h < ETAPA.DISENO || h > ETAPA.DEV) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de ${ETAPA.DISENO} a ${ETAPA.DEV}).`);
         const frase = textoNoVacio(args[1], 'La frase');
+        await verificarFrase(frase, verificacion);
         cambiarVinculado(repo, env, elegido, io, (s) => { s.autonomia = { hasta: h, frase, fecha: ahora() }; return `Autonomía hasta la etapa ${h} registrada.`; });
         break;
       }
@@ -1288,6 +1349,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
           if (!nueva) throw new ErrorCli(`Clasificación inválida: "${args[1]}" (exploracion | acotado | arquitectonico).`);
         }
         const frase = textoNoVacio(args[accion === 'cambiar' ? 2 : 1], 'La frase');
+        await verificarFrase(frase, verificacion);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           if (nueva) s.clasificacion = nueva;
           s.clasificacion_pendiente = false;
@@ -1300,6 +1362,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         const modo = MODOS_EJECUCION[String(args[0]).trim().toLowerCase()];
         if (!modo) throw new ErrorCli(`Ejecución inválida: "${args[0]}" (inline | subagentes; también executing-plans o subagent-driven-development).`);
         const frase = textoNoVacio(args[1], 'La frase');
+        await verificarFrase(frase, verificacion);
         cambiarVinculado(repo, env, elegido, io, (s) => { s.ejecucion = { modo, frase, fecha: ahora() }; return `Ejecución ${modo} registrada.`; });
         break;
       }
@@ -1308,6 +1371,7 @@ export async function main(argvCompleto, { cwd = process.cwd(), env = process.en
         if (!COMPUERTAS.includes(compuerta)) throw new ErrorCli(`Compuerta inválida: "${compuerta}" (${COMPUERTAS.join(' | ')}).`);
         textoNoVacio(frase, 'La frase');
         textoNoVacio(motivo, 'El motivo');
+        await verificarFrase(frase, verificacion);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.saltos = [...lista(s.saltos), { compuerta, frase, motivo, fecha: ahora() }];
           return `Salto de la compuerta ${compuerta} registrado.`;

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { main, bloquesHandoff } from '../plugin/scripts/rq.mjs';
 import { cargarEstado, rqActivo, rqsActivos, guardarEstado as guardarEstadoTest } from '../plugin/scripts/lib/estado.mjs';
 import { leerBacklog } from '../plugin/scripts/lib/backlog.mjs';
-import { crearRepoTemporal } from './helpers.mjs';
+import { crearRepoTemporal, sesionDePrueba, fraseDe } from './helpers.mjs';
 import { arbolTesteado } from '../plugin/scripts/lib/arbol.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
@@ -17,12 +17,19 @@ const DIR_LIN = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-fixture-'));
 fs.cpSync(path.join(AQUI, 'fixtures', 'lineamientos'), DIR_LIN, { recursive: true });
 const SCRIPT = path.resolve(AQUI, '..', 'plugin', 'scripts', 'rq.mjs');
 
+// En estos tests el usuario escribió en la sesión la frase que se registra; la verificación en sí la prueba
+// tests/frase-cli.test.mjs.
+const SESION = sesionDePrueba();
+
 async function correr(cwd, args, env = { BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1' }) {
   let out = '';
   let err = '';
+  const frase = fraseDe(args);
+  if (frase) SESION.dijo(frase);
   const code = await main(args, {
     cwd,
-    env: { ...process.env, ...env },
+    home: SESION.home,
+    env: { ...process.env, ...SESION.env, ...env },
     stdout: { write: (s) => { out += s; } },
     stderr: { write: (s) => { err += s; } },
   });

@@ -134,6 +134,32 @@ test('pre-tool commit con tests en rojo y transcript inexistente → deny', () =
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /registrar-tests/);
 });
 
+// --- pre-tool: terminales de MCP (pasan por la compuerta de Bash) ---
+
+test('pre-tool terminales MCP: git commit de código sin tests → deny; un comando inocuo → allow', () => {
+  const raiz = repoDemo({ 'src/a.ts': 'x' });
+  abrirRq(raiz, { tests: { ok: false, arbol: 'x' } });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'y');
+  spawnSync('git', ['add', 'src/a.ts'], { cwd: raiz });
+  const terminales = [
+    ['mcp__terminal__run_in_terminal', 'command'],
+    ['mcp__plugin_desktop-commander_desktop-commander__start_process', 'command'],
+    ['mcp__plugin_desktop-commander_desktop-commander__interact_with_process', 'input'],
+    ['mcp__otro-servidor__execute_command', 'command'],
+  ];
+  for (const [tool, campo] of terminales) {
+    const out = preTool({ cwd: raiz, tool_name: tool, tool_input: { [campo]: 'git commit -m x' } });
+    assert.equal(decision(out), 'deny', tool);
+    assert.match(out.hookSpecificOutput.permissionDecisionReason, /registrar-tests/, tool);
+    assert.equal(preTool({ cwd: raiz, tool_name: tool, tool_input: { [campo]: 'ls -la' } }), null, tool);
+  }
+  // Si el handler no carga, un push desde una terminal de MCP es crítico como desde Bash.
+  const push = JSON.stringify({ cwd: os.tmpdir(), tool_name: 'mcp__terminal__run_in_terminal', tool_input: { command: 'git push origin main' } });
+  assert.equal(decision(json(correrCrudo('pre-tool', push, { ...ENV, COMO_TRABAJO_FALLAR_IMPORT: '1' }))), 'deny');
+  // Un campo que no es texto no cambia nada: sigue por la compuerta de MCP.
+  assert.equal(preTool({ cwd: raiz, tool_name: 'mcp__terminal__run_in_terminal', tool_input: { command: ['git', 'commit'] } }), null);
+});
+
 // --- pre-tool: Bash ---
 
 test('pre-tool Bash git push con transcript inexistente → deny (falla cerrada)', () => {

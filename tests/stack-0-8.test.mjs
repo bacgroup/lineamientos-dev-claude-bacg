@@ -14,7 +14,7 @@ import { guardarEstado, cargarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { handler as postTool } from '../plugin/scripts/lib/hooks/post-tool.mjs';
 import { shellDeTests } from '../plugin/scripts/lib/cli.mjs';
 import { evaluarEdicion } from '../plugin/scripts/lib/compuerta-edicion.mjs';
-import { crearRepoTemporal } from './helpers.mjs';
+import { crearRepoTemporal, sesionDePrueba } from './helpers.mjs';
 
 function git(cwd, ...args) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
@@ -291,7 +291,10 @@ test('saltar ui (cambio menor aceptado por el usuario): sin diseno-frontend, red
 test('rq.mjs saltar acepta la compuerta ui', () => {
   const raiz = repoUi();
   fs.writeFileSync(path.join(raiz, '.bacg-lineamientos'), 'proyecto: erp\n');
-  const r = spawnSync(process.execPath, [path.join(process.cwd(), 'plugin', 'scripts', 'rq.mjs'), 'saltar', 'ui', 'sí, omitilo', 'texto del botón'], { cwd: raiz, encoding: 'utf8' });
+  const sesion = sesionDePrueba('sí, omitilo');
+  const r = spawnSync(process.execPath, [path.join(process.cwd(), 'plugin', 'scripts', 'rq.mjs'), 'saltar', 'ui', 'sí, omitilo', 'texto del botón'], {
+    cwd: raiz, encoding: 'utf8', env: { ...process.env, ...sesion.env },
+  });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /Salto de la compuerta ui registrado/);
   assert.equal(cargarEstado(raiz, 'R-U1').saltos.at(-1).compuerta, 'ui');

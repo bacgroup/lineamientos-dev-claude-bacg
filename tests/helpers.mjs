@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -42,4 +43,31 @@ export function correrHook(nombre, entradaJson, env = {}) {
     env: { ...process.env, ...env },
   });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
+}
+
+// Sesión de Claude Code de prueba: un home temporal con la transcripción <home>/.claude/projects/<carpeta>/<id>.jsonl,
+// que es donde rq.mjs verifica que las frases de aprobar, autonomia, saltar, clasificacion y ejecucion las escribió
+// el usuario. `dijo` suma mensajes tipeados por el usuario; `entrada` suma una entrada cruda del transcript
+// (subagente, resumen de compactación…). A main() van `home` (opción) y `env`; a un proceso hijo, sólo `env`
+// (HOME/USERPROFILE hacen que os.homedir() sea el home temporal).
+export function sesionDePrueba(...frases) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home sesion-'));
+  const id = crypto.randomUUID();
+  const dir = path.join(home, '.claude', 'projects', 'C--repo-de-prueba');
+  fs.mkdirSync(dir, { recursive: true });
+  const ruta = path.join(dir, `${id}.jsonl`);
+  fs.writeFileSync(ruta, '');
+  const entrada = (e) => fs.appendFileSync(ruta, `${JSON.stringify(e)}\n`);
+  const dijo = (...textos) => {
+    for (const t of textos) entrada({ type: 'user', message: { role: 'user', content: t } });
+  };
+  dijo(...frases);
+  return { id, home, ruta, env: { CLAUDE_CODE_SESSION_ID: id, HOME: home, USERPROFILE: home }, dijo, entrada };
+}
+
+/** La frase del usuario que registra un comando de rq.mjs (aprobar, autonomia, saltar, clasificacion, ejecucion), o null. */
+export function fraseDe(args) {
+  const a = args.filter((x, i) => x !== '--rq' && args[i - 1] !== '--rq');
+  const i = { aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 2, clasificacion: a[1] === 'cambiar' ? 3 : 2 }[a[0]];
+  return i !== undefined && typeof a[i] === 'string' ? a[i] : null;
 }

@@ -9,6 +9,7 @@ const MCP_CRITICAS = [
   'restore_project', 'pause_project', 'query_database', 'respond_to_approval',
 ];
 const RE_MCP = new RegExp(MCP_CRITICAS.join('|'));
+const TERMINALES = [['start_process', 'command'], ['run_in_terminal', 'command'], ['execute_command', 'command'], ['interact_with_process', 'input']];
 
 // Sin comillas ni barras invertidas y en minúsculas: "g"it push, g''it push y Git push cuentan.
 const limpiar = (t) => String(t ?? '').replace(/['"\\]/g, '').toLowerCase();
@@ -26,8 +27,11 @@ async function criticidad(texto) {
   }
   if (entrada === null || typeof entrada !== 'object') return publica(texto) || RE_MCP.test(limpiar(texto));
   const tool = typeof entrada.tool_name === 'string' ? entrada.tool_name.toLowerCase() : '';
-  if (tool === 'bash' || tool === 'powershell') {
-    const comando = entrada.tool_input?.command;
+  // Las terminales de MCP corren comandos de shell: se miden como Bash (como en lib/hooks/pre-tool.mjs).
+  const terminal = TERMINALES.find(([s]) => tool.endsWith(`__${s}`));
+  const delTerminal = terminal ? entrada.tool_input?.[terminal[1]] : undefined;
+  if (tool === 'bash' || tool === 'powershell' || typeof delTerminal === 'string') {
+    const comando = terminal ? delTerminal : entrada.tool_input?.command;
     if (publica(comando)) return true;
     try {
       const { operacionesGit } = await import('../lib/compuerta-bash.mjs');
