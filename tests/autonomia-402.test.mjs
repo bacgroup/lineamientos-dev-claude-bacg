@@ -246,3 +246,39 @@ test('3: abrir no pasa a la rama nueva con cambios sin commitear de otro RQ; los
   assert.equal(r.code, 0, r.err);
   assert.equal(git(raiz, 'branch', '--show-current').trim(), 'rq/R-NUEVO');
 });
+
+// ---------- 5: el arranque avisa si el entorno del E2E no está ----------
+
+import { spawn } from 'node:child_process';
+import { lineaEntornoE2e } from '../plugin/scripts/lib/e2e-entorno.mjs';
+import { textoArranque } from '../plugin/scripts/lib/arranque.mjs';
+
+test('5: el arranque dice en una línea si falta Docker o la app del E2E', async () => {
+  const proyecto = {
+    id: 'demo',
+    tests: {
+      e2e: 'node e2e.mjs {specs}',
+      e2e_url: 'http://127.0.0.1:9', // puerto cerrado
+      e2e_requisitos: [{ nombre: 'Docker', comando: 'node -e "process.exit(1)"' }, { nombre: 'contenedor odoo', comando: 'node -e "console.log(1)"', con_salida: true }],
+    },
+  };
+  const linea = lineaEntornoE2e(proyecto);
+  assert.match(linea, /^Entorno E2E: ❌ Docker, ✅ contenedor odoo, ❌ app http:\/\/127\.0\.0\.1:9\. Levantá lo que falta/);
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  assert.match(textoArranque({ raiz, proyecto }), /Entorno E2E: ❌ Docker/);
+  // Todo arriba: una línea corta (la app en otro proceso: el chequeo es sincrónico).
+  const srv = spawn(process.execPath, ['-e', "const s=require('http').createServer((q,r)=>r.end('ok')).listen(0,'127.0.0.1',()=>console.log(s.address().port))"]);
+  const port = await new Promise((r) => srv.stdout.once('data', (d) => r(String(d).trim())));
+  try {
+    const arriba = { id: 'demo', tests: { e2e: 'x', e2e_url: `http://127.0.0.1:${port}`, e2e_requisitos: [{ nombre: 'Docker', comando: 'node -e "1"' }] } };
+    assert.equal(lineaEntornoE2e(arriba), `Entorno E2E listo: Docker, app http://127.0.0.1:${port}.`);
+  } finally {
+    srv.kill();
+  }
+  assert.equal(lineaEntornoE2e({ tests: { e2e_url: 'http://127.0.0.1:9' } }), null, 'sin tests.e2e no se chequea');
+});
+
+test('5: e2e_chequear_url: false no chequea la app (el comando E2E la levanta)', () => {
+  const p = { tests: { e2e: 'x', e2e_url: 'http://127.0.0.1:9', e2e_chequear_url: false, e2e_requisitos: [{ nombre: 'Docker', comando: 'node -e "1"' }] } };
+  assert.equal(lineaEntornoE2e(p), 'Entorno E2E listo: Docker.');
+});

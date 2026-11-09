@@ -79,4 +79,11 @@ tests:
   sql: ""                              # no aplica: los modelos se prueban en unit
   e2e: ""                              # en tu PC: Playwright contra tu Odoo local ({specs} = los del RQ)
   e2e_url: "http://localhost:8070"
+  e2e_chequear_url: false              # qa/e2e.mjs levanta y baja el Odoo del 8070 en cada corrida
+  e2e_requisitos:                      # el arranque los chequea y lo dice en una línea (Docker apagado, etc.)
+    - nombre: "Docker"
+      comando: 'docker version --format "{{.Server.Version}}"'
+    - nombre: "contenedor powerfy-local-odoo-1"
+      comando: 'docker ps -q -f "name=^powerfy-local-odoo-1$" -f "status=running"'
+      con_salida: true
   cobertura_cambios_min: 80            # todavía sin medición (coverage.py no está en la imagen)

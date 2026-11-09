@@ -4,9 +4,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { buscarRepo, nombreRepo, dirLineamientos } from './config.mjs';
+import { buscarRepo, nombreRepo, dirLineamientos, cargarProyecto } from './config.mjs';
 import { rqActivo, rqsActivos, cargarEstado, etapaDerivada } from './estado.mjs';
 import { avisoMergeado } from './rq-rama.mjs';
+import { lineaEntornoE2e } from './e2e-entorno.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './etapas.mjs';
 import { nombreDe } from './clasificacion.mjs';
 import { faltaParaEtapa } from './requisitos.mjs';
@@ -126,7 +127,16 @@ function textoPadre(raiz, dirLin) {
   const repos = reposDebajo(raiz, 2, dirLin);
   const lineas = ['# Arranque: carpeta con varios repos', 'Repos registrados debajo de esta carpeta:'];
   if (repos.length === 0) lineas.push('(ninguno)');
+  const entornos = new Map(); // un chequeo del entorno E2E por proyecto
   for (const d of repos) {
+    const id = buscarRepo(d, { dirLin })?.proyectoId;
+    if (id && !entornos.has(id)) {
+      try {
+        entornos.set(id, lineaEntornoE2e(cargarProyecto(id, dirLin, d)));
+      } catch {
+        entornos.set(id, null);
+      }
+    }
     lineas.push(lineaRepo(estadoRepo(d), path.relative(raiz, d)));
     try {
       const m = modoArranque(d);
@@ -138,6 +148,7 @@ function textoPadre(raiz, dirLin) {
       // estado ilegible: sin detalle del RQ
     }
   }
+  for (const [id, linea] of entornos) if (linea) lineas.push(entornos.size > 1 ? `${id}: ${linea}` : linea);
   return lineas.join('\n');
 }
 
@@ -165,6 +176,8 @@ function reanudacion(raiz, proyecto, codigo) {
   const ultimo = git(raiz, ['log', '-1', '--format=%h %s']);
   lineas.push(`Rama ${e.rama ?? '(detached)'}${ultimo.ok && ultimo.out ? `, último commit: ${ultimo.out}` : ''}.`);
   if (e.sinCommitear) lineas.push(`Cambios sin commitear: ${e.sinCommitear} archivo(s).`);
+  const entorno = lineaEntornoE2e(proyecto);
+  if (entorno) lineas.push(entorno);
   const hermanos = reposHermanos(raiz, proyecto?.id, proyecto);
   lineas.push('Repos:', lineaRepo(e), ...hermanos.map((h) => lineaRepo(estadoRepo(h))));
   return lineas.join('\n');
@@ -187,6 +200,8 @@ function inicio(raiz, proyecto, dirLin) {
   for (const c of u.changelog) lineas.push(`- changelog ${c}`);
   const abiertos = rqsActivos(raiz);
   if (abiertos.length) lineas.push(`RQ abiertos: ${abiertos.join(', ')}.`);
+  const entorno = lineaEntornoE2e(proyecto);
+  if (entorno) lineas.push(entorno);
   return lineas.join('\n');
 }
 
