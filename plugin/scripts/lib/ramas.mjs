@@ -55,3 +55,22 @@ export function pasarARamaDelRq(raiz, codigo) {
   const s = git(raiz, ['switch', '-q', '-c', rama, '--no-track', desde]);
   return s.ok ? { rama, desde, creada: true } : { error: s.err || `git switch -c ${rama} falló` };
 }
+
+/**
+ * Cambios sin commitear (o sin trackear) en docs/rq/<otro>/ de RQ distintos de `codigo`: [{ codigo, ruta }]. Un switch
+ * a la rama nueva se los llevaría (handoff 4.0.1, punto 3: el hook había escrito en el estado.yml de otro RQ).
+ */
+export function cambiosDeOtrosRq(raiz, codigo) {
+  const r = spawnSync('git', ['-c', 'core.quotepath=false', 'status', '--porcelain', '-z', '--untracked-files=all', '--', 'docs/rq'], { cwd: raiz, encoding: 'utf8' });
+  if (r.status !== 0) return [];
+  const out = [];
+  const partes = String(r.stdout ?? '').split('\0').filter(Boolean);
+  for (let i = 0; i < partes.length; i++) {
+    const p = partes[i];
+    if (/^R/.test(p)) i++; // renombre: la ruta vieja viene después
+    const ruta = p.slice(3);
+    const m = /^docs\/rq\/([^/]+)\//.exec(ruta);
+    if (m && m[1] !== codigo) out.push({ codigo: m[1], ruta });
+  }
+  return out;
+}

@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.0.2: autonomía de punta a punta sin paradas ni registros perdidos (2026-11-09)
+
+Arreglos de lo que frenó la prueba de desarrollo autónomo del 2026-11-09 (RQ PF-UI-REP-COMPRADOR). Las frases de aprobaciones, clasificación, ejecución y saltos siguen siendo texto literal del usuario, y cada vez que lo escribió vale para un solo registro.
+- `estado.yml` ya no pierde registros por escrituras en paralelo: cada escritura toma un lock (en la carpeta temporal, fuera del repo), relee el archivo y aplica sólo lo que cambió desde que lo leyó. Antes, un `verificar` de 11 minutos volcaba al terminar la copia que leyó al arrancar y borraba el `verificar --local` y las skills registradas mientras tanto. En las listas (aprobaciones, saltos, skills, circuito) se suman las entradas nuevas de cada lado.
+- Una sola corrida E2E a la vez por proyecto en la PC: `verificar` toma un lock y no arranca si hay otra; mientras corre, la compuerta de Bash niega lanzar el mismo script E2E a mano (leerlo sí). El comando recibe la ruta del lock en `BACG_E2E_LOCK` por si el script del proyecto quiere respetarlo. Una corrida lanzada a mano antes de `verificar` no se detecta.
+- Varias decisiones en un mensaje: ` + ` separa oraciones (como `.`, `;` o el salto de línea; la coma no). Con "Acotado + Aprobar diseño + Ejecutar en línea" se registra cada decisión con su tramo, y la compuerta de Bash acepta un tramo corto que es una oración entera. Si una frase ya se usó, el error explica cómo registrar cada decisión con su tramo.
+- `RQ="node …/rq.mjs"; $RQ <subcomando> "<frase>"` ya no se niega cuando la frase trae palabras como "Aprobar": las palabras de una frase que el parser leyó no cuentan como subcomandos ocultos. El mensaje de forma ilegible da las dos formas que se aceptan (ruta literal, o `RQ=` en el mismo comando) y la skill lo explica.
+- RQ con el PR mergeado: `estado` y el arranque avisan que la rama `rq/<código>` ya entró en otra rama de origin (`estado` también mira `gh pr list --state merged`, para los squash) y proponen seguir con la etapa 5 o cerrar. El hook anota cada skill en el RQ de la rama actual (`rq/<código>`); en otra rama no se la anota a un RQ que tiene la suya, ni a uno ya mergeado.
+- `abrir` no pasa a la rama nueva con cambios sin commitear de otro RQ (`docs/rq/<otro>/`): los lista y dice cómo dejarlos en su RQ (commit en su rama o `git stash push -- docs/rq/<otro>`). `--llevar-cambios` si el usuario decide que van con el nuevo.
+- `verificar` con `{specs}` en `tests.e2e` y sin specs del RQ en su diff ya no corre la suite completa sin avisar: lo dice y pide la ruta del spec (también fuera del repo, como `qa/e2e/` del workspace; rutas de Windows incluidas) o `--completo`.
+- El arranque dice en una línea si el entorno del E2E está listo: `tests.e2e_requisitos` (`{ nombre, comando, con_salida? }`, p. ej. Docker y el contenedor) y que responda `tests.e2e_url` (salvo `e2e_chequear_url: false`, cuando el comando E2E levanta la app). PowerFy declara Docker y `powerfy-local-odoo-1`.
+- Verificación local: la skill, la pista de lo que falta y el uso aceptan el recorrido con Playwright desde la PC contra el entorno local, con el usuario del rol real y sin mocks, además del navegador del agente; si el panel del navegador está oculto, Playwright.
+
 ## 4.0.1: otra cuenta de Claude en la misma PC (2026-11-07)
 
 - Funciona con una segunda cuenta de Claude Code que corre con `CLAUDE_CONFIG_DIR` en el mismo usuario de Windows. El hook `PreToolUse` anota dónde está la transcripción de cada sesión en `~/.claude/bacg-dev/sesiones/`, y `rq.mjs` la busca ahí cuando no está en `~/.claude/projects`. Así verifica las frases del usuario sin confiar en variables de entorno que un agente puede cambiar.

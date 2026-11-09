@@ -26,10 +26,13 @@ import { textoArranque } from './lib/arranque.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
 import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs';
-import { enRamaProtegida, pasarARamaDelRq, ramaDelRq } from './lib/ramas.mjs';
+import { enRamaProtegida, pasarARamaDelRq, ramaDelRq, cambiosDeOtrosRq } from './lib/ramas.mjs';
 import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
 import { leerTranscript, vecesQueLoDijo, mismaFrase } from './lib/transcript.mjs';
 import { RE_SESION, homeReal, transcripcionRegistrada } from './lib/sesiones.mjs';
+import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
+import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
+import { avisoMergeado } from './lib/rq-rama.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -42,7 +45,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
   odoo-skills [--rama <rama>]              (instala en ~/.claude/skills (o CLAUDE_CONFIG_DIR/skills) las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
   previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
-  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
+  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa] [--llevar-cambios]
   clasificacion confirmar "<frase>"   (el usuario confirma la clasificación propuesta; hasta entonces no se edita código)
   clasificacion cambiar <exploracion|acotado|arquitectonico> "<frase>"   (cambia y confirma; la frase es texto literal del usuario)
   ejecucion inline|subagentes "<frase>"   (cómo se ejecuta el plan, antes del primer commit de código; acepta executing-plans y subagent-driven-development)
@@ -53,7 +56,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   commit "<mensaje>" <rutas>…        (git add de las rutas, tests relacionados, registro y commit en un paso)
   registrar-tests                    (tests de commit sobre lo que está en stage; sin E2E)
   verificar [--completo] [<specs>…]  (E2E contra la app levantada; con {specs} en tests.e2e, sólo los del RQ salvo --completo)
-  verificar --local "<qué se recorrió con el rol real>" <capturas…>   (RQ que toca UI: capturas existentes en docs/rq/<código>/qa/)
+  verificar --local "<qué se recorrió con el rol real>" <capturas…>   (RQ que toca UI, navegador o Playwright, rol real, sin mocks: capturas en docs/rq/<código>/qa/)
   revision ok|bloqueante "<nota>"
   paso manual:<texto>|sync-lineamientos   (pasos manuales de circuito_prod)
   paso hecho <paso> "<evidencia>"    (paso hecho por fuera: merge desde GitHub, migración que ya estaba aplicada)
@@ -185,7 +188,7 @@ async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, esta
     throw new ErrorCli(`La frase "${frase}" no aparece en lo que escribió el usuario en esta sesión (tiene que ser un mensaje o una oración enteros). Registrá sólo palabras literales del usuario.`);
   }
   if (estado && usosDeFrase(estado, frase) >= dichas) {
-    throw new ErrorCli(`La frase "${frase}" ya está registrada en el RQ: cada vez que el usuario la escribe vale para un solo registro.`);
+    throw new ErrorCli(`La frase "${frase}" ya está registrada en el RQ: cada vez que el usuario la escribe vale para un solo registro. Si su mensaje trae varias decisiones (clasificación, aprobar 1, ejecución), registrá cada una con su propio tramo: una oración entera, separada por . ; salto de línea o " + ".`);
   }
 }
 
@@ -307,7 +310,7 @@ function previa(repo, env, codigo, nuevo) {
 
 function abrir(repo, args, env, io) {
   const raiz = repo.raiz;
-  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta', 'sin-previa']);
+  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
   if (posicionales.length !== 1 || !res.tipo || !res.clasificacion) throw new ErrorUso();
   exigirProyectoUnico(repo);
   // Alta de la PC: sin los pasos obligatorios (tests, lineamientos…) no se abre un RQ. --sin-alta sólo si el usuario
@@ -340,6 +343,9 @@ function abrir(repo, args, env, io) {
   // M7: en una rama que sólo recibe PR (o de PROD) el RQ trabaja en rq/<código>. Si no se puede, se abre igual.
   let avisoRama = null;
   if (enRamaProtegida(raiz, proyectoDe(repo, env))) {
+    // Los cambios sin commitear de otro RQ viajarían con el switch a la rama nueva: primero que vuelvan a su rama.
+    const ajenos = res['llevar-cambios'] === true ? [] : cambiosDeOtrosRq(raiz, codigo);
+    if (ajenos.length) throw new ErrorCli(msgCambiosAjenos(codigo, ajenos));
     const p = pasarARamaDelRq(raiz, codigo);
     avisoRama = p.error
       ? `No pude pasar a ${ramaDelRq(codigo)}: ${p.error}
@@ -383,6 +389,17 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
     Estado: 'En curso',
     Link: `docs/rq/${codigo}/`,
   }, io);
+}
+
+function msgCambiosAjenos(codigo, ajenos) {
+  const porRq = new Map();
+  for (const a of ajenos) porRq.set(a.codigo, [...(porRq.get(a.codigo) ?? []), a.ruta]);
+  const l = [`Hay cambios sin commitear de otro RQ que pasarían a ${ramaDelRq(codigo)} con el cambio de rama:`];
+  for (const [c, rutas] of porRq) l.push(`  - ${c}: ${rutas.join(', ')}`);
+  l.push('Dejalos en su RQ antes de abrir éste: commitealos en su rama (git switch ' + ramaDelRq([...porRq.keys()][0]) + ' y $RQ commit … --rq <código>) o guardalos aparte:');
+  for (const c of porRq.keys()) l.push(`  git stash push -m "${c}" -- "docs/rq/${c}"`);
+  l.push('Si el usuario decide que van con este RQ: $RQ abrir … --llevar-cambios.');
+  return l.join('\n');
 }
 
 /** Clasificación propuesta, lo que implica y cómo confirmarla (M2). */
@@ -668,7 +685,13 @@ function verificar(repo, elegido, args, env, io) {
       'El proyecto no declara tests.e2e en proyecto.yml. Declaralo (y tests.e2e_url) o, si el cambio no tiene superficie de app, que el usuario lo diga y registrá saltar e2e.',
     );
   }
-  const specs = res.completo || !base.includes('{specs}') ? [] : posicionales.length ? posicionales : specsDelRq(raiz, estado);
+  const conSpecsEnComando = base.includes('{specs}');
+  const specs = res.completo || !conSpecsEnComando ? [] : posicionales.length ? posicionales.map((s) => s.replace(/\\/g, '/')) : specsDelRq(raiz, estado);
+  // Con {specs}, sin --completo y sin specs deducibles del diff (p. ej. viven fuera del repo): no se corre la suite
+  // entera sin que nadie lo pida.
+  if (conSpecsEnComando && !res.completo && specs.length === 0) {
+    throw new ErrorCli(`tests.e2e corre specs sueltos ({specs}) y no encontré specs E2E del RQ ${rq} en su diff (e2e/** o *.spec.*; si viven fuera del repo no los puedo deducir). Pasá la ruta: $RQ verificar <ruta del spec>… o, para la suite completa (la que exige PROD), $RQ verificar --completo.`);
+  }
   let cmd;
   try {
     cmd = conSpecs(rutasEn(base, raiz, proyecto), specs);
@@ -678,10 +701,18 @@ function verificar(repo, elegido, args, env, io) {
   }
   const completo = specs.length === 0;
   const url = proyecto?.tests?.e2e_url;
-  const r = spawnSync(cmd, {
-    shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-    env: url ? { ...process.env, ...env, E2E_URL: String(url), BASE_URL: String(url) } : { ...process.env, ...env },
-  });
+  // Una sola corrida E2E a la vez por proyecto en esta PC: comparten app, contenedor y artefactos.
+  const lock = lockE2e(repo.proyectoId);
+  if (!intentarLock(lock, `verificar ${rq}`, { datos: { rq, firma: firmaE2e(base), comando: cmd } })) {
+    throw new ErrorCli(msgE2eEnCurso(lockTomado(lock)));
+  }
+  let r;
+  try {
+    const envE2e = { ...process.env, ...env, BACG_E2E_LOCK: lock, ...(url ? { E2E_URL: String(url), BASE_URL: String(url) } : {}) };
+    r = spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: envE2e });
+  } finally {
+    soltarLock(lock);
+  }
   if (r.error) io.stderr.write(`No pude ejecutar "${cmd}": ${r.error.message}\n`);
   const ok = r.status === 0;
   if (!ok) io.stdout.write(`${cola(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80)}\n`);
@@ -1111,7 +1142,10 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   l.push(`Código: ${estado.codigo}`);
   l.push(`Tipo: ${estado.tipo}`);
   l.push(`Clasificación: ${nombreDe(estado.clasificacion)}${estado.clasificacion_pendiente === true ? ' (pendiente de confirmar)' : ''}`);
-  const protegida = enRamaProtegida(repo.raiz, proyectoDe(repo, env));
+  // Un RQ con el PR ya mergeado no está en curso: lo primero es avanzarlo o cerrarlo (no "Rama equivocada").
+  const mergeado = avisoMergeado(repo.raiz, codigo, env);
+  if (mergeado) l.push(mergeado);
+  const protegida = mergeado ? null : enRamaProtegida(repo.raiz, proyectoDe(repo, env));
   if (protegida) l.push(`Rama equivocada: ${protegida} sólo recibe cambios por PR. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}).`);
   const derivada = etapaDerivada(estado, repo.raiz);
   l.push(`Etapa: ${derivada}${derivada !== estado.etapa ? ` (según la evidencia; registrada: ${estado.etapa})` : ''}`);

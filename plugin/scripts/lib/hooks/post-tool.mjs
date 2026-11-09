@@ -10,6 +10,7 @@ import path from 'node:path';
 import { dirLineamientos, buscarRepo, nombreRepo } from '../config.mjs';
 import { guardarEstado, rqActivo, cargarEstado, etapaDerivada } from '../estado.mjs';
 import { tieneSkill } from '../requisitos.mjs';
+import { rqParaRegistrar } from '../rq-rama.mjs';
 import { operacionesGit, publicaEnProd } from '../compuerta-bash.mjs';
 import { entradaSoloLectura } from '../compuerta-mcp.mjs';
 import { resolverMcp, cargarRqsDe, proyectoRegistrado, refsProd, norm } from '../contexto.mjs';
@@ -50,9 +51,12 @@ function anotar(raiz, proyecto, paso) {
   }
 }
 
-/** Anota la skill en el RQ en curso del repo (el último de ACTIVO), con la etapa, la sesión y la fecha. */
+/**
+ * Anota la skill en el RQ en curso del repo, con la etapa, la sesión y la fecha: el de la rama rq/<código> actual o el
+ * último de ACTIVO; nada si ese RQ tiene su rama y no estamos en ella, o si ya está mergeada (rq-rama.mjs).
+ */
 function anotarSkill(raiz, skill, sesion) {
-  const codigo = rqActivo(raiz);
+  const codigo = rqParaRegistrar(raiz);
   if (!codigo) return;
   const estado = cargarEstado(raiz, codigo);
   if (tieneSkill(estado, skill)) return;

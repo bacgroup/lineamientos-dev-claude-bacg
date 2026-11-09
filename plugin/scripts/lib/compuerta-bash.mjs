@@ -64,7 +64,8 @@ function pushDeLaRamaActual(op, raiz) {
   });
 }
 import { escrituraProhibida } from './compuerta-edicion.mjs';
-import { fraseDelUsuario } from './transcript.mjs';
+import { fraseDelUsuario, vecesQueLoDijo } from './transcript.mjs';
+import { choqueE2e, msgE2eEnCurso } from './e2e-lock.mjs';
 
 // Los motivos llevan la ruta resuelta del CLI (se calculan al momento del deny).
 const MSG_TODOS = () =>
@@ -1170,7 +1171,9 @@ function evaluarPublicacion(op, dest, ctx) {
 function evaluarFrase(op, ctx) {
   const textos = Array.isArray(ctx?.textosUsuario) ? ctx.textosUsuario : [];
   if (!buscarRepo(op.dir)) return null;
-  if (typeof op.frase === 'string' && op.frase.trim() !== '' && fraseDelUsuario(op.frase, textos)) return null;
+  // Vale si está en un mensaje (las cortas, sólo como mensaje entero) o si es una oración entera de uno: así cada
+  // decisión de un mensaje como "Acotado + Aprobar diseño" se registra con su tramo.
+  if (typeof op.frase === 'string' && op.frase.trim() !== '' && (fraseDelUsuario(op.frase, textos) || vecesQueLoDijo(op.frase, textos) > 0)) return null;
   return deny(MSG_FRASE(op.sub));
 }
 
@@ -1202,6 +1205,10 @@ function mencionesDeRq(texto) {
 }
 
 function redDeFrases(texto, ops) {
+  // Las frases que el parser leyó se validan aparte: sus palabras ("Aprobar diseño") no son subcomandos.
+  for (const o of ops) {
+    if (o.op === 'frase' && typeof o.frase === 'string' && o.frase.trim() !== '') texto = texto.replace(o.frase, ' ');
+  }
   const { frases, ilegibles } = mencionesDeRq(texto);
   const leidas = ops.filter((o) => o.op === 'frase').length;
   if (frases > leidas) return true;
@@ -1217,8 +1224,11 @@ function redDeFrases(texto, ops) {
 export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
   const ops = operacionesGit(comando, cwd);
   const texto = String(comando ?? '');
+  // Mientras rq.mjs verificar corre el E2E, el mismo script no se lanza a mano (en cualquier carpeta).
+  const choque = choqueE2e(texto);
+  if (choque) return { ...deny(msgE2eEnCurso(choque)), critica: false };
   if (redDeFrases(texto, ops) && buscarRepo(cwd)) {
-    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar, clasificacion o ejecucion en una forma que la compuerta no puede leer: corrélo como ${cli()} <subcomando> "<frase>".`), critica: false };
+    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar, clasificacion o ejecucion en una forma que la compuerta no puede leer. Corrélo con la ruta literal, node "<ruta>/rq.mjs" <subcomando> "<frase>" (la de la línea CLI del RQ del arranque), o como ${cli()} <subcomando> "<frase>" con RQ asignado en el mismo comando (RQ="node <ruta>/rq.mjs"; ${cli()} …); sin node -e, eval ni otra variable en el medio.`), critica: false };
   }
   // `critica` se calcula para todas las operaciones antes de evaluar ninguna.
   const destinos = ops.map((op) => {

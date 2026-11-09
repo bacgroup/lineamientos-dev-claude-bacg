@@ -117,7 +117,8 @@ export function cola(salida, n = 60) {
 /** Comando E2E con `{specs}` reemplazado por los specs (entre comillas) o, sin specs, por nada: la suite completa. */
 export function conSpecs(comando, specs) {
   if (!comando.includes('{specs}')) return comando;
-  const insegura = specs.find((a) => !RUTA_SEGURA.test(a));
+  // Una ruta absoluta de Windows (C:/…) vale: la unidad es lo único con ":".
+  const insegura = specs.find((a) => !RUTA_SEGURA.test(String(a).replace(/^[A-Za-z]:(?=\/)/, '')));
   if (insegura !== undefined) throw new Error(`Spec que no se puede pasar al shell sin riesgo: ${JSON.stringify(insegura)}.`);
   return comando.replace('{specs}', () => specs.map((a) => `"${a}"`).join(' ')).replace(/\s+$/, '');
 }
