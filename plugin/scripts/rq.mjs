@@ -26,12 +26,13 @@ import { textoArranque } from './lib/arranque.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
 import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs';
-import { enRamaProtegida, pasarARamaDelRq, ramaDelRq } from './lib/ramas.mjs';
+import { enRamaProtegida, pasarARamaDelRq, ramaDelRq, cambiosDeOtrosRq } from './lib/ramas.mjs';
 import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
 import { leerTranscript, vecesQueLoDijo, mismaFrase } from './lib/transcript.mjs';
 import { RE_SESION, homeReal, transcripcionRegistrada } from './lib/sesiones.mjs';
 import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
 import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
+import { avisoMergeado } from './lib/rq-rama.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -44,7 +45,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
   odoo-skills [--rama <rama>]              (instala en ~/.claude/skills (o CLAUDE_CONFIG_DIR/skills) las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
   previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
-  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa]
+  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa] [--llevar-cambios]
   clasificacion confirmar "<frase>"   (el usuario confirma la clasificación propuesta; hasta entonces no se edita código)
   clasificacion cambiar <exploracion|acotado|arquitectonico> "<frase>"   (cambia y confirma; la frase es texto literal del usuario)
   ejecucion inline|subagentes "<frase>"   (cómo se ejecuta el plan, antes del primer commit de código; acepta executing-plans y subagent-driven-development)
@@ -309,7 +310,7 @@ function previa(repo, env, codigo, nuevo) {
 
 function abrir(repo, args, env, io) {
   const raiz = repo.raiz;
-  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta', 'sin-previa']);
+  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
   if (posicionales.length !== 1 || !res.tipo || !res.clasificacion) throw new ErrorUso();
   exigirProyectoUnico(repo);
   // Alta de la PC: sin los pasos obligatorios (tests, lineamientos…) no se abre un RQ. --sin-alta sólo si el usuario
@@ -342,6 +343,9 @@ function abrir(repo, args, env, io) {
   // M7: en una rama que sólo recibe PR (o de PROD) el RQ trabaja en rq/<código>. Si no se puede, se abre igual.
   let avisoRama = null;
   if (enRamaProtegida(raiz, proyectoDe(repo, env))) {
+    // Los cambios sin commitear de otro RQ viajarían con el switch a la rama nueva: primero que vuelvan a su rama.
+    const ajenos = res['llevar-cambios'] === true ? [] : cambiosDeOtrosRq(raiz, codigo);
+    if (ajenos.length) throw new ErrorCli(msgCambiosAjenos(codigo, ajenos));
     const p = pasarARamaDelRq(raiz, codigo);
     avisoRama = p.error
       ? `No pude pasar a ${ramaDelRq(codigo)}: ${p.error}
@@ -385,6 +389,17 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
     Estado: 'En curso',
     Link: `docs/rq/${codigo}/`,
   }, io);
+}
+
+function msgCambiosAjenos(codigo, ajenos) {
+  const porRq = new Map();
+  for (const a of ajenos) porRq.set(a.codigo, [...(porRq.get(a.codigo) ?? []), a.ruta]);
+  const l = [`Hay cambios sin commitear de otro RQ que pasarían a ${ramaDelRq(codigo)} con el cambio de rama:`];
+  for (const [c, rutas] of porRq) l.push(`  - ${c}: ${rutas.join(', ')}`);
+  l.push('Dejalos en su RQ antes de abrir éste: commitealos en su rama (git switch ' + ramaDelRq([...porRq.keys()][0]) + ' y $RQ commit … --rq <código>) o guardalos aparte:');
+  for (const c of porRq.keys()) l.push(`  git stash push -m "${c}" -- "docs/rq/${c}"`);
+  l.push('Si el usuario decide que van con este RQ: $RQ abrir … --llevar-cambios.');
+  return l.join('\n');
 }
 
 /** Clasificación propuesta, lo que implica y cómo confirmarla (M2). */
@@ -1127,7 +1142,10 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   l.push(`Código: ${estado.codigo}`);
   l.push(`Tipo: ${estado.tipo}`);
   l.push(`Clasificación: ${nombreDe(estado.clasificacion)}${estado.clasificacion_pendiente === true ? ' (pendiente de confirmar)' : ''}`);
-  const protegida = enRamaProtegida(repo.raiz, proyectoDe(repo, env));
+  // Un RQ con el PR ya mergeado no está en curso: lo primero es avanzarlo o cerrarlo (no "Rama equivocada").
+  const mergeado = avisoMergeado(repo.raiz, codigo, env);
+  if (mergeado) l.push(mergeado);
+  const protegida = mergeado ? null : enRamaProtegida(repo.raiz, proyectoDe(repo, env));
   if (protegida) l.push(`Rama equivocada: ${protegida} sólo recibe cambios por PR. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}).`);
   const derivada = etapaDerivada(estado, repo.raiz);
   l.push(`Etapa: ${derivada}${derivada !== estado.etapa ? ` (según la evidencia; registrada: ${estado.etapa})` : ''}`);

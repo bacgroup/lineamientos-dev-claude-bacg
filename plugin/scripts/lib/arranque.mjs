@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { buscarRepo, nombreRepo, dirLineamientos } from './config.mjs';
 import { rqActivo, rqsActivos, cargarEstado, etapaDerivada } from './estado.mjs';
+import { avisoMergeado } from './rq-rama.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './etapas.mjs';
 import { nombreDe } from './clasificacion.mjs';
 import { faltaParaEtapa } from './requisitos.mjs';
@@ -145,6 +146,9 @@ function reanudacion(raiz, proyecto, codigo) {
   const etapa = etapaDerivada(estado, raiz);
   const lineas = ['# Arranque: reanudación. Dónde nos quedamos'];
   lineas.push(`RQ ${codigo} (${estado.tipo ?? '?'}), ${nombreDe(estado.clasificacion)}, etapa ${etapa}: ${NOMBRE_ETAPA[etapa] ?? '?'}.`);
+  // Sólo lo local (sin gh): el arranque tiene que ser rápido.
+  const mergeado = avisoMergeado(raiz, codigo, { BACG_DEV_SIN_GH: '1' });
+  if (mergeado) lineas.push(mergeado);
   const otros = rqsActivos(raiz).filter((c) => c !== codigo);
   if (otros.length) lineas.push(`Otros RQ abiertos: ${otros.join(', ')}.`);
   const siguiente = etapa + 1;

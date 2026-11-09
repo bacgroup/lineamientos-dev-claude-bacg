@@ -168,3 +168,81 @@ test('2: el mensaje de forma ilegible da una forma que la compuerta acepta (ruta
   assert.equal(r.decision, 'deny');
   assert.match(r.motivo, /node "<ruta>\/rq\.mjs" <subcomando> "<frase>"/);
 });
+
+// ---------- 4: RQ con el PR mergeado ----------
+
+import { handler as postTool } from '../plugin/scripts/lib/hooks/post-tool.mjs';
+import { rqParaRegistrar, ramaMergeada } from '../plugin/scripts/lib/rq-rama.mjs';
+
+/** Repo con origin (bare), RQ R-G mergeado en main por PR (merge commit) y la rama rq/R-G. */
+function repoConRqMergeado() {
+  const env = lin('');
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'a.txt': 'a\n' } });
+  const remoto = fs.mkdtempSync(path.join(os.tmpdir(), 'remoto-'));
+  git(remoto, 'init', '-q', '--bare');
+  git(raiz, 'branch', '-M', 'main');
+  git(raiz, 'remote', 'add', 'origin', remoto);
+  git(raiz, 'push', '-q', '-u', 'origin', 'main');
+  return { env, raiz };
+}
+
+test('4: el hook anota la skill en el RQ de la rama actual; en otra rama no la anota en un RQ ajeno', async () => {
+  const { env, raiz } = repoConRqMergeado();
+  await correr(raiz, ['abrir', 'R-G', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  await correr(raiz, ['abrir', 'R-C', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  git(raiz, 'switch', '-q', '-c', 'rq/R-G');
+  // En rq/R-G la skill va a R-G aunque el último de ACTIVO sea R-C.
+  assert.equal(rqParaRegistrar(raiz), 'R-G');
+  await postTool({ cwd: raiz, session_id: 's', tool_name: 'Skill', tool_input: { skill: 'superpowers:brainstorming' }, tool_response: {} }, { dirLin: env.BACG_LINEAMIENTOS_DIR });
+  assert.equal(cargarEstado(raiz, 'R-G').skills.length, 1);
+  assert.equal(cargarEstado(raiz, 'R-C').skills, undefined);
+  // En main, con rq/R-C sin crear y R-C último: va a R-C (proyecto sin ramas por RQ).
+  git(raiz, 'switch', '-q', 'main');
+  assert.equal(rqParaRegistrar(raiz), 'R-C');
+  // Con rq/R-C creada y estando en main: no se anota en ningún RQ.
+  git(raiz, 'branch', 'rq/R-C');
+  assert.equal(rqParaRegistrar(raiz), null);
+});
+
+test('4: un RQ cuya rama ya está mergeada no recibe skills y estado lo dice', async () => {
+  const { env, raiz } = repoConRqMergeado();
+  await correr(raiz, ['abrir', 'R-G', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  git(raiz, 'switch', '-q', '-c', 'rq/R-G');
+  fs.writeFileSync(path.join(raiz, 'a.txt'), 'gerente\n');
+  git(raiz, 'commit', '-qam', 'feat(R-G): algo');
+  git(raiz, 'push', '-q', 'origin', 'rq/R-G');
+  git(raiz, 'switch', '-q', 'main');
+  git(raiz, 'merge', '-q', '--no-ff', '-m', 'Merge PR rq/R-G', 'rq/R-G');
+  git(raiz, 'push', '-q', 'origin', 'main');
+  git(raiz, 'switch', '-q', 'rq/R-G');
+  assert.deepEqual(ramaMergeada(raiz, 'R-G'), { rama: 'rq/R-G', en: 'origin/main' });
+  assert.equal(rqParaRegistrar(raiz), null, 'mergeado: no se registra sin preguntar a qué RQ va');
+  const r = await correr(raiz, ['estado'], env);
+  assert.match(r.out, /La rama rq\/R-G ya está mergeada en origin\/main/);
+  assert.match(r.out, /\$RQ cerrar/);
+});
+
+// ---------- 3: abrir no arrastra cambios de otro RQ ----------
+
+test('3: abrir no pasa a la rama nueva con cambios sin commitear de otro RQ; los lista y dice cómo dejarlos', async () => {
+  const env = lin('ramas_solo_pr: [main]\n');
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  git(raiz, 'branch', '-M', 'main');
+  // R-OTRO commiteado en main y después modificado sin commitear (el hook le escribió algo).
+  await correr(raiz, ['abrir', 'R-OTRO', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  git(raiz, 'switch', '-q', 'main');
+  git(raiz, 'add', '-A');
+  git(raiz, 'commit', '-qm', 'docs(R-OTRO): estado');
+  fs.appendFileSync(path.join(raiz, 'docs', 'rq', 'R-OTRO', 'estado.yml'), 'tarea: cambio ajeno\n');
+  let r = await correr(raiz, ['abrir', 'R-NUEVO', '--tipo', 'rq', '--clasificacion', 'bounded'], env);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.err, /cambios sin commitear de otro RQ/);
+  assert.match(r.err, /docs\/rq\/R-OTRO\/estado\.yml/);
+  assert.match(r.err, /git stash push -m "R-OTRO" -- "docs\/rq\/R-OTRO"/);
+  assert.match(r.err, /--llevar-cambios/);
+  assert.equal(git(raiz, 'branch', '--show-current').trim(), 'main', 'no cambió de rama');
+  assert.equal(fs.existsSync(path.join(raiz, 'docs', 'rq', 'R-NUEVO')), false, 'no abrió nada');
+  r = await correr(raiz, ['abrir', 'R-NUEVO', '--tipo', 'rq', '--clasificacion', 'bounded', '--llevar-cambios'], env);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(git(raiz, 'branch', '--show-current').trim(), 'rq/R-NUEVO');
+});
