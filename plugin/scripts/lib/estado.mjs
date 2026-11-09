@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import yaml from '../vendor/js-yaml.mjs';
 import { fraseDelUsuario } from './transcript.mjs';
 import { aV4, ETAPA, VERSION_CICLO, CLASIFICACIONES_DISENO_V3 } from './etapas.mjs';
+import { conLock, lockDe } from './lock.mjs';
 
 const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 // Etapas que la autonomía puede cumplir: desarrollo y DEV. Nunca el diseño (1), la verificación (3, evidencia) ni PROD.
@@ -49,8 +50,7 @@ export function guardarActivos(raiz, codigos) {
   fs.writeFileSync(archivo, `${lista.join('\n')}\n`);
 }
 
-export function cargarEstado(raiz, codigo) {
-  const archivo = path.join(carpetaRq(raiz, codigo), 'estado.yml');
+function leerArchivo(archivo, codigo) {
   let texto;
   try {
     texto = fs.readFileSync(archivo, 'utf8');
@@ -70,15 +70,92 @@ export function cargarEstado(raiz, codigo) {
   return aV4(estado);
 }
 
-// Muta el objeto recibido: le setea `version_ciclo` y `actualizado` antes de escribirlo. La marca `_v3` de un
-// estado convertido no se escribe: desde acá el archivo queda en v4.
+// Cómo estaba cada estado al cargarlo: guardarEstado escribe sólo lo que cambió desde entonces, sobre lo que haya en
+// el archivo en ese momento (otro proceso pudo registrar algo mientras tanto: el hook una skill, `verificar --local`
+// mientras corre el E2E).
+const leidos = new WeakMap();
+
+export function cargarEstado(raiz, codigo) {
+  const estado = leerArchivo(path.join(carpetaRq(raiz, codigo), 'estado.yml'), codigo);
+  leidos.set(estado, structuredClone(estado));
+  return estado;
+}
+
+const NO_SE_FUSIONAN = new Set(['_v3', 'version_ciclo', 'actualizado']);
+const firma = (x) => JSON.stringify(x);
+
+/**
+ * Fusión de tres vías por clave de primer nivel: lo que este proceso no cambió desde que leyó (`base`) queda como
+ * está en el archivo (`actual`); lo que cambió, gana. En las listas (aprobaciones, saltos, skills, circuito…) se
+ * suman las entradas nuevas y se quitan las que este proceso quitó, sin perder las que otro agregó.
+ */
+export function fusionarEstado(base, nuestro, actual) {
+  const out = { ...actual };
+  for (const k of new Set([...Object.keys(base), ...Object.keys(nuestro)])) {
+    if (NO_SE_FUSIONAN.has(k)) continue;
+    const [b, n, a] = [base[k], nuestro[k], actual[k]];
+    if (firma(n) === firma(b)) continue;
+    const listas = Array.isArray(n) && (Array.isArray(a) || a === undefined) && (Array.isArray(b) || b === undefined);
+    if (listas && firma(a) !== firma(b)) {
+      const deBase = new Set(lista(b).map(firma));
+      const deNuestro = new Set(n.map(firma));
+      const quedan = lista(a).filter((x) => !deBase.has(firma(x)) || deNuestro.has(firma(x)));
+      const ya = new Set(quedan.map(firma));
+      out[k] = [...quedan, ...n.filter((x) => !deBase.has(firma(x)) && !ya.has(firma(x)))];
+    } else if (n === undefined) {
+      delete out[k];
+    } else {
+      out[k] = n;
+    }
+  }
+  return out;
+}
+
+// rename atómico; en Windows falla con EPERM/EBUSY si otro proceso tiene el archivo abierto para leerlo (las lecturas
+// no toman el lock): se reintenta un rato y, si sigue, se escribe en el lugar.
+function reemplazar(tmp, archivo) {
+  for (let i = 0; i < 40; i++) {
+    try {
+      fs.renameSync(tmp, archivo);
+      return;
+    } catch (e) {
+      if (!['EPERM', 'EBUSY', 'EACCES'].includes(e?.code)) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+    }
+  }
+  fs.writeFileSync(archivo, fs.readFileSync(tmp));
+  fs.rmSync(tmp, { force: true });
+}
+
+// Escritura bajo lock (uno por archivo, en la carpeta temporal: nada que git vea) y read-modify-write: si el estado vino de cargarEstado, se relee el
+// archivo y se aplica sólo lo que cambió; si no (un estado nuevo), se escribe entero. Deja el objeto recibido igual a
+// lo escrito: con `version_ciclo` y `actualizado`, sin la marca `_v3` (desde acá el archivo queda en v4).
 export function guardarEstado(raiz, estado) {
   const dir = carpetaRq(raiz, estado?.codigo);
-  delete estado._v3;
-  estado.version_ciclo = VERSION_CICLO;
-  estado.actualizado = new Date().toISOString();
+  const archivo = path.join(dir, 'estado.yml');
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'estado.yml'), yaml.dump(estado, { lineWidth: -1 }));
+  conLock(lockDe(archivo), () => {
+    const base = leidos.get(estado);
+    let final = { ...estado };
+    if (base) {
+      let actual = null;
+      try {
+        actual = leerArchivo(archivo, estado.codigo);
+      } catch {
+        // borrado o ilegible: se escribe lo nuestro
+      }
+      if (actual) final = fusionarEstado(base, estado, actual);
+    }
+    delete final._v3;
+    final.version_ciclo = VERSION_CICLO;
+    final.actualizado = new Date().toISOString();
+    const tmp = `${archivo}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, yaml.dump(final, { lineWidth: -1 }));
+    reemplazar(tmp, archivo);
+    for (const k of Object.keys(estado)) if (!(k in final)) delete estado[k];
+    Object.assign(estado, final);
+    leidos.set(estado, structuredClone(final));
+  }, { que: `estado.yml de ${estado.codigo}` });
 }
 
 /** Versión de estado.yml en `ref` (HEAD por defecto), en v4, o null si no está commiteada / no hay ref / no parsea / no es un objeto. */

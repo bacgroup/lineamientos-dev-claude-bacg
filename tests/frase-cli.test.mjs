@@ -170,7 +170,7 @@ test('cada vez que el usuario la dijo vale para un solo registro', async () => {
   assert.equal((await correr(raiz, ['aprobar', '1', 'Dale, aprobado'], { sesion })).code, 0);
   const r = await correr(raiz, ['autonomia', '4', 'Dale, aprobado'], { sesion });
   assert.equal(r.code, 1);
-  assert.equal(r.err, 'La frase "Dale, aprobado" ya está registrada en el RQ: cada vez que el usuario la escribe vale para un solo registro.\n');
+  assert.equal(r.err, 'La frase "Dale, aprobado" ya está registrada en el RQ: cada vez que el usuario la escribe vale para un solo registro. Si su mensaje trae varias decisiones (clasificación, aprobar 1, ejecución), registrá cada una con su propio tramo: una oración entera, separada por . ; salto de línea o " + ".\n');
   sesion.dijo('dale aprobado');
   assert.equal((await correr(raiz, ['autonomia', '4', 'Dale, aprobado'], { sesion })).code, 0, 'la segunda vez que lo dijo');
 });

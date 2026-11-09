@@ -30,6 +30,8 @@ import { enRamaProtegida, pasarARamaDelRq, ramaDelRq } from './lib/ramas.mjs';
 import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
 import { leerTranscript, vecesQueLoDijo, mismaFrase } from './lib/transcript.mjs';
 import { RE_SESION, homeReal, transcripcionRegistrada } from './lib/sesiones.mjs';
+import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
+import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -185,7 +187,7 @@ async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, esta
     throw new ErrorCli(`La frase "${frase}" no aparece en lo que escribió el usuario en esta sesión (tiene que ser un mensaje o una oración enteros). Registrá sólo palabras literales del usuario.`);
   }
   if (estado && usosDeFrase(estado, frase) >= dichas) {
-    throw new ErrorCli(`La frase "${frase}" ya está registrada en el RQ: cada vez que el usuario la escribe vale para un solo registro.`);
+    throw new ErrorCli(`La frase "${frase}" ya está registrada en el RQ: cada vez que el usuario la escribe vale para un solo registro. Si su mensaje trae varias decisiones (clasificación, aprobar 1, ejecución), registrá cada una con su propio tramo: una oración entera, separada por . ; salto de línea o " + ".`);
   }
 }
 
@@ -668,7 +670,13 @@ function verificar(repo, elegido, args, env, io) {
       'El proyecto no declara tests.e2e en proyecto.yml. Declaralo (y tests.e2e_url) o, si el cambio no tiene superficie de app, que el usuario lo diga y registrá saltar e2e.',
     );
   }
-  const specs = res.completo || !base.includes('{specs}') ? [] : posicionales.length ? posicionales : specsDelRq(raiz, estado);
+  const conSpecsEnComando = base.includes('{specs}');
+  const specs = res.completo || !conSpecsEnComando ? [] : posicionales.length ? posicionales.map((s) => s.replace(/\\/g, '/')) : specsDelRq(raiz, estado);
+  // Con {specs}, sin --completo y sin specs deducibles del diff (p. ej. viven fuera del repo): no se corre la suite
+  // entera sin que nadie lo pida.
+  if (conSpecsEnComando && !res.completo && specs.length === 0) {
+    throw new ErrorCli(`tests.e2e corre specs sueltos ({specs}) y no encontré specs E2E del RQ ${rq} en su diff (e2e/** o *.spec.*; si viven fuera del repo no los puedo deducir). Pasá la ruta: $RQ verificar <ruta del spec>… o, para la suite completa (la que exige PROD), $RQ verificar --completo.`);
+  }
   let cmd;
   try {
     cmd = conSpecs(rutasEn(base, raiz, proyecto), specs);
@@ -678,10 +686,18 @@ function verificar(repo, elegido, args, env, io) {
   }
   const completo = specs.length === 0;
   const url = proyecto?.tests?.e2e_url;
-  const r = spawnSync(cmd, {
-    shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-    env: url ? { ...process.env, ...env, E2E_URL: String(url), BASE_URL: String(url) } : { ...process.env, ...env },
-  });
+  // Una sola corrida E2E a la vez por proyecto en esta PC: comparten app, contenedor y artefactos.
+  const lock = lockE2e(repo.proyectoId);
+  if (!intentarLock(lock, `verificar ${rq}`, { datos: { rq, firma: firmaE2e(base), comando: cmd } })) {
+    throw new ErrorCli(msgE2eEnCurso(lockTomado(lock)));
+  }
+  let r;
+  try {
+    const envE2e = { ...process.env, ...env, BACG_E2E_LOCK: lock, ...(url ? { E2E_URL: String(url), BASE_URL: String(url) } : {}) };
+    r = spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: envE2e });
+  } finally {
+    soltarLock(lock);
+  }
   if (r.error) io.stderr.write(`No pude ejecutar "${cmd}": ${r.error.message}\n`);
   const ok = r.status === 0;
   if (!ok) io.stdout.write(`${cola(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80)}\n`);

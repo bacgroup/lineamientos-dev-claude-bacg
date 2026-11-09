@@ -51,12 +51,14 @@ export function mismaFrase(a, b) {
 }
 
 /**
- * En cuántos mensajes del usuario la frase es el mensaje entero o una oración entera (separadas por . ! ? ; o salto
- * de línea). Más estricto que fraseDelUsuario: un tramo suelto de una oración no cuenta.
+ * En cuántos mensajes del usuario la frase es el mensaje entero o una oración entera (separadas por . ! ? ; salto de
+ * línea o " + ", la forma de dar varias decisiones en un mensaje: "Acotado + Aprobar diseño + Ejecutar en línea"; la
+ * coma no separa: en "Dale, pero mañana" "Dale" no es una oración). Más estricto que fraseDelUsuario: un tramo
+ * suelto de una oración no cuenta.
  */
 export function vecesQueLoDijo(frase, textosUsuario) {
   if (paraComparar(frase ?? '') === '') return 0;
-  return textosUsuario.filter((t) => mismaFrase(t, frase) || String(t).split(/[.!?¡¿;\n]+/).some((o) => mismaFrase(o, frase))).length;
+  return textosUsuario.filter((t) => mismaFrase(t, frase) || String(t).split(/[.!?¡¿;\n]+|\s\+\s/).some((o) => mismaFrase(o, frase))).length;
 }
 
 // Devuelve el texto tipeado por el humano, o null si la entrada no es suyo.
