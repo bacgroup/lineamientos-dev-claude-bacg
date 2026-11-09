@@ -282,3 +282,16 @@ test('5: e2e_chequear_url: false no chequea la app (el comando E2E la levanta)',
   const p = { tests: { e2e: 'x', e2e_url: 'http://127.0.0.1:9', e2e_chequear_url: false, e2e_requisitos: [{ nombre: 'Docker', comando: 'node -e "1"' }] } };
   assert.equal(lineaEntornoE2e(p), 'Entorno E2E listo: Docker.');
 });
+
+// ---------- 8: la verificación local acepta Playwright contra el entorno local ----------
+
+import { FALTA_VERIFICACION_LOCAL } from '../plugin/scripts/lib/requisitos.mjs';
+
+test('8: skill, pista y uso aceptan el recorrido con Playwright contra el entorno local con el rol real', async () => {
+  const skill = fs.readFileSync(path.resolve('plugin/skills/ciclo-rq/SKILL.md'), 'utf8');
+  assert.match(skill, /script de Playwright corrido desde la PC contra el mismo entorno local, con el usuario del rol real y sin mocks/);
+  assert.match(skill, /panel del navegador está oculto/);
+  assert.match(FALTA_VERIFICACION_LOCAL, /navegador del agente o Playwright/);
+  const r = await correr(crearRepoTemporal({ proyectoId: 'demo' }), ['verificar', '--local'], lin(''));
+  assert.match(r.err, /navegador o Playwright, rol real, sin mocks/);
+});

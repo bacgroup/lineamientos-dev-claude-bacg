@@ -56,7 +56,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   commit "<mensaje>" <rutas>…        (git add de las rutas, tests relacionados, registro y commit en un paso)
   registrar-tests                    (tests de commit sobre lo que está en stage; sin E2E)
   verificar [--completo] [<specs>…]  (E2E contra la app levantada; con {specs} en tests.e2e, sólo los del RQ salvo --completo)
-  verificar --local "<qué se recorrió con el rol real>" <capturas…>   (RQ que toca UI: capturas existentes en docs/rq/<código>/qa/)
+  verificar --local "<qué se recorrió con el rol real>" <capturas…>   (RQ que toca UI, navegador o Playwright, rol real, sin mocks: capturas en docs/rq/<código>/qa/)
   revision ok|bloqueante "<nota>"
   paso manual:<texto>|sync-lineamientos   (pasos manuales de circuito_prod)
   paso hecho <paso> "<evidencia>"    (paso hecho por fuera: merge desde GitHub, migración que ya estaba aplicada)

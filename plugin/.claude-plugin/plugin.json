@@ -1,6 +1,6 @@
 {
   "name": "lineamientos-dev-claude-bacg",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Núcleo de cómo trabajamos: ciclo de RQ, compuertas y lineamientos por proyecto.",
   "author": { "name": "BACG" },
   "license": "UNLICENSED"

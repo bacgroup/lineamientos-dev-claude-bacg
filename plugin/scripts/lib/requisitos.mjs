@@ -115,7 +115,7 @@ export function tocaUi(estado, raiz, proyecto, rutasRq) {
 export const verificacionLocalOk = (estado) =>
   typeof estado?.verificacion_local?.fecha === 'string' || saltoValido(estado, 'verificacion-local');
 
-export const FALTA_VERIFICACION_LOCAL = 'la verificación local con el rol real ($RQ verificar --local "<qué se recorrió>" <capturas>)';
+export const FALTA_VERIFICACION_LOCAL = 'la verificación local con el rol real, con el navegador del agente o Playwright contra el entorno local ($RQ verificar --local "<qué se recorrió>" <capturas>)';
 
 /** Skills que exige el proyecto (`skills_requeridas`) para este RQ: [{ etapa, skill }]. */
 export function exigenciasDelProyecto(estado, proyecto, rutasRq) {
