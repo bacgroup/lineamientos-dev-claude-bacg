@@ -44,6 +44,7 @@ import { ETAPA } from './etapas.mjs';
 import { ramasProd, ramasSoloPr } from './stack.mjs';
 import { testsValenParaStage } from './arbol.mjs';
 import { enRamaProtegida, ramaDelRq } from './ramas.mjs';
+import { ordenDeRamas, faltaPasarPorDev, prAProdSinDev } from './promocion.mjs';
 
 // Opciones de `git push` que consumen el siguiente argumento.
 const CON_VALOR_PUSH = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
@@ -515,6 +516,26 @@ function analizarGh(args, dir, ghRepoEnv, info) {
     }
   }
   if (SUBCOMANDOS_GH.has(posicionales[0])) info.resuelto = true;
+  if (posicionales[0] === 'pr' && posicionales[1] === 'create') {
+    // PLG-RAMAS: base y cabeza del PR, para no abrir PR de una rama de RQ directo a PROD.
+    const op = { op: 'pr-create', dir };
+    const valor = (largas, corta) => {
+      for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (largas.includes(a) || a === corta) return args[i + 1];
+        const pegada = largas.find((l) => a.startsWith(`${l}=`));
+        if (pegada) return a.slice(pegada.length + 1);
+        if (a.startsWith(corta) && a.length > 2 && !a.startsWith('--')) return a.slice(2);
+      }
+      return undefined;
+    };
+    const base = valor(['--base'], '-B');
+    const head = valor(['--head'], '-H');
+    if (base) op.base = base;
+    if (head) op.head = head.includes(':') ? head.split(':').pop() : head;
+    if (repoGh || ghRepoEnv) op.repoGh = repoGh || ghRepoEnv;
+    return [op];
+  }
   if (posicionales[0] !== 'pr' || posicionales[1] !== 'merge') return [];
   const destino = repoGh || deUrl || ghRepoEnv;
   // El PR (número, URL o rama) sirve para leer su rama base cuando el proyecto declara ramas_prod.
@@ -1091,13 +1112,15 @@ function destino(op, dirLin, ctx) {
     const ds = ramasDestino(op, repo.raiz, ctx) ?? [];
     soloPr = ds.find((d) => conPr.includes(d)) ?? null;
   }
-  return {
-    raiz: repo.raiz,
-    proyecto,
-    nombre: entrada ? entrada.nombre : nombre,
-    prod: publicaEnProd(op, repo.raiz, proyecto, entrada, ctx),
-    soloPr,
-  };
+  const prod = publicaEnProd(op, repo.raiz, proyecto, entrada, ctx);
+  const nombreFinal = entrada ? entrada.nombre : nombre;
+  // PLG-RAMAS: con ramas_prod y una rama de DEV, a PROD sólo llega lo que ya pasó por DEV.
+  let sinDev = null;
+  if (prod && entrada && entrada.push_prod !== false) {
+    const orden = ordenDeRamas(proyecto, entrada);
+    if (orden) sinDev = faltaPasarPorDev(op, repo.raiz, nombreFinal, orden, ramasDestino(op, repo.raiz, ctx), ctx);
+  }
+  return { raiz: repo.raiz, proyecto, nombre: nombreFinal, prod, soloPr, sinDev };
 }
 
 /**
@@ -1181,6 +1204,7 @@ function evaluarPublicacion(op, dest, ctx) {
     );
   }
   if (dest.error) return deny(`${dest.error}: no puedo verificar la publicación de ${dest.nombre}.`);
+  if (dest.sinDev && !saltoRamaActivo(dest.raiz, ctx)) return deny(dest.sinDev);
   if (pushSoloLibres(op, dest)) return null;
   const r = cargarRqs(dest.raiz, 'publicar', ctx);
   if (r.sinRq && !esPadre(dest.raiz, dest.proyecto)) return deny(`${r.deny.motivo} ${PISTA_PADRE}`);
@@ -1193,6 +1217,31 @@ function evaluarPublicacion(op, dest, ctx) {
     primero = primero ?? d;
   }
   return primero;
+}
+
+/** ¿Algún RQ activo del repo tiene el salto de rama del usuario? (hotfix directo a PROD, commit en rama protegida) */
+function saltoRamaActivo(raiz, ctx) {
+  const r = cargarRqs(raiz, 'publicar', ctx);
+  return Array.isArray(r.rqs) && r.rqs.some(({ estado }) => saltoValido(estado, 'rama'));
+}
+
+/** PLG-RAMAS: `gh pr create` con base en PROD desde otra rama que la de DEV. */
+function evaluarPrCreate(op, dirLin, ctx) {
+  const repo = buscarRepo(op.dir);
+  if (!repo) return null;
+  const nombreGh = op.repoGh ? String(op.repoGh).split('/').pop().replace(/.git$/i, '') : null;
+  const nombre = nombreGh || nombreRepo(repo.raiz);
+  let proyecto;
+  try {
+    proyecto = cargarProyecto(repo.proyectoId, dirLin, repo.raiz);
+  } catch {
+    return null; // proyecto ilegible: abrir un PR no publica; el merge lo frena la compuerta
+  }
+  const entrada = (Array.isArray(proyecto?.repos) ? proyecto.repos : []).find((r) => typeof r?.nombre === 'string' && r.nombre.toLowerCase() === nombre.toLowerCase());
+  if (!entrada) return null;
+  const motivo = prAProdSinDev(op, repo.raiz, entrada.nombre, ordenDeRamas(proyecto, entrada), ctx);
+  if (!motivo || saltoRamaActivo(repo.raiz, ctx)) return null;
+  return deny(motivo);
 }
 
 /** La frase de `rq.mjs aprobar|autonomia|saltar` tiene que ser texto literal del usuario en la sesión. */
@@ -1277,7 +1326,8 @@ export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
       else if (op.op === 'frase') r = evaluarFrase(op, ctx);
       else if (op.op === 'push' && destinos[i]?.soloPr) {
         r = deny(`${destinos[i].nombre}: ${destinos[i].soloPr} sólo recibe cambios por PR. Pusheá tu rama (git push -u origin <rama>) y abrí un PR a ${destinos[i].soloPr} (gh pr create --base ${destinos[i].soloPr}).`);
-      } else r = op.op === 'commit' ? evaluarCommit(op, ctx, dirLin) : evaluarPublicacion(op, destinos[i], ctx);
+      } else if (op.op === 'pr-create') r = evaluarPrCreate(op, dirLin, ctx);
+      else r = op.op === 'commit' ? evaluarCommit(op, ctx, dirLin) : evaluarPublicacion(op, destinos[i], ctx);
     } catch (e) {
       r = deny(`No se pudo evaluar ${op.op} (${resumirError(e)})`);
     }

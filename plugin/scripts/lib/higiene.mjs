@@ -1,13 +1,14 @@
 // PLG-CTX (4.2.0): higiene de plugins. Cada plugin habilitado suma a cada sesión el listado de sus skills, comandos y
-// agentes (nombre y descripción), lo use o no. En las sesiones de PowerFy eso eran ~18k tokens fijos, con skills
-// repetidas porque convivían este plugin y su versión paralela (dev-fullflow).
+// agentes (nombre y descripción), lo use o no.
 //
-// Detecta, entre los plugins habilitados en ~/.claude/settings.json:
-// - los que duplican skills de este plugin (dos o más con el mismo nombre: ciclo-rq, diseno-frontend…);
-// - los que no se usaron en las últimas sesiones de esta carpeta (ni una skill, agente, comando ni MCP suyo), si hay
-//   sesiones suficientes para juzgarlo.
-// Nunca propone apagar este plugin ni los requeridos por el ciclo. La propuesta es apagarlos sólo en esta carpeta y
-// esta PC (enabledPlugins en .claude/settings.local.json), sin tocar la configuración global.
+// Entre los plugins habilitados en ~/.claude/settings.json distingue:
+// - hermanos: los que comparten dos o más skills con este (ciclo-rq, diseno-frontend…), es decir, otra derivación del
+//   mismo ciclo con su propia configuración y su propio marcador de repo. Conviven en la misma PC, a veces con otra
+//   cuenta de Claude: nunca se proponen apagar; el arranque sólo aclara cuál rige en la carpeta.
+// - sin uso: los que no se usaron en las últimas sesiones de esta carpeta (ni una skill, agente, comando ni MCP suyo),
+//   si hay sesiones suficientes para juzgarlo. Se proponen apagar sólo en esta carpeta (enabledPlugins en
+//   .claude/settings.local.json), sin tocar la configuración global.
+// Nunca propone apagar este plugin, un hermano ni los requeridos por el ciclo.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -105,11 +106,11 @@ function rutaInstalada(entradas, cwd) {
 }
 
 /**
- * Plugins que conviene apagar en esta carpeta. Devuelve null si no se pueden leer los plugins instalados; si no,
- * { candidatos: [{ id, motivo: 'duplica' | 'sin-uso', duplicadas, tokens }], sesiones, archivo, tokens }.
- * `soloDuplicados`: no mira las transcripciones (para el arranque de sesión, que tiene que ser rápido).
+ * Plugins que conviene apagar en esta carpeta y plugins hermanos. Devuelve null si no se pueden leer los plugins
+ * instalados; si no, { candidatos: [{ id, tokens }], hermanos: [{ id, compartidas }], sesiones, archivo, tokens }.
+ * `soloHermanos`: no mira las transcripciones (para el arranque de sesión, que tiene que ser rápido).
  */
-export function higienePlugins({ cwd = process.cwd(), env = process.env, home = os.homedir(), requeridos = [], soloDuplicados = false, dirPropio = DIR_PLUGIN } = {}) {
+export function higienePlugins({ cwd = process.cwd(), env = process.env, home = os.homedir(), requeridos = [], soloHermanos = false, dirPropio = DIR_PLUGIN } = {}) {
   const base = dirConfigClaude({ env, home });
   const instalados = leerJson(path.join(base, 'plugins', 'installed_plugins.json'))?.plugins;
   if (!instalados || typeof instalados !== 'object') return null;
@@ -121,17 +122,18 @@ export function higienePlugins({ cwd = process.cwd(), env = process.env, home = 
     .map(([id]) => {
       const dir = rutaInstalada(instalados[id], cwd);
       const c = dir ? componentesPlugin(dir) : { skills: [], tokens: 0 };
-      return { id, nombre: id.split('@')[0], duplicadas: c.skills.filter((s) => propias.has(s)), tokens: c.tokens };
+      return { id, nombre: id.split('@')[0], compartidas: c.skills.filter((s) => propias.has(s)), tokens: c.tokens };
     });
+  const hermanos = evaluar.filter((p) => p.compartidas.length >= 2).map((p) => ({ id: p.id, compartidas: p.compartidas }));
+  const resto = evaluar.filter((p) => p.compartidas.length < 2);
   let uso = { sesiones: 0, usados: new Set() };
-  if (!soloDuplicados) uso = usoEnSesiones(dirTranscripciones(cwd, base), evaluar.map((p) => p.nombre));
-  const candidatos = [];
-  for (const p of evaluar) {
-    if (p.duplicadas.length >= 2) candidatos.push({ id: p.id, motivo: 'duplica', duplicadas: p.duplicadas, tokens: p.tokens });
-    else if (uso.sesiones >= MIN_SESIONES && !uso.usados.has(p.nombre) && p.tokens > 0) candidatos.push({ id: p.id, motivo: 'sin-uso', duplicadas: [], tokens: p.tokens });
-  }
+  if (!soloHermanos) uso = usoEnSesiones(dirTranscripciones(cwd, base), resto.map((p) => p.nombre));
+  const candidatos = uso.sesiones >= MIN_SESIONES
+    ? resto.filter((p) => !uso.usados.has(p.nombre) && p.tokens > 0).map((p) => ({ id: p.id, tokens: p.tokens }))
+    : [];
   return {
     candidatos,
+    hermanos,
     sesiones: uso.sesiones,
     archivo: path.join(cwd, '.claude', 'settings.local.json'),
     tokens: candidatos.reduce((n, c) => n + c.tokens, 0),
@@ -139,10 +141,7 @@ export function higienePlugins({ cwd = process.cwd(), env = process.env, home = 
 }
 
 /** Descripción corta de un candidato. */
-export function textoCandidato(c, sesiones) {
-  const motivo = c.motivo === 'duplica' ? `duplica ${c.duplicadas.length} skills de este plugin (${c.duplicadas.join(', ')})` : `sin uso en las últimas ${sesiones} sesiones de esta carpeta`;
-  return `${c.id}: ${motivo}, ~${c.tokens} tokens por sesión`;
-}
+export const textoCandidato = (c, sesiones) => `${c.id}: sin uso en las últimas ${sesiones} sesiones de esta carpeta, ~${c.tokens} tokens por sesión`;
 
 /** Bloque JSON para .claude/settings.local.json que apaga los candidatos. */
 export const bloqueApagar = (candidatos) => JSON.stringify({ enabledPlugins: Object.fromEntries(candidatos.map((c) => [c.id, false])) }, null, 2);

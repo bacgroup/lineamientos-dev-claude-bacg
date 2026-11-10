@@ -22,6 +22,7 @@ import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
 import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
+import { ordenDeRamas } from './lib/promocion.mjs';
 import { textoArranque } from './lib/arranque.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
@@ -815,7 +816,12 @@ function entregar(repo, elegido, env, io) {
     l.push('PR y CI: sin consultar (BACG_DEV_SIN_GH).');
   } else {
     const r = spawnSync('gh', ['pr', 'view', '--json', 'number,state,url,statusCheckRollup'], { cwd: raiz, encoding: 'utf8' });
-    if (r.status !== 0) l.push(`PR: no hay PR de esta rama (gh pr create --fill).`);
+    if (r.status !== 0) {
+      // PLG-RAMAS: con rama de DEV, el PR del RQ va a DEV (sin --base, gh usa la rama por defecto, que puede ser PROD).
+      const proy = proyectoDe(repo, env);
+      const orden = ordenDeRamas(proy, lista(proy?.repos).find((x) => String(x?.nombre ?? '').toLowerCase() === nombreRepo(raiz).toLowerCase()));
+      l.push(`PR: no hay PR de esta rama (gh pr create --fill${orden ? ` --base ${orden.dev}` : ''}).`);
+    }
     else {
       try {
         const pr = JSON.parse(r.stdout);
@@ -1124,7 +1130,14 @@ function desplegar(repo, elegido, args, env, io) {
     const falta = hecho ? undefined : faltaAntes({ proyecto, estado, paso, raiz, rutas, sedes });
     const p = paso.trim();
     let como = '';
-    if (/^push:/i.test(p)) como = `git push en ${p.slice(5)}`;
+    if (/^push:/i.test(p)) {
+      // PLG-RAMAS: con ramas de PROD y de DEV, el paso es la promoción DEV → PROD, después de verificar en DEV.
+      const nombre = p.slice(5);
+      const orden = ordenDeRamas(proyecto, repos.find((x) => String(x?.nombre ?? '').toLowerCase() === nombre.toLowerCase()));
+      como = orden
+        ? `promoción ${orden.dev} → ${orden.prod[0]} en ${nombre}, con el cambio ya mergeado en ${orden.dev}, desplegado y verificado en DEV (gh pr create --base ${orden.prod[0]} --head ${orden.dev}, o git push origin origin/${orden.dev}:${orden.prod[0]} si es fast-forward)`
+        : `git push en ${nombre}`;
+    }
     else if (/^sql:/i.test(p)) {
       const ref = p.slice(4);
       const r = repos.find((x) => String(baseDelRepo(x) ?? '').toLowerCase() === ref.toLowerCase());

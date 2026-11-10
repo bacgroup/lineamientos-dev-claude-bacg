@@ -74,6 +74,8 @@ Los tests que fallan en `main` por causas ajenas se declaran una vez en `tests.r
 
 Cada RQ trabaja en su rama `rq/<código>`. Si el proyecto declara ramas que sólo reciben PR (la de DEV) o ramas de PROD, abrir el RQ pasa a su rama y la compuerta no deja commitear código en aquellas.
 
+Con rama de DEV y de PROD (por ejemplo `develop` y `main`), el orden es fijo: PR de la rama del RQ a DEV, despliegue y verificación en DEV, y después la promoción DEV → PROD. A PROD sólo llega lo que ya está en la rama de DEV de origin: la compuerta niega un push, un merge o un PR a PROD que venga de otra rama. Un hotfix directo a PROD sólo con el salto `rama`, en palabras del usuario.
+
 ## Despliegue
 
 El circuito de PROD (`circuito_prod`) se adapta al cambio:
