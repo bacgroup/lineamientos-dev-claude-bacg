@@ -18,6 +18,7 @@ import { etapaDerivada, cerradosConPendientes } from '../estado.mjs';
 import { NOMBRE_ETAPA } from '../etapas.mjs';
 import { lineaStack } from '../stack.mjs';
 import { reposDebajo, textoArranque } from '../arranque.mjs';
+import { higienePlugins } from '../higiene.mjs';
 
 export { rutaCli };
 
@@ -112,6 +113,17 @@ function pluginsFaltantes(home, env) {
   return `Faltan plugins requeridos. Pedile al usuario que corra:\n${lineas.join('\n')}`;
 }
 
+/** PLG-CTX: un plugin habilitado que repite skills de este (ciclo-rq…). Sólo duplicados: no lee transcripciones. */
+function avisoDuplicados(cwd, home, env) {
+  try {
+    const dup = higienePlugins({ cwd, env, home, requeridos: PLUGINS_REQUERIDOS, soloDuplicados: true })?.candidatos ?? [];
+    if (!dup.length) return null;
+    return `Plugins que repiten skills de este: ${dup.map((c) => `${c.id} (${c.duplicadas.join(', ')})`).join('; ')}. Usá siempre las de lineamientos-dev-claude-bacg: (por ejemplo lineamientos-dev-claude-bacg:ciclo-rq). Proponele al usuario apagarlos en esta carpeta con /bacg-alta.`;
+  } catch {
+    return null;
+  }
+}
+
 function version(archivo) {
   const t = leer(archivo);
   if (t === null) return null;
@@ -169,6 +181,8 @@ export async function handler(
     } catch {
       // el arranque sólo orienta: si falla, queda la lista de repos
     }
+    const duplicados = avisoDuplicados(cwd, home, env);
+    if (duplicados) lineas.push(duplicados);
     return contexto('SessionStart', lineas.join('\n\n'));
   }
 
@@ -229,6 +243,8 @@ export async function handler(
 
   const faltan = pluginsFaltantes(home, env);
   if (faltan) partes.push(faltan);
+  const duplicados = avisoDuplicados(cwd, home, env);
+  if (duplicados) partes.push(duplicados);
   const aviso = avisoVersion(dirLin, pluginRoot);
   if (aviso) partes.push(aviso);
 

@@ -122,6 +122,17 @@ Cómo se invoca lo que no es una skill con `plugin:skill`:
 - `claude-security`: Skill "claude-security:claude-security".
 - `claude-md-management`: Skill "claude-md-management:claude-md-improver" o `/revise-claude-md`, sólo si el RQ dejó algo que valga subir a CLAUDE.md.
 
+### 2.3 Leer sin llenar el contexto
+
+En las sesiones medidas, la mayor parte de lo que entra al contexto es código y diffs volcados enteros por Bash. Cada lectura queda en la conversación hasta compactarla, así que:
+- **Código:** ubicá el tramo con Grep (o `search_graph` si está codebase-memory) y leelo con Read y `offset`/`limit`. Nada de `cat` ni `sed -n` de archivos enteros o de cientos de líneas por Bash. No releas lo que ya leíste o editaste en la sesión.
+- **Contenedores:** el código de los addons está en el repo local: leelo ahí, no con `docker exec … cat`. Para el core de Odoo u otro código que sólo está en el contenedor, primero `docker exec … grep -n`, después el tramo (≤ 80 líneas).
+- **Diffs:** `git diff --stat` primero y después `git diff -- <archivo>` de lo que importa. El diff entero del RQ lo lee el subagente de la revisión (sección 5), no la sesión principal.
+- **Logs:** `docker logs --tail 200` o `--since 10m`, y `grep -n -iE "error|traceback|fail"` antes que el log completo. `gh run view --log-failed` en lugar de `--log`; `gh … --json <campos>` con lo justo.
+- **Barridos amplios** (muchos archivos para responder una pregunta): subagente `Explore`, que vuelve con la conclusión y no con los archivos.
+
+Las salidas largas de logs, Docker, `gh` y tests llegan compactadas (errores con contexto, principio y final) con la ruta del original en `~/.claude/bacg-dev/salidas/`: si falta algo, leé esa ruta con Read o Grep en lugar de volver a correr el comando.
+
 ## 3. ARQ: el "deber ser" antes de diseñar
 
 Amerita si el cambio toca contratos (API, RPC, edge functions, formatos entre repos), datos (esquema, fuente de verdad, migraciones duraderas), seguridad (RLS, roles, auth, secretos, datos personales), despliegue, suma una plataforma o integración, o se estima en más de ~10 archivos o más de un repo. Si amerita, la clasificación es Arquitectónico; si no, anotá "ARQ: no aplica — motivo" y seguí.
