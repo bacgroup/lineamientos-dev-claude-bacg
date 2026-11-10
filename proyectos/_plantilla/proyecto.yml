@@ -65,10 +65,12 @@ skills_requeridas:
 
 # Pasos de publicación: cada uno espera a los de su despues_de (sin la clave, a todos los anteriores). Los manuales no
 # bloquean el cierre: quedan pendientes del usuario.
+# Con rama de DEV, un paso dev:<texto> hace que PROD espere la verificación en DEV (se registra con
+# rq.mjs paso hecho dev:<texto> "<evidencia>"); un manual:<texto> nunca frena a otro paso.
 circuito_prod:
-  - paso: "push:mi-addons"      # push:<repo> | sql:<base> | merge-prs-sync:<repo> | sync-lineamientos | manual:<texto>
+  - paso: "dev:verificado"      # cambio desplegado y probado en DEV antes de PROD
+  - paso: "push:mi-addons"      # push:<repo> | sql:<base> | merge-prs-sync:<repo> | sync-lineamientos | manual:<texto> | dev:<texto>
   - paso: "push:mi-docker"
-  - paso: "manual:verificar-en-dev-y-promover-18.0"
 
 ui:
   patrones: ["**/static/src/**", "**/views/**/*.xml", "**/*.scss"]

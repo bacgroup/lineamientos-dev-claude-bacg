@@ -1157,6 +1157,7 @@ function desplegar(repo, elegido, args, env, io) {
         ? `gh pr list -R ${cuenta}/${sede} --head ${rama}; gh pr merge <n> --merge -R ${cuenta}/${sede}`
         : `mergear el PR ${rama} de ${sede}`;
     } else if (esManual(p)) como = 'manual: lo hace el usuario; no bloquea el cierre';
+    else if (/^dev:/i.test(p)) como = `en DEV, antes de PROD (los que siguen lo esperan): con el cambio desplegado y probado en DEV, $RQ paso hecho ${p} "<qué se probó y dónde>"`;
     l.push(`${n}. [${hecho ? 'x' : ' '}] ${p}: ${como}${falta ? ` (antes: ${falta})` : ''}`);
   }
   if (n === 0) l.push('El circuito no tiene pasos para este RQ.');

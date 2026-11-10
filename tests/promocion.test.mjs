@@ -114,3 +114,22 @@ test('compuerta de Bash: frena push y PR a PROD desde la rama del RQ; deja la pr
   assert.doesNotMatch(ev('git push origin HEAD:18.0', { textosUsuario: ['a PROD', 'hotfix directo'] }).motivo ?? '', /origin\/18\.0-dev/);
   assert.equal(ev('gh pr create --fill', { ...defecto, textosUsuario: ['a PROD', 'hotfix directo'] }).decision, 'allow');
 });
+
+test('circuito con dev:verificado: la promoción a PROD espera la verificación en DEV (no es manual)', () => {
+  const { raiz, dirLin, ev } = montar();
+  fs.writeFileSync(
+    path.join(dirLin, 'proyectos', 'erp', 'proyecto.yml'),
+    'id: erp\nramas_prod: ["18.0"]\nramas_solo_pr: ["18.0-dev"]\nrepos:\n  - { nombre: erp-app, rol: padre, push_prod: true }\ncircuito_prod:\n  - { paso: "dev:verificado" }\n  - { paso: "push:erp-app" }\n',
+  );
+  const skills = ['superpowers:brainstorming', 'superpowers:test-driven-development', 'superpowers:verification-before-completion'].map((skill) => ({ skill, etapa: 2, fecha: '2026-11-10T12:00:00Z' }));
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'spec.md'), '# R-1\n## Diseño\nx\n## Tareas\n- a\n');
+  const base = { codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', etapa: 5, autonomia: null, saltos: [],
+    aprobaciones: [{ etapa: 1, frase: 'ok', fecha: '2026-11-10T12:00:00Z' }, { etapa: 5, frase: 'a PROD', fecha: '2026-11-10T12:00:00Z' }],
+    tests: { ok: true, arbol: 'x' }, revision: { ok: true }, skills };
+  guardarEstado(raiz, { ...base, circuito: [] });
+  const sin = ev('git push origin origin/18.0-dev:18.0');
+  assert.equal(sin.decision, 'deny');
+  assert.match(sin.motivo, /falta el paso dev:verificado antes de push:erp-app/);
+  guardarEstado(raiz, { ...base, circuito: [{ paso: 'dev:verificado', fecha: '2026-11-10T13:00:00Z', evidencia: 'probado en dev' }] });
+  assert.equal(ev('git push origin origin/18.0-dev:18.0').decision, 'allow');
+});

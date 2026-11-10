@@ -46,7 +46,7 @@ test('_plantilla/proyecto.yml parsea y tiene las claves del contrato', () => {
   assert.ok(!('lovable' in py), 'Lovable no es parte de la plantilla BACG');
   assert.ok(Array.isArray(py.circuito_prod) && py.circuito_prod[0].paso);
   for (const { paso } of py.circuito_prod) {
-    assert.match(paso, /^(sql|push|merge-prs-sync|manual):.+|^sync-lineamientos$/, `paso inválido en circuito_prod: ${paso}`);
+    assert.match(paso, /^(sql|push|merge-prs-sync|manual|dev):.+|^sync-lineamientos$/, `paso inválido en circuito_prod: ${paso}`);
   }
   assert.ok(Array.isArray(py.ui.patrones) && py.ui.canon);
   assert.ok(Array.isArray(py.sensible.rutas));

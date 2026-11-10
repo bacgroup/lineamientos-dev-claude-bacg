@@ -497,9 +497,11 @@ test('gh pr merge con destino explícito desde un directorio no registrado -> de
 
 test('PLG-DFF pedido 5: gh pr merge -R a un repo que no es de ningún proyecto propio, desde un directorio ajeno -> allow', () => {
   const suelto = crearRepoTemporal({});
+  // Repos de una organización que ningún proyecto de esta PC registra (ni la copia de lineamientos ni los ajustes del
+  // home: en el plugin hermano, que deriva de este, los de Puna sí son propios).
   for (const cmd of [
-    'gh pr merge 58 --merge -R nkick25/espaciopuna-escobar',
-    'gh pr merge https://github.com/nkick25/espaciopuna-caballito/pull/39 --merge',
+    'gh pr merge 58 --merge -R otra-org-xyz/sede-ajena-a',
+    'gh pr merge https://github.com/otra-org-xyz/sede-ajena-b/pull/39 --merge',
   ]) {
     assert.deepEqual(evaluar(cmd, suelto), { decision: 'allow', critica: false }, cmd);
   }

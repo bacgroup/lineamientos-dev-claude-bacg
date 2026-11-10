@@ -85,6 +85,7 @@ El circuito de PROD (`circuito_prod`) se adapta al cambio:
 - `rq.mjs desplegar` arma el plan completo (con los bloques SQL del handoff de base si hay migraciones). Con el OK de PROD, el agente lo ejecuta de punta a punta.
 - Lo hecho por fuera (un merge desde la web, una migración ya aplicada) se registra con su evidencia, y un push o un PR ya mergeado se detectan solos.
 - Los pasos manuales (publicar en Lovable) quedan como pendientes del usuario y no bloquean el cierre.
+- Un paso `dev:<texto>` (por ejemplo `dev:verificado`) es la verificación en DEV: a diferencia de los manuales, los pasos que siguen lo esperan, así que la promoción a PROD no pasa hasta registrarlo con su evidencia.
 
 ## Saltos de emergencia
 
