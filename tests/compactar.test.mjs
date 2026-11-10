@@ -3,14 +3,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compactarTexto, compactarJson, compactar, esLineaCritica } from '../plugin/scripts/lib/compactar.mjs';
 
-const relleno = (n, f = (i) => `2026-11-10 12:00:${String(i % 60).padStart(2, '0')} INFO odoo.modules.loading: módulo ${i} cargado`) =>
+const relleno = (n, f = (i) => `2026-11-10 12:00:${String(i % 60).padStart(2, '0')} INFO app.carga: módulo ${i} cargado`) =>
   Array.from({ length: n }, (_, i) => f(i));
 
 test('esLineaCritica: errores, fallas y tracebacks; no líneas comunes', () => {
-  for (const l of ['ERROR powerfy odoo.addons.x: FAIL: test_a', 'Traceback (most recent call last):', 'AssertionError: 1 != 2', '✖ falla el spec', 'fatal: not a git repository', 'Error: boom']) {
+  for (const l of ['ERROR app.x: FAIL: test_a', 'Traceback (most recent call last):', 'AssertionError: 1 != 2', '✖ falla el spec', 'fatal: not a git repository', 'Error: boom']) {
     assert.ok(esLineaCritica(l), l);
   }
-  for (const l of ['INFO odoo: cargado', 'Ran 12 tests in 3.1s', 'todo bien']) assert.ok(!esLineaCritica(l), l);
+  for (const l of ['INFO app: cargado', 'Ran 12 tests in 3.1s', 'todo bien']) assert.ok(!esLineaCritica(l), l);
 });
 
 test('compactarTexto: una salida corta queda igual', () => {
@@ -21,7 +21,7 @@ test('compactarTexto: una salida corta queda igual', () => {
 test('compactarTexto: un error en el medio de 2000 líneas sobrevive con su contexto, y se conservan principio y final', () => {
   const l = relleno(2000);
   l[1000] = 'Traceback (most recent call last):';
-  l[1001] = '  File "/mnt/extra-addons/pf/tests/test_x.py", line 88, in test_totales';
+  l[1001] = '  File "/srv/app/tests/test_x.py", line 88, in test_totales';
   l[1002] = 'AssertionError: 15180.5 != 15230.5';
   const r = compactarTexto(l.join('\n'));
   for (const x of [l[0], l[1999], l[1000], l[1001], l[1002], l[999]]) assert.ok(r.texto.includes(x), x);
@@ -32,7 +32,7 @@ test('compactarTexto: un error en el medio de 2000 líneas sobrevive con su cont
 test('compactarTexto: un error entre líneas variadas (sin repetir) sobrevive y se omite el resto', () => {
   const palabras = ['alfa', 'beta', 'gama', 'delta', 'épsilon', 'zeta'];
   const l = Array.from({ length: 1500 }, (_, i) => `${palabras[i % 6]} ${palabras[(i * 7) % 6]} paso ${i}: ${'x'.repeat(i % 13)}`);
-  l[700] = 'FAIL: test_totales_por_vendedor (pf.tests.TestGerente)';
+  l[700] = 'FAIL: test_totales_por_vendedor (app.tests.TestTotales)';
   const r = compactarTexto(l.join('\n'));
   assert.ok(r.texto.includes(l[700]));
   assert.ok(r.texto.includes(l[699]) && r.texto.includes(l[701]));
@@ -94,7 +94,7 @@ test('compactar: elige JSON o texto según el contenido', () => {
   assert.equal(compactar(relleno(500).join('\n')).tipo, 'texto');
 });
 
-test('resumenFalla: el FAIL de Odoo en el medio sobrevive aunque después venga un teardown largo, y guarda la salida completa', async () => {
+test('resumenFalla: el FAIL de un test en el medio sobrevive aunque después venga un teardown largo, y guarda la salida completa', async () => {
   const { resumenFalla } = await import('../plugin/scripts/lib/cli.mjs');
   const fs = await import('node:fs');
   const os = await import('node:os');
@@ -102,7 +102,7 @@ test('resumenFalla: el FAIL de Odoo en el medio sobrevive aunque después venga 
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home falla-'));
   const l = [
     ...relleno(400),
-    'FAIL: test_totales_por_vendedor (odoo.addons.pf.tests.TestGerente)',
+    'FAIL: test_totales_por_vendedor (app.tests.TestTotales)',
     'AssertionError: 15180.5 != 15230.5',
     ...relleno(600, (i) => `INFO teardown ${i} ${'·'.repeat(i % 11)}`),
   ];

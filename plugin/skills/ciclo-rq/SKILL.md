@@ -126,7 +126,7 @@ Cómo se invoca lo que no es una skill con `plugin:skill`:
 
 En las sesiones medidas, la mayor parte de lo que entra al contexto es código y diffs volcados enteros por Bash. Cada lectura queda en la conversación hasta compactarla, así que:
 - **Código:** ubicá el tramo con Grep (o `search_graph` si está codebase-memory) y leelo con Read y `offset`/`limit`. Nada de `cat` ni `sed -n` de archivos enteros o de cientos de líneas por Bash. No releas lo que ya leíste o editaste en la sesión.
-- **Contenedores:** el código de los addons está en el repo local: leelo ahí, no con `docker exec … cat`. Para el core de Odoo u otro código que sólo está en el contenedor, primero `docker exec … grep -n`, después el tramo (≤ 80 líneas).
+- **Contenedores:** el código del proyecto está en el repo local: leelo ahí, no con `docker exec … cat`. Para código que sólo está dentro del contenedor (el de la plataforma base), primero `docker exec … grep -n`, después el tramo (≤ 80 líneas).
 - **Diffs:** `git diff --stat` primero y después `git diff -- <archivo>` de lo que importa. El diff entero del RQ lo lee el subagente de la revisión (sección 5), no la sesión principal.
 - **Logs:** `docker logs --tail 200` o `--since 10m`, y `grep -n -iE "error|traceback|fail"` antes que el log completo. `gh run view --log-failed` en lugar de `--log`; `gh … --json <campos>` con lo justo.
 - **Barridos amplios** (muchos archivos para responder una pregunta): subagente `Explore`, que vuelve con la conclusión y no con los archivos.

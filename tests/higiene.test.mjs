@@ -121,11 +121,11 @@ test('arranque fuera de un repo: aclara que rige este plugin y que el hermano no
   const m = montar();
   // Un repo registrado debajo de la carpeta, para que el arranque hable.
   const lin = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-hig-'));
-  fs.mkdirSync(path.join(lin, 'proyectos', 'pf'), { recursive: true });
-  fs.writeFileSync(path.join(lin, 'proyectos', 'pf', 'proyecto.yml'), 'id: pf\nrepos:\n  - { nombre: pf-app }\n');
-  const repo = path.join(m.cwd, 'pf-app');
+  fs.mkdirSync(path.join(lin, 'proyectos', 'proy'), { recursive: true });
+  fs.writeFileSync(path.join(lin, 'proyectos', 'proy', 'proyecto.yml'), 'id: proy\nrepos:\n  - { nombre: proy-app }\n');
+  const repo = path.join(m.cwd, 'proy-app');
   fs.mkdirSync(repo);
-  fs.writeFileSync(path.join(repo, '.bacg-lineamientos'), 'proyecto: pf\n');
+  fs.writeFileSync(path.join(repo, '.bacg-lineamientos'), 'proyecto: proy\n');
   const r = await sessionStart({ cwd: m.cwd }, { dirLin: lin, home: m.home, pluginRoot: null, env: {} });
   const texto = r?.hookSpecificOutput?.additionalContext ?? '';
   assert.match(texto, /Plugin hermano también habilitado: hermano@mk \(comparte ciclo-rq, diseno-frontend\)/);

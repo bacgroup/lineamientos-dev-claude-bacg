@@ -9,13 +9,13 @@ import { crearRepoTemporal, correrHook } from './helpers.mjs';
 
 const homeVacio = () => fs.mkdtempSync(path.join(os.tmpdir(), 'home ctx-'));
 const logLargo = (n = 3000, error = 1500) =>
-  Array.from({ length: n }, (_, i) => (i === error ? 'ERROR pf.tests: FAIL: test_totales' : `INFO paso ${i} ${'·'.repeat(i % 9)} listo`)).join('\n');
+  Array.from({ length: n }, (_, i) => (i === error ? 'ERROR app.tests: FAIL: test_totales' : `INFO paso ${i} ${'·'.repeat(i % 9)} listo`)).join('\n');
 
 test('comandoCompactable: logs, docker, gh y tests sí; lectura de código, diffs, búsquedas y rq.mjs no', () => {
   for (const c of [
-    'docker logs powerfy-local-odoo-1',
-    'cd /x && docker compose logs odoo',
-    'node qa/odoo-test.mjs addons/pf',
+    'docker logs app-local-1',
+    'cd /x && docker compose logs app',
+    'node qa/correr-tests.mjs modulos/x',
     'gh api repos/o/r/commits',
     'npm test',
     'npx playwright test',
@@ -26,7 +26,7 @@ test('comandoCompactable: logs, docker, gh y tests sí; lectura de código, diff
     'git diff HEAD~1',
     'git show abc',
     'git log -p',
-    'git -C ../powerfy-addons diff 18.0-dev',
+    'git -C ../otro-repo diff develop',
     'git --literal-pathspecs -c core.pager=cat show HEAD',
     'grep -rn foo .',
     'docker logs x | tail -50',
@@ -46,12 +46,12 @@ test('compactarSalida: un log largo se compacta, conserva el error y guarda el o
   const home = homeVacio();
   const stdout = logLargo();
   const r = compactarSalida(
-    { tool: 'Bash', input: { command: 'docker logs powerfy-local-odoo-1' }, resp: { stdout, stderr: '', interrupted: false }, toolUseId: 'toolu_1' },
+    { tool: 'Bash', input: { command: 'docker logs app-local-1' }, resp: { stdout, stderr: '', interrupted: false }, toolUseId: 'toolu_1' },
     { home },
   );
   assert.ok(r);
   assert.equal(r.interrupted, false);
-  assert.ok(r.stdout.includes('ERROR pf.tests: FAIL: test_totales'));
+  assert.ok(r.stdout.includes('ERROR app.tests: FAIL: test_totales'));
   assert.ok(r.stdout.length < stdout.length / 3);
   const m = r.stdout.match(/Original completo: (.+?) —/);
   assert.ok(m, r.stdout.slice(-300));
@@ -102,14 +102,14 @@ test('hook PostToolUse: en un repo del plugin devuelve updatedToolOutput con la 
     'post-tool',
     {
       hook_event_name: 'PostToolUse', cwd: repo, session_id: 's', transcript_path: '', tool_use_id: 'toolu_x',
-      tool_name: 'Bash', tool_input: { command: 'docker logs odoo' }, tool_response: { stdout: logLargo(), stderr: '', interrupted: false },
+      tool_name: 'Bash', tool_input: { command: 'docker logs app' }, tool_response: { stdout: logLargo(), stderr: '', interrupted: false },
     },
     { HOME: home, USERPROFILE: home },
   );
   assert.equal(r.code, 0, r.stderr);
   const out = JSON.parse(r.stdout);
   assert.equal(out.hookSpecificOutput.hookEventName, 'PostToolUse');
-  assert.ok(out.hookSpecificOutput.updatedToolOutput.stdout.includes('ERROR pf.tests: FAIL: test_totales'));
+  assert.ok(out.hookSpecificOutput.updatedToolOutput.stdout.includes('ERROR app.tests: FAIL: test_totales'));
   assert.match(out.hookSpecificOutput.updatedToolOutput.stdout, /salida compactada/);
 });
 
@@ -119,7 +119,7 @@ test('hook PostToolUse: fuera de un repo del plugin no responde nada', () => {
     'post-tool',
     {
       hook_event_name: 'PostToolUse', cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'ajena-')), session_id: 's', transcript_path: '',
-      tool_name: 'Bash', tool_input: { command: 'docker logs odoo' }, tool_response: { stdout: logLargo(), stderr: '' },
+      tool_name: 'Bash', tool_input: { command: 'docker logs app' }, tool_response: { stdout: logLargo(), stderr: '' },
     },
     { HOME: home, USERPROFILE: home },
   );

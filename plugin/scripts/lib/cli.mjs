@@ -118,7 +118,7 @@ export function cola(salida, n = 60) {
 
 /**
  * PLG-CTX: lo que se muestra cuando un test o el E2E falla. Corta, igual que `cola`. Larga: las últimas `n` líneas
- * más cada línea de error de antes con su contexto (el FAIL de Odoo suele salir en el medio, seguido del teardown),
+ * más cada línea de error de antes con su contexto (el FAIL de un test suele salir en el medio, seguido del teardown),
  * y la salida completa guardada en ~/.claude/bacg-dev/salidas/ con la ruta al final.
  */
 export function resumenFalla(salida, n = 60, { home = os.homedir(), id = 'falla' } = {}) {
