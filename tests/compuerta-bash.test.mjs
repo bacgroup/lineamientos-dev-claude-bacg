@@ -495,6 +495,39 @@ test('gh pr merge con destino explícito desde un directorio no registrado -> de
   assert.deepEqual(evaluar('gh pr merge 12', suelto), { decision: 'allow', critica: false });
 });
 
+test('PLG-DFF pedido 5: gh pr merge -R a un repo que no es de ningún proyecto propio, desde un directorio ajeno -> allow', () => {
+  const suelto = crearRepoTemporal({});
+  for (const cmd of [
+    'gh pr merge 58 --merge -R nkick25/espaciopuna-escobar',
+    'gh pr merge https://github.com/nkick25/espaciopuna-caballito/pull/39 --merge',
+  ]) {
+    assert.deepEqual(evaluar(cmd, suelto), { decision: 'allow', critica: false }, cmd);
+  }
+});
+
+test('PLG-DFF pedido 5: con cuenta_github, el mismo nombre de repo en otra cuenta no es propio', () => {
+  const dirLin = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-cuenta-'));
+  fs.mkdirSync(path.join(dirLin, 'proyectos', 'cg'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dirLin, 'proyectos', 'cg', 'proyecto.yml'),
+    'id: cg\ncuenta_github: miorg\nrepos:\n  - { nombre: app-cg, rol: padre }\n',
+  );
+  const suelto = crearRepoTemporal({});
+  const ev = (cmd) => evaluarBash({ comando: cmd, cwd: suelto, ctx: { textosUsuario: [] }, dirLin });
+  assert.equal(ev('gh pr merge 1 -R otraorg/app-cg').decision, 'allow');
+  assert.equal(ev('gh pr merge 1 -R MiOrg/app-cg').decision, 'deny');
+});
+
+test('PLG-DFF pedido 5: un repo con .bacg-dev/ debajo de la carpeta cuenta como propio aunque no esté en el registro', () => {
+  const repo = crearRepoTemporal({
+    nombre: 'app-local',
+    archivos: { '.bacg-dev/proyecto.yml': 'id: loc\nrepos:\n  - { nombre: app-local, rol: padre }\n' },
+  });
+  const r = evaluar('gh pr merge 3 --repo nkick25/app-local', path.dirname(repo));
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /fuera de un repo registrado/);
+});
+
 test('gh pr merge con URL desde un repo registrado resuelve el destino en el proyecto', () => {
   const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'otro-nombre' });
   activar(raiz, base({ ...verde }));

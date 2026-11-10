@@ -48,7 +48,7 @@ Un RQ o BUG se clasifica además por tamaño. El agente propone y el usuario con
 | 5 | PROD y entrega | OK del usuario para PROD y los pasos del circuito que corresponden |
 | 6 | Cierre | Backlog en Hecho, changelog, log y pendientes anotados |
 
-Antes del primer commit de código el agente pregunta cómo ejecutar el plan: en línea, en la misma sesión, o con subagentes (uno por tarea, con una sola revisión al final). Exploración va siempre en línea.
+Antes del primer commit de código el agente pregunta cómo ejecutar el plan: en línea, en la misma sesión, o con subagentes (uno por tarea, con una sola revisión al final). Exploración y Acotado van en línea sin preguntar (en Acotado, el usuario puede pedir subagentes). En Acotado, si `spec.md` ya trae `## Diseño` y `## Tareas` cuando el usuario confirma la clasificación, esa misma frase aprueba el diseño; el OK de PROD sigue siendo aparte.
 
 Si el proyecto usa Odoo (lo declara en `proyecto.yml` o el repo tiene addons), se suman las skills oficiales de Odoo al editar y al revisar. Si no, el ciclo no nombra Odoo.
 

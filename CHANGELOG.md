@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.1.0: convivencia con dev-fullflow y menos frases en Acotado (2026-11-10)
+
+Incorpora los seis pedidos del handoff de dev-fullflow (`nkick25/dev-fullflow`, `docs/handoff/mantenimiento-desde-bacg.md`), el plugin derivado de la 4.0.2 que convive en la misma PC. Con esto, los parches propios de dev-fullflow para los pedidos 1, 2, 3, 4 y 6 dejan de hacer falta en su próxima derivación.
+- Seguridad: con la configuración en `.bacg-dev/` del repo, las compuertas de MCP reconocen el `project_id` de PROD (SQL de escritura, `apply_migration`, `deploy_edge_function`, deploy de Lovable) también desde una sesión abierta fuera del repo: se buscan los repos con `.bacg-dev/` debajo de la carpeta de trabajo (dos niveles) y en `proyectos.<id>.raiz` de `~/.claude/bacg-dev.json`. Antes pasaban sin RQ. Las ramas de Supabase sin `project_id` sólo miran lo de debajo de la carpeta (pedido 3).
+- La compuerta de Lovable (`deploy_project`, `respond_to_approval`) actúa sólo en proyectos reconocidos que declaran `lovable`; ya no frena el deploy en un repo ajeno (pedido 1).
+- `gh pr merge -R <owner>/<repo>` desde una carpeta que el plugin no reconoce se niega sólo si el destino es un repo de un proyecto propio (por nombre en `repos` y, si el proyecto declara `cuenta_github`, por dueño); si no es propio, la compuerta no actúa (pedido 5).
+- Aprobaciones en lista: una frase repetida en oraciones de un mismo mensaje ("1. OK / 2. OK / 3. OK") vale una vez por oración (pedido 4).
+- Acotado: si `spec.md` ya trae `## Diseño` y `## Tareas`, la frase con que el usuario confirma la clasificación aprueba también el diseño (aprobación con `via: clasificacion`), y la ejecución va en línea por defecto como en Exploración (subagentes, si el usuario los pide). El OK de PROD sigue siendo aparte; Arquitectónico no cambia (pedido 6).
+- Tests: `multi-repo` (PLG-NUBE) ya no falla en Windows por el separador de rutas (pedido 2). Nuevos: `lovable-ajeno`, `proyectos-locales`, `frases-repetidas`, `acotado-flexible` y los de merge con `-R` en `compuerta-bash`.
+
 ## 4.0.2: autonomía de punta a punta sin paradas ni registros perdidos (2026-11-09)
 
 Arreglos de lo que frenó la prueba de desarrollo autónomo del 2026-11-09 (RQ PF-UI-REP-COMPRADOR). Las frases de aprobaciones, clasificación, ejecución y saltos siguen siendo texto literal del usuario, y cada vez que lo escribió vale para un solo registro.

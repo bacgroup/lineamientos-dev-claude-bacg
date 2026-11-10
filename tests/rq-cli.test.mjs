@@ -971,7 +971,7 @@ test('ejecucion: guarda modo, frase y fecha; acepta los nombres de las skills; v
   assert.equal(cargarEstado(raiz, 'R-1').ejecucion.modo, 'subagentes', 'los intentos inválidos no pisan');
 });
 
-test('ejecucion: el primer commit de código en Acotado se niega sin ejecución; en Exploración no se pide', async () => {
+test('ejecucion: el primer commit de código en Acotado no pide la ejecución; en Exploración tampoco', async () => {
   const raiz = repoDemo({ 'src/a.ts': 'x' });
   await abrirR1(raiz);
   listoParaDesarrollo(raiz);
@@ -981,10 +981,7 @@ test('ejecucion: el primer commit de código en Acotado se niega sin ejecución;
   fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'y');
   execFileSync('git', ['add', 'src/a.ts'], { cwd: raiz });
   let r = await correr(raiz, ['registrar-tests']);
-  assert.equal(r.code, 1);
-  assert.ok(r.err.includes('Antes del primer commit, preguntale al usuario cómo ejecutar el plan (executing-plans en línea o subagent-driven-development) y registralo: $RQ ejecucion inline|subagentes "<su frase>".'), r.err);
-  assert.equal((await correr(raiz, ['ejecucion', 'inline', 'en línea'])).code, 0);
-  assert.equal((await correr(raiz, ['registrar-tests'])).code, 0);
+  assert.equal(r.code, 0, r.err);
 
   const sp = repoDemo({ 'src/a.ts': 'x' });
   await correr(sp, ['abrir', 'S-1', '--tipo', 'rq', '--clasificacion', 'spike']);

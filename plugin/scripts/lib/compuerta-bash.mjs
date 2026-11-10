@@ -35,7 +35,8 @@ import { dirLineamientos, buscarRepo, cargarProyecto, nombreRepo } from './confi
 import { relativaAlRepo, tipoArchivo } from './rutas.mjs';
 import { rqsActivos, cargarEstado, etapaCumplida, saltoValido } from './estado.mjs';
 import { cli, comandosTests, comandoE2e, PISTA_SIN_TESTS } from './cli.mjs';
-import { norm } from './contexto.mjs';
+import { norm, proyectosRegistrados } from './contexto.mjs';
+import { proyectosLocales } from './proyectos-locales.mjs';
 import { rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad, migracionesEnSync } from './circuito.mjs';
 import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA } from './requisitos.mjs';
@@ -1034,12 +1035,39 @@ export function publicaEnProd(op, raiz, proyecto, entrada, ctx) {
   return destinos.some((d) => ramas.includes(d));
 }
 
+/**
+ * ¿`owner/repo` (o `repo`, o la URL del PR) es de un proyecto que este plugin reconoce? Mira los proyectos del
+ * registro y los que tienen la configuración en su repo debajo de `cwd` o en ~/.claude/bacg-dev.json: el nombre tiene
+ * que estar en `repos` y, si el proyecto declara `cuenta_github` y el destino trae dueño, el dueño tiene que coincidir.
+ */
+function repoGhPropio(repoGh, dirLin, cwd) {
+  const partes = String(repoGh)
+    .replace(/^https?:\/\/github\.com\//i, '')
+    .replace(/\/pull\/.*$/i, '')
+    .replace(/\.git$/i, '')
+    .split('/')
+    .filter(Boolean);
+  const nombre = (partes.pop() ?? '').toLowerCase();
+  const dueno = (partes.pop() ?? '').toLowerCase();
+  if (!nombre) return false;
+  return proyectosRegistrados(dirLin, { locales: proyectosLocales({ cwd }) }).some(({ proyecto }) => {
+    const cuenta = typeof proyecto?.cuenta_github === 'string' ? proyecto.cuenta_github.trim().toLowerCase() : '';
+    if (cuenta && dueno && cuenta !== dueno) return false;
+    const repos = Array.isArray(proyecto?.repos) ? proyecto.repos : [];
+    return repos.some((r) => typeof r?.nombre === 'string' && r.nombre.toLowerCase() === nombre);
+  });
+}
+
 // Repo destino de un push/merge: { raiz, proyecto?, error?, fuera?, nombre, prod }, o null si no hay .bacg-lineamientos.
 function destino(op, dirLin, ctx) {
   const repo = buscarRepo(op.dir);
   if (!repo) {
-    // Merge explícito a otro repo desde un directorio sin .bacg-lineamientos: no se puede verificar el RQ.
-    if (op.op === 'merge-pr' && op.repoGh) return { fuera: true, nombre: String(op.repoGh), prod: true };
+    // Merge explícito a otro repo desde un directorio sin .bacg-lineamientos: si el destino es de un proyecto
+    // propio, no se puede verificar el RQ y se niega; si tampoco es propio, no es asunto de este plugin
+    // (PLG-DFF, pedido 5: otro plugin u organización mergea los PR de sus repos con --repo).
+    if (op.op === 'merge-pr' && op.repoGh && repoGhPropio(op.repoGh, dirLin, op.dir)) {
+      return { fuera: true, nombre: String(op.repoGh), prod: true };
+    }
     return null;
   }
   const nombreGh = op.repoGh ? String(op.repoGh).split('/').pop().replace(/\.git$/i, '') : null;

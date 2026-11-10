@@ -110,7 +110,7 @@ test('PLG-NUBE: {raiz} y {repo:<nombre>} se resuelven en el comando de tests', a
   const { conRutas } = await import('../plugin/scripts/lib/cli.mjs');
   const { a, b } = montar();
   const res = (n) => (n === 'pf-bi' ? b : null);
-  assert.equal(conRutas('node "{repo:pf-bi}/qa/t.mjs" --en "{raiz}"', a, res), `node "${b}/qa/t.mjs" --en "${a}"`);
+  assert.equal(conRutas('node "{repo:pf-bi}/qa/t.mjs" --en "{raiz}"', a, res), `node "${b.split(path.sep).join('/')}/qa/t.mjs" --en "${a.split(path.sep).join('/')}"`);
   assert.equal(conRutas('node x.mjs', a, res), 'node x.mjs');
   assert.throws(() => conRutas('node "{repo:pf-docker}/qa/t.mjs"', a, res), /No encuentro el repo pf-docker/);
   assert.equal(conRutas('{raiz}', String.raw`C:\Mi Carpeta\repo`), 'C:/Mi Carpeta/repo');
