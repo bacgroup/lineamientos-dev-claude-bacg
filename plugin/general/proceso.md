@@ -92,6 +92,8 @@ Si el usuario dice con sus palabras "salteá la compuerta X porque Y" (X: edici�
 
 No hay relevo. Al retomar, el arranque dice dónde quedó el RQ y reinyecta el encuadre (cabecera de `docs/rq/<código>/spec.md`); `rq.mjs entregar` dice qué falta (tests, E2E, revisión, PR, CI y pasos de PROD). El cierre deja el changelog y una línea en `docs/log/rq.jsonl`. Los RQ abiertos con la versión anterior del ciclo (etapas 0 a 7) se convierten solos a la numeración nueva.
 
+Contexto: en los repos del plugin, una salida de Bash o PowerShell de más de 4.000 caracteres que no es lectura de código, diff, búsqueda ni `rq.mjs` (logs, Docker, `gh`, tests) llega compactada: errores con su contexto, principio y final, JSON sin campos de ruido. El original queda en `~/.claude/bacg-dev/salidas/` (7 días) y la salida dice la ruta para releerlo con Read o grep. Los tests y el E2E que fallan en `rq.mjs` muestran los errores aunque estén en el medio del log, más la ruta de la salida completa. Al compactar la conversación, el plugin pide conservar el estado de cada RQ abierto, las frases del usuario y los rojos. El compactador se apaga con `"compactar": false` en `~/.claude/bacg-dev.json` o `BACG_DEV_SIN_COMPACTAR=1`.
+
 Un RQ por conversación: después de cerrar y pushear, `/clear`. Pueden estar activos varios RQ en el mismo repo (`--rq` elige el RQ en curso); para repartir tareas de un RQ están los subagentes, que ven las aprobaciones y las skills registradas en el RQ.
 
 ## Una pasada por artefacto

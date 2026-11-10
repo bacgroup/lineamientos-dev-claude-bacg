@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.2.0: menos contexto gastado en salidas de comandos (2026-11-10)
+
+Lo útil de un proxy de compresión como Headroom, hecho dentro del plugin con hooks (Headroom no sirve en la app de escritorio: no respeta `ANTHROPIC_BASE_URL`).
+- Compactador de salidas (hook `PostToolUse`, `updatedToolOutput`): en los repos del plugin, una salida de Bash o PowerShell de más de 4.000 caracteres llega compactada. En texto: líneas repetidas colapsadas, errores con su contexto, principio y final; en JSON (`gh api`): sin campos de ruido y con listas y textos largos recortados. No toca lectura de código (`cat`, `sed`, `Get-Content`…), diffs (`git diff/show/log`, también con `git -C`), búsquedas (`grep`, `rg`…) ni `rq.mjs`. El original queda en `~/.claude/bacg-dev/salidas/` (7 días) y la salida dice la ruta. Sin poder guardar el original, o con menos de 25 % de ahorro, no compacta. Se apaga con `"compactar": false` en `~/.claude/bacg-dev.json` o `BACG_DEV_SIN_COMPACTAR=1`. Medido sobre 640 sesiones guardadas: donde actúa ahorra 71 % y no perdió ninguna de 75 líneas de error; es el 0,3 % de toda la salida de Bash, porque casi todo lo largo es lectura de código.
+- Tests y E2E que fallan en `rq.mjs`: además de la cola, cada línea de error de antes con su contexto (el FAIL de Odoo que sale en el medio, seguido del teardown, ya no se pierde), y la ruta de la salida completa.
+- Hook `PreCompact`: al compactar la conversación pide conservar el estado de cada RQ abierto (código, clasificación, etapa, aprobaciones registradas, tests y E2E, lo que falta), las frases del usuario sin registrar, los rojos y las rutas de salidas compactadas.
+- Nuevos: `lib/compactar.mjs`, `lib/hooks/compactador.mjs`, `lib/hooks/pre-compact.mjs` y sus tests.
+
 ## 4.1.0: convivencia con dev-fullflow y menos frases en Acotado (2026-11-10)
 
 Incorpora los seis pedidos del handoff de dev-fullflow (`nkick25/dev-fullflow`, `docs/handoff/mantenimiento-desde-bacg.md`), el plugin derivado de la 4.0.2 que convive en la misma PC. Con esto, los parches propios de dev-fullflow para los pedidos 1, 2, 3, 4 y 6 dejan de hacer falta en su próxima derivación.
