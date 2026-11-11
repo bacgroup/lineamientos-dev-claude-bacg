@@ -1148,6 +1148,29 @@ function pushSoloLibres(op, dest) {
 }
 
 /**
+ * Merge de un PR que sólo trae documentación o tests, a una rama que no es de PROD: no necesita RQ, igual que el push
+ * de sólo docs. Los archivos salen de `gh pr view --json files` (ctx.archivosPr los inyecta en los tests); si no se
+ * pueden leer, o el PR no trae ninguno, se verifica contra el RQ como siempre.
+ */
+function mergeSoloLibres(op, dest, ctx) {
+  if (op.op !== 'merge-pr' || dest.prod) return false;
+  let archivos;
+  if (typeof ctx?.archivosPr === 'function') archivos = ctx.archivosPr(op);
+  else {
+    try {
+      const args = ['pr', 'view', ...(op.pr ? [op.pr] : []), ...(op.repoGh ? ['-R', op.repoGh] : []), '--json', 'files', '-q', '.files[].path'];
+      archivos = execFileSync('gh', args, { cwd: dest.raiz, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/);
+    } catch {
+      return false;
+    }
+  }
+  const rels = (Array.isArray(archivos) ? archivos : []).map((a) => String(a).trim()).filter(Boolean);
+  // gh corta la lista en 100 archivos: con 100 o más no se sabe si hay más, se verifica contra el RQ.
+  if (rels.length === 0 || rels.length >= 100) return false;
+  return rels.every((rel) => tipoArchivo(rel, dest.proyecto) === 'libre');
+}
+
+/**
  * Archivos (separados por \0) que el push de la rama actual publica, o null si no se puede saber.
  * - Con upstream: lo que tiene HEAD y el upstream no (`@{u}...HEAD`).
  * - Sin upstream, con la rama destino ya en algún remoto (`git push origin HEAD:x` o una rama sin -u): contra esa rama.
@@ -1252,7 +1275,7 @@ function evaluarPublicacion(op, dest, ctx) {
   }
   if (dest.error) return deny(`${dest.error}: no puedo verificar la publicación de ${dest.nombre}.`);
   if (dest.sinDev && !saltoRamaActivo(dest.raiz, ctx)) return deny(dest.sinDev);
-  if (pushSoloLibres(op, dest)) return null;
+  if (pushSoloLibres(op, dest) || mergeSoloLibres(op, dest, ctx)) return null;
   const r = cargarRqs(dest.raiz, 'publicar', ctx);
   if (r.sinRq && !esPadre(dest.raiz, dest.proyecto)) return deny(`${r.deny.motivo} ${PISTA_PADRE}`);
   if (r.deny) return r.deny;
