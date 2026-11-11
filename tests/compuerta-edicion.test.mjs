@@ -97,7 +97,7 @@ test('etapa 1 no cumplida -> deny nombrando lo que falta', () => {
   assert.equal(r.decision, 'deny');
   assert.equal(
     r.motivo,
-    `Falta el diseño aprobado del RQ R-T1: docs/rq/R-T1/spec.md y la aprobación del usuario con ${cli()} aprobar 1 "<su frase>" (etapa 1, en toda clasificación).`,
+    `Falta el diseño aprobado del RQ R-T1: docs/rq/R-T1/spec.md y la aprobación del usuario con ${cli()} aprobar 1 "<su frase>" (etapa 1, en toda clasificación). Con autonomía de sesión registrada, ${cli()} autonomia aplicar (Exploración y Acotado con ## Diseño y ## Tareas); varios RQ con una frase del usuario: ${cli()} lote aprobar "<su frase>" <códigos…>.`,
   );
 });
 
@@ -113,7 +113,7 @@ test('aprobar 1 sin docs/rq/<código>/spec.md -> deny con el mensaje del diseño
     assert.equal(r.decision, 'deny', clasificacion);
     assert.equal(
       r.motivo,
-      `Falta el diseño aprobado del RQ R-T1: docs/rq/R-T1/spec.md y la aprobación del usuario con ${cli()} aprobar 1 "<su frase>" (etapa 1, en toda clasificación).`,
+      `Falta el diseño aprobado del RQ R-T1: docs/rq/R-T1/spec.md y la aprobación del usuario con ${cli()} aprobar 1 "<su frase>" (etapa 1, en toda clasificación). Con autonomía de sesión registrada, ${cli()} autonomia aplicar (Exploración y Acotado con ## Diseño y ## Tareas); varios RQ con una frase del usuario: ${cli()} lote aprobar "<su frase>" <códigos…>.`,
     );
   }
 });

@@ -1067,7 +1067,7 @@ test('ejecucion sin frase literal se niega; con la frase se permite', () => {
   // Una forma que la compuerta no sabe leer también se niega.
   const ilegible = evaluar('node -e "x" $RQ ejecucion inline', raiz, []);
   assert.equal(ilegible.decision, 'deny');
-  assert.match(ilegible.motivo, /aprobar, autonomia, saltar, clasificacion o ejecucion/);
+  assert.match(ilegible.motivo, /aprobar, autonomia, saltar, clasificacion, ejecucion o lote/);
 });
 
 test('red de frases: sólo mira el subcomando de rq.mjs; --clasificacion y los mensajes de commit no la disparan', () => {
@@ -1129,9 +1129,10 @@ test('red de frases: falla cerrada ante rq.mjs en una variable o sin subcomando 
   assert.deepEqual(evaluar('RQ=/ruta/rq.mjs && node "$RQ" clasificacion confirmar "si"', raiz, ['si']), { decision: 'allow', critica: false });
   // Sólo la asignación, sin ninguna de las palabras: no hay nada que validar.
   assert.deepEqual(evaluar('RQ=/ruta/rq.mjs', raiz, []), { decision: 'allow', critica: false });
-  // Asignación en el mismo comando y una de las palabras fuera de un subcomando: falla cerrada (sin la
-  // asignación, como lo indica SKILL.md, `abrir … --clasificacion` pasa; ver el test anterior).
-  assert.equal(evaluar('RQ=/ruta/rq.mjs; node "$RQ" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"', raiz, []).decision, 'deny');
+  // Asignación en el mismo comando: una opción `--clasificacion` no es un subcomando y pasa (4.3.0); una de las
+  // palabras suelta fuera de un subcomando sigue siendo falla cerrada.
+  assert.equal(evaluar('RQ=/ruta/rq.mjs; node "$RQ" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"', raiz, []).decision, 'allow');
+  assert.equal(evaluar('RQ=/ruta/rq.mjs; node "$RQ" abrir R-9 --tipo rq --clasificacion acotado --tarea "aprobar lote"', raiz, []).decision, 'deny');
 });
 
 // ---------- Publicar docs sin fricción: rama nueva sin upstream, switch -c antes del commit ----------

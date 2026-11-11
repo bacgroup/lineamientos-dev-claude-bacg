@@ -78,7 +78,7 @@ const MSG_PREVIO = (archivo) =>
   `git add && git commit en un comando sólo vale para docs y tests${archivo ? `, y ${archivo} no lo es` : ''}. Con código: ${cli()} commit "<mensaje>" <rutas>.`;
 const MSG_FRASE = (sub) =>
   `La frase de rq.mjs ${sub} tiene que ser texto literal del usuario (un "Dale" vale si fue el mensaje entero). Si el usuario no lo dijo, pedíselo.`;
-const SUBS_CON_FRASE = new Set(['aprobar', 'autonomia', 'saltar', 'clasificacion', 'ejecucion']);
+const SUBS_CON_FRASE = new Set(['aprobar', 'autonomia', 'saltar', 'clasificacion', 'ejecucion', 'lote']);
 const MSG_TESTS = () => `Corré los tests sobre lo que está en stage: ${cli()} registrar-tests`;
 
 // ---------------------------------------------------------------------------
@@ -477,10 +477,13 @@ function fraseDeRq(args, dir) {
   }
   const [script, sub, accion] = ws;
   if (!SUBS_CON_FRASE.has(sub)) return null;
-  // `clasificacion cambiar <c> "<frase>"`: la frase va un lugar más adelante.
+  // `clasificacion cambiar <c> "<frase>"`: la frase va un lugar más adelante. `lote aprobar "<frase>" <códigos…>` y
+  // `autonomia sesion "<frase>"`, en el lugar de siempre.
   const frase = sub === 'clasificacion' && accion === 'cambiar' ? ws[4] : ws[3];
   const s = String(script ?? '');
   if (!/rq\.mjs$/i.test(s.replace(/\\/g, '/')) && !/\$\{?RQ\b/.test(s)) return null;
+  // `autonomia aplicar` no trae frase: usa la de `autonomia sesion`, que rq.mjs vuelve a verificar contra la sesión.
+  if (sub === 'autonomia' && accion === 'aplicar' && ws.length === 3) return { op: 'frase', dir, sub, sinFrase: true };
   return { op: 'frase', dir, sub, frase: typeof frase === 'string' ? frase : '' };
 }
 
@@ -950,6 +953,23 @@ function rutasAgregadas(op, raiz) {
   return out;
 }
 
+/**
+ * Merge en curso de algo ya publicado (MERGE_HEAD está en alguna rama remota, p. ej. `git merge origin/<DEV>`): lo que
+ * entra al stage igual que en MERGE_HEAD viene de esa rama, no es del RQ, y no cuenta para el commit del merge. Lo
+ * que difiere (conflictos resueltos, cambios propios) sí. Un merge de una rama local sin publicar no se descuenta.
+ */
+function sinLoQueTraeElMerge(dir, enStage) {
+  if (enStage.length === 0) return enStage;
+  try {
+    const mh = git(dir, ['rev-parse', '-q', '--verify', 'MERGE_HEAD^{commit}']).trim();
+    if (!mh || !git(dir, ['branch', '-r', '--contains', mh]).trim()) return enStage;
+    const propios = new Set(git(dir, ['diff', '--cached', '--name-only', '--no-renames', '-z', mh]).split('\0').filter(Boolean));
+    return enStage.filter((p) => propios.has(p));
+  } catch {
+    return enStage; // sin merge en curso (rev-parse falla) o git ilegible: se evalúa todo el stage
+  }
+}
+
 function evaluarCommit(op, ctx, dirLin) {
   const repo = buscarRepo(op.dir);
   if (!repo) return null;
@@ -963,7 +983,7 @@ function evaluarCommit(op, ctx, dirLin) {
   } catch {
     // sin proyecto registrado: se clasifica sólo con las reglas generales
   }
-  const enStage = archivosEnStage(op.dir);
+  const enStage = sinLoQueTraeElMerge(op.dir, archivosEnStage(op.dir));
   const rels = relativasARaiz(op.dir, repo.raiz, enStage);
   const iNoLibre = rels.findIndex((rel) => rel === null || tipoArchivo(rel, proyecto) !== 'libre');
   const stageLibre = iNoLibre === -1;
@@ -1317,7 +1337,7 @@ function evaluarPrCreate(op, dirLin, ctx) {
 /** La frase de `rq.mjs aprobar|autonomia|saltar` tiene que ser texto literal del usuario en la sesión. */
 function evaluarFrase(op, ctx) {
   const textos = Array.isArray(ctx?.textosUsuario) ? ctx.textosUsuario : [];
-  if (!buscarRepo(op.dir)) return null;
+  if (!buscarRepo(op.dir) || op.sinFrase === true) return null;
   // Vale si está en un mensaje (las cortas, sólo como mensaje entero) o si es una oración entera de uno: así cada
   // decisión de un mensaje como "Acotado + Aprobar diseño" se registra con su tramo.
   if (typeof op.frase === 'string' && op.frase.trim() !== '' && (fraseDelUsuario(op.frase, textos) || vecesQueLoDijo(op.frase, textos) > 0)) return null;
@@ -1336,7 +1356,13 @@ const resumirError = (e) => String(e?.message ?? e).replace(/\s+/g, ' ').trim().
 //   subcomando (una asignación `X=/ruta/rq.mjs`, un grep): ilegible. Si el texto nombra alguna de esas palabras
 //   fuera de una posición de subcomando ya contada, se niega.
 const RE_INVOCACION = /(rq\.mjs|\$\{?RQ\b\}?)['"]?|\$\{?[A-Za-z_]\w*\}?['"]?/gi;
-const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion)\b/gi;
+const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion|lote)\b/gi;
+// La opción de abrir con su valor (`--clasificacion acotado`) no es un subcomando: se saca antes de contar. Sólo esa
+// forma exacta; cualquier otra mención de las palabras sigue contando (falla cerrada).
+const RE_OPCION_CLASIFICACION = /(^|\s)--clasificacion(?:=|\s+)(['"]?)(?:exploracion|acotado|arquitectonico|spike|bounded)\2(?=$|[\s;&|])/gi;
+
+// Asignación (`X=…`, `export X=…`, `env X=…`, `$env:X = …`, `set X=…`) o borrado (`unset`, `env -u`) de la variable.
+const RE_FIJA_SESION = /CLAUDE_CODE_SESSION_ID\s*[+:]?=|(?:unset|env\s+-u|Remove-Item\s+env:)\s*CLAUDE_CODE_SESSION_ID|\[Environment\]::SetEnvironmentVariable\(\s*['"]CLAUDE_CODE_SESSION_ID/i;
 
 function mencionesDeRq(texto) {
   let frases = 0;
@@ -1356,6 +1382,7 @@ function redDeFrases(texto, ops) {
   for (const o of ops) {
     if (o.op === 'frase' && typeof o.frase === 'string' && o.frase.trim() !== '') texto = texto.replace(o.frase, ' ');
   }
+  texto = texto.replace(RE_OPCION_CLASIFICACION, '$1 ');
   const { frases, ilegibles } = mencionesDeRq(texto);
   const leidas = ops.filter((o) => o.op === 'frase').length;
   if (frases > leidas) return true;
@@ -1374,8 +1401,13 @@ export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
   // Mientras rq.mjs verificar corre el E2E, el mismo script no se lanza a mano (en cualquier carpeta).
   const choque = choqueE2e(texto);
   if (choque) return { ...deny(msgE2eEnCurso(choque)), critica: false };
+  // rq.mjs toma la sesión de CLAUDE_CODE_SESSION_ID: fijarla en el comando haría valer frases, autonomía o skills de
+  // otra sesión. Nunca se cambia a mano.
+  if (RE_FIJA_SESION.test(texto) && buscarRepo(cwd)) {
+    return { ...deny('El comando fija CLAUDE_CODE_SESSION_ID: rq.mjs usa la sesión en curso, la que pone Claude Code. Corrélo sin cambiar esa variable.'), critica: false };
+  }
   if (redDeFrases(texto, ops) && buscarRepo(cwd)) {
-    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar, clasificacion o ejecucion en una forma que la compuerta no puede leer. Corrélo con la ruta literal, node "<ruta>/rq.mjs" <subcomando> "<frase>" (la de la línea CLI del RQ del arranque), o como ${cli()} <subcomando> "<frase>" con RQ asignado en el mismo comando (RQ="node <ruta>/rq.mjs"; ${cli()} …); sin node -e, eval ni otra variable en el medio.`), critica: false };
+    return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar, clasificacion, ejecucion o lote en una forma que la compuerta no puede leer. Corrélo con la ruta literal, node "<ruta>/rq.mjs" <subcomando> "<frase>" (la de la línea CLI del RQ del arranque), o como ${cli()} <subcomando> "<frase>" con RQ asignado en el mismo comando (RQ="node <ruta>/rq.mjs"; ${cli()} …); sin node -e, eval ni otra variable en el medio.`), critica: false };
   }
   // `critica` se calcula para todas las operaciones antes de evaluar ninguna.
   const destinos = ops.map((op) => {
