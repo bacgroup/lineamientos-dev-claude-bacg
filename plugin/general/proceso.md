@@ -64,7 +64,11 @@ También son del usuario la confirmación de la clasificación y la elección de
 
 ## Autonomía
 
-En Exploración y Acotado el agente avanza solo desarrollo y DEV una vez aprobado el diseño. En arquitectónico lo habilita el usuario ("dejá corriendo R-12 hasta DEV"). **El diseño y PROD nunca son autónomos.** Si una decisión necesita al usuario, el agente la anota en el RQ, sigue con otra tarea independiente y la deja para revisión.
+En Exploración y Acotado el agente avanza solo desarrollo y DEV una vez aprobado el diseño. En arquitectónico lo habilita el usuario ("dejá corriendo R-12 hasta DEV"). **PROD nunca es autónomo.** Si una decisión necesita al usuario, el agente la anota en el RQ, sigue con otra tarea independiente y la deja para revisión.
+
+Cuando el usuario trabaja varios RQ a la vez, no hace falta una frase por RQ:
+- **Autonomía de sesión.** Si el usuario da una aprobación general para avanzar solo ("dejo mi aprobación para avanzar con los planes de manera autónoma"), se registra una vez para la sesión. Vale para los RQ que se abran o retomen en esa sesión: confirma la clasificación propuesta, aprueba el diseño y las tareas de Exploración y Acotado cuando están escritos y cubre desarrollo y DEV. El diseño de un Arquitectónico y PROD siguen siendo del usuario, RQ por RQ. Otra sesión no la hereda.
+- **Aprobación de lote.** Una frase del usuario que nombra varios RQ, o dice que son todos ("apruebo los diseños de VENTAS y STOCK"), confirma la clasificación y aprueba el diseño de cada uno.
 
 ## Tests que ya estaban rojos
 
@@ -97,7 +101,7 @@ No hay relevo. Al retomar, el arranque dice dónde quedó el RQ y reinyecta el e
 
 Contexto: en los repos del plugin, una salida de Bash o PowerShell de más de 4.000 caracteres que no es lectura de código, diff, búsqueda ni `rq.mjs` (logs, Docker, `gh`, tests) llega compactada: errores con su contexto, principio y final, JSON sin campos de ruido. El original queda en `~/.claude/bacg-dev/salidas/` (7 días) y la salida dice la ruta para releerlo con Read o grep. Los tests y el E2E que fallan en `rq.mjs` muestran los errores aunque estén en el medio del log, más la ruta de la salida completa. Al compactar la conversación, el plugin pide conservar el estado de cada RQ abierto, las frases del usuario y los rojos. El compactador se apaga con `"compactar": false` en `~/.claude/bacg-dev.json` o `BACG_DEV_SIN_COMPACTAR=1`. El agente lee código por tramos (Grep y Read) y no vuelca archivos ni diffs enteros por Bash (skill `ciclo-rq`, sección 2.3). El alta propone apagar en la carpeta los plugins que repiten skills de este o que no se usan ahí: cada plugin habilitado suma su listado de skills a todas las sesiones.
 
-Un RQ por conversación: después de cerrar y pushear, `/clear`. Pueden estar activos varios RQ en el mismo repo (`--rq` elige el RQ en curso); para repartir tareas de un RQ están los subagentes, que ven las aprobaciones y las skills registradas en el RQ.
+Un RQ por conversación, salvo que el usuario pida trabajar varios a la vez: después de cerrar y pushear, `/clear`. Pueden estar activos varios RQ en el mismo repo (`--rq` elige el RQ en curso); para repartir tareas de un RQ están los subagentes, que ven las aprobaciones y las skills registradas en el RQ. Con varios RQ en la misma sesión, las skills ya cargadas se anotan solas en cada RQ que se abre o retoma (no se vuelven a cargar), y el orden de ramas y commits está en la skill `ciclo-rq` (sección 1.1).
 
 ## Una pasada por artefacto
 

@@ -29,7 +29,8 @@ export function rqsActivos(raiz) {
   } catch {
     return [];
   }
-  return [...new Set(t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean))];
+  // Una línea que no es un código (las marcas de conflicto de un merge) no cuenta: `rq.mjs activo reparar` la limpia.
+  return [...new Set(t.split(/\r?\n/).map((l) => l.trim()).filter(codigoOk))];
 }
 
 /** Código del RQ activo más reciente, o null. */

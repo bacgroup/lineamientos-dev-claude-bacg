@@ -11,7 +11,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
 import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
-import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
+import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, rutaBacklog, leerBacklog } from './lib/backlog.mjs';
@@ -20,7 +20,7 @@ import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
-import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
+import { pasosAlta, formatoAlta, bloqueante, scriptDelComando } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
 import { ordenDeRamas } from './lib/promocion.mjs';
 import { textoArranque } from './lib/arranque.mjs';
@@ -30,7 +30,7 @@ import { clasificacionDe, nombreDe, implicancias } from './lib/clasificacion.mjs
 import { enRamaProtegida, pasarARamaDelRq, ramaDelRq, cambiosDeOtrosRq } from './lib/ramas.mjs';
 import { arbolTesteado, esPropioDeLaCli } from './lib/arbol.mjs';
 import { leerTranscript, vecesQueLoDijo, mismaFrase } from './lib/transcript.mjs';
-import { RE_SESION, homeReal, transcripcionRegistrada } from './lib/sesiones.mjs';
+import { RE_SESION, dirSesiones, homeReal, transcripcionRegistrada } from './lib/sesiones.mjs';
 import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
 import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 import { avisoMergeado } from './lib/rq-rama.mjs';
@@ -53,6 +53,11 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   etapa <n>                          (0-6; opcional: estado deriva la etapa de la evidencia)
   aprobar <etapa> "<frase>"          (etapa 0-6: 1 diseño y plan, 4 DEV en arquitectónico, 5 PROD; la frase es texto literal del usuario)
   autonomia <hasta> "<frase>"        (hasta 1-4: cubre desarrollo (2) y DEV (4), nunca el diseño ni PROD)
+  autonomia sesion "<frase>"         (autonomía de la sesión: en los RQ que se trabajen en esta sesión confirma la clasificación propuesta, aprueba el diseño con ## Diseño y ## Tareas (salvo Arquitectónico) y cubre desarrollo y DEV; nunca PROD)
+  autonomia aplicar                  (aplica la autonomía de la sesión al RQ, p. ej. después de escribir ## Diseño y ## Tareas)
+  lote aprobar "<frase>" <código>…   (una frase del usuario que nombra los RQ o dice "todos": confirma la clasificación y aprueba el diseño de cada uno; PROD sigue siendo por RQ)
+  skills importar                    (anota en el RQ las skills ya cargadas en esta sesión de Claude Code)
+  activo reparar                     (rehace docs/rq/ACTIVO con los RQ abiertos que hay en el árbol; resuelve un conflicto de merge)
   saltar <compuerta> "<frase>" "<motivo>"   (compuerta: edicion|commit|push|e2e|skills|seguridad|ui|verificacion-local|rama)
   commit "<mensaje>" <rutas>…        (git add de las rutas, tests relacionados, registro y commit en un paso)
   registrar-tests                    (tests de commit sobre lo que está en stage; sin E2E)
@@ -130,15 +135,45 @@ function leerLineaDeTerminal(pregunta, stderr) {
 }
 
 /** Cuántas veces quedó registrada ya una frase en el RQ (aprobaciones, saltos, autonomía, ejecución, clasificación). */
-function usosDeFrase(estado, frase) {
+function usosDeFrase(estado, frase, { sinSesion = false } = {}) {
   let n = 0;
   const visitar = (v, clave) => {
     if (clave === 'frase' && typeof v === 'string' && mismaFrase(v, frase)) n += 1;
     else if (Array.isArray(v)) v.forEach((x) => visitar(x));
-    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) visitar(x, k);
+    else if (v && typeof v === 'object') {
+      // sinSesion: no cuentan los registros de la autonomía de sesión (una frase que vale para varios registros).
+      if (sinSesion && v.via === 'sesion') return;
+      for (const [k, x] of Object.entries(v)) visitar(x, k);
+    }
   };
   visitar(estado);
   return n;
+}
+
+/** Id de la sesión de Claude Code (CLAUDE_CODE_SESSION_ID) o ErrorCli: `para` dice qué no se puede hacer sin ella. */
+function idDeSesion(env, para) {
+  const id = env?.CLAUDE_CODE_SESSION_ID;
+  if (id === undefined) throw new ErrorCli(`Sin sesión de Claude Code no se puede ${para}.`);
+  if (typeof id !== 'string' || !RE_SESION.test(id)) throw new ErrorCli(`Id de sesión inválido (${JSON.stringify(String(id))}): no se puede ${para}.`);
+  return id;
+}
+
+/** Mensajes del usuario y skills cargadas en la sesión de Claude Code en curso (su transcripción). Falla cerrada. */
+async function transcriptDeLaSesion({ env, home }, para) {
+  const id = idDeSesion(env, para);
+  // Cuenta por defecto: <home real>/.claude/projects; otra cuenta (CLAUDE_CONFIG_DIR): la que anotó el hook.
+  let rutas = transcripcionesDe(home, id);
+  if (rutas.length === 0) {
+    const registrada = transcripcionRegistrada(id, { home });
+    if (registrada) rutas = [registrada];
+  }
+  if (rutas.length > 1) throw new ErrorCli(`Hay más de una transcripción de la sesión ${id}: no se puede ${para}.`);
+  try {
+    if (rutas.length === 0) throw new Error('TRANSCRIPT_NO_DISPONIBLE');
+    return { id, ...(await leerTranscript(rutas[0])) };
+  } catch {
+    throw new ErrorCli(`No se encontró la transcripción de la sesión ${id}: no se puede ${para}.`);
+  }
 }
 
 /**
@@ -167,23 +202,7 @@ async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, esta
     if (!mismaFrase(linea, frase)) throw new ErrorCli('La frase tipeada no coincide: no se registra nada.');
     return;
   }
-  if (typeof id !== 'string' || !RE_SESION.test(id)) {
-    throw new ErrorCli(`Id de sesión inválido (${JSON.stringify(String(id))}): no se puede verificar la frase.`);
-  }
-  // Cuenta por defecto: <home real>/.claude/projects; otra cuenta (CLAUDE_CONFIG_DIR): la que anotó el hook.
-  let rutas = transcripcionesDe(home, id);
-  if (rutas.length === 0) {
-    const registrada = transcripcionRegistrada(id, { home });
-    if (registrada) rutas = [registrada];
-  }
-  if (rutas.length > 1) throw new ErrorCli(`Hay más de una transcripción de la sesión ${id}: no se puede verificar la frase.`);
-  let textos;
-  try {
-    if (rutas.length === 0) throw new Error('TRANSCRIPT_NO_DISPONIBLE');
-    ({ textosUsuario: textos } = await leerTranscript(rutas[0]));
-  } catch {
-    throw new ErrorCli(`No se encontró la transcripción de la sesión ${id}: no se puede verificar la frase.`);
-  }
+  const { textosUsuario: textos } = await transcriptDeLaSesion({ env, home }, 'verificar la frase');
   const dichas = vecesQueLoDijo(frase, textos);
   if (dichas === 0) {
     throw new ErrorCli(`La frase "${frase}" no aparece en lo que escribió el usuario en esta sesión (tiene que ser un mensaje o una oración enteros). Registrá sólo palabras literales del usuario.`);
@@ -309,7 +328,7 @@ function previa(repo, env, codigo, nuevo) {
   return validacionPrevia({ repo, proyecto: proyectoDe(repo, env), codigo, nuevo, env, dirLin: dirLineamientos({ env }) });
 }
 
-function abrir(repo, args, env, io) {
+async function abrir(repo, args, env, io, verificacion) {
   const raiz = repo.raiz;
   const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
   if (posicionales.length !== 1 || !res.tipo || !res.clasificacion) throw new ErrorUso();
@@ -383,6 +402,7 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
   if (!existente) imprimirClasificacion(cargarEstado(raiz, codigo), io);
   if (vinculo) io.stdout.write(`RQ multi-repo: vinculado con ${vinculo} (hereda aprobaciones, autonomía, saltos y skills; los cambios nuevos se replican).\n`);
   if (otros.length) io.stdout.write(`Otros RQ activos: ${otros.join(', ')} (usá --rq para elegir).\n`);
+  await alAbrirEnSesion(repo, env, codigo, io, verificacion);
   anotarBacklog(repo, env, codigo, {
     Tarea: res.tarea,
     Prioridad: res.prioridad,
@@ -390,6 +410,257 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
     Estado: 'En curso',
     Link: `docs/rq/${codigo}/`,
   }, io);
+}
+
+// ---- Varios RQ en una sesión: autonomía de sesión, aprobación de lote, skills de la sesión y ACTIVO ----
+
+const archivoAutonomia = (home, id) => path.join(dirSesiones(home), `${id}.autonomia.json`);
+const aprobado = (s, etapa) => lista(s.aprobaciones).some((a) => a?.etapa === etapa && typeof a?.frase === 'string' && a.frase.trim());
+
+/** Autonomía de la sesión en curso ({ frase, fecha }) o null. No verifica la frase: eso lo hace quien la usa. */
+function autonomiaDeSesion({ env, home }) {
+  const id = env?.CLAUDE_CODE_SESSION_ID;
+  if (typeof id !== 'string' || !RE_SESION.test(id)) return null;
+  try {
+    const a = JSON.parse(fs.readFileSync(archivoAutonomia(home, id), 'utf8'));
+    return typeof a?.frase === 'string' && a.frase.trim() ? a : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Aplica la autonomía de sesión al RQ: autonomía hasta DEV, la clasificación propuesta confirmada y, salvo en
+ * Arquitectónico, el diseño aprobado si spec.md ya trae ## Diseño y ## Tareas. Nunca PROD. Todo con `via: sesion`.
+ */
+function aplicarAutonomia(repo, env, codigo, aut, io) {
+  const raiz = repo.raiz;
+  cambiarVinculado(repo, env, codigo, io, (s) => {
+    if (Number.isInteger(s.etapa) && s.etapa >= ETAPA.CIERRE) return `${codigo}: cerrado, sin cambios.`;
+    // La frase de la sesión no puede ser una que ya se registró en este RQ para otra decisión.
+    if (usosDeFrase(s, aut.frase, { sinSesion: true }) > 0) {
+      return `${codigo}: la frase de la autonomía de sesión ya está registrada en este RQ para otra decisión; no se aplica. Pedile al usuario su decisión para este RQ.`;
+    }
+    const fecha = ahora();
+    const hechos = [];
+    if (!(Number.isInteger(s.autonomia?.hasta) && s.autonomia.hasta >= ETAPA.DEV)) {
+      s.autonomia = { hasta: ETAPA.DEV, frase: aut.frase, fecha, via: 'sesion' };
+      hechos.push('autonomía hasta DEV');
+    }
+    if (s.clasificacion_pendiente === true) {
+      s.clasificacion_pendiente = false;
+      s.clasificacion_confirmada = { frase: aut.frase, fecha, via: 'sesion' };
+      hechos.push(`clasificación ${nombreDe(s.clasificacion)} confirmada`);
+    }
+    let falta = '';
+    if (!aprobado(s, ETAPA.DISENO)) {
+      if (s.clasificacion === 'arquitectonico') falta = ' El diseño de un Arquitectónico lo aprueba el usuario: $RQ aprobar 1 "<su frase>" o $RQ lote aprobar.';
+      else if (disenoEscrito(raiz, codigo)) {
+        s.aprobaciones = [...lista(s.aprobaciones), { etapa: ETAPA.DISENO, frase: aut.frase, fecha, via: 'sesion' }];
+        hechos.push('diseño y tareas aprobados');
+      } else falta = ` Falta ## Diseño y ## Tareas en docs/rq/${codigo}/spec.md: escribilos y corré $RQ autonomia aplicar --rq ${codigo}.`;
+    }
+    return `Autonomía de sesión en ${codigo}: ${hechos.length ? hechos.join(', ') : 'ya estaba aplicada'}.${falta} PROD sigue pidiendo $RQ aprobar 5.`;
+  });
+}
+
+async function autonomiaSesion(repo, frase, verificacion, env, io) {
+  const id = idDeSesion(verificacion.env, 'registrar una autonomía de sesión');
+  await verificarFrase(frase, verificacion, null);
+  // Una frase ya usada para una decisión puntual de un RQ abierto no se vuelve aprobación general.
+  for (const codigo of rqsActivos(repo.raiz)) {
+    let e;
+    try { e = cargarEstado(repo.raiz, codigo); } catch { continue; }
+    if (usosDeFrase(e, frase, { sinSesion: true }) > 0) {
+      throw new ErrorCli(`La frase "${frase}" ya está registrada en ${codigo} para otra decisión: la autonomía de sesión necesita una frase propia del usuario.`);
+    }
+  }
+  const archivo = archivoAutonomia(verificacion.home, id);
+  fs.mkdirSync(path.dirname(archivo), { recursive: true });
+  fs.writeFileSync(archivo, `${JSON.stringify({ frase, fecha: ahora(), repo: repo.raiz })}\n`);
+  io.stdout.write('Autonomía de la sesión registrada: vale para los RQ que se abran o retomen en esta sesión, hasta DEV (nunca PROD).\n');
+  for (const codigo of rqsActivos(repo.raiz)) {
+    if (!fs.existsSync(path.join(repo.raiz, 'docs', 'rq', codigo, 'estado.yml'))) continue;
+    aplicarAutonomia(repo, env, codigo, { frase }, io);
+  }
+}
+
+/** La autonomía de sesión registrada, con la frase verificada otra vez contra lo que escribió el usuario. */
+async function autonomiaVerificada(verificacion) {
+  const aut = autonomiaDeSesion(verificacion);
+  if (!aut) return null;
+  await verificarFrase(aut.frase, verificacion, null);
+  return aut;
+}
+
+// "todos", "ambos", "los 3", "estos RQ", "el lote"…: la frase habla del conjunto.
+const RE_COLECTIVO = /(?:^|[^\p{L}])(?:todos|todas|ambos|ambas|lote|(?:los|las|estos|estas)\s+(?:\d+|dos|tres|cuatro|cinco|rq|planes|dise[ñn]os|requerimientos))(?![\p{L}])/iu;
+
+/** ¿La frase nombra el RQ? Por su código o por su último tramo distintivo (APP-UI-VENTAS → "ventas"). */
+function fraseNombraRq(frase, codigo) {
+  if (nombraCodigo(codigo, frase)) return true;
+  const cola = codigo.split(/[-_]/).pop();
+  if (!cola || cola.length < 4 || /^\d+$/.test(cola)) return false;
+  return new RegExp(`(?:^|[^\\p{L}\\p{N}])${cola.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'iu').test(frase);
+}
+
+/**
+ * `lote aprobar "<frase>" <códigos…>`: con una frase del usuario que nombra cada RQ (o dice "todos"), confirma la
+ * clasificación propuesta y aprueba el diseño de cada uno que tenga ## Diseño y ## Tareas (y plan.md en
+ * Arquitectónico). Los RQ que no están en este checkout (viven en su rama) se aprueban corriendo lo mismo ahí.
+ */
+async function loteAprobar(repo, args, verificacion, env, io) {
+  const raiz = repo.raiz;
+  const [accion, frase, ...codigos] = args;
+  if (accion !== 'aprobar' || codigos.length === 0) throw new ErrorUso();
+  textoNoVacio(frase, 'La frase');
+  const unicos = [...new Set(codigos)];
+  for (const c of unicos) if (!RE_CODIGO.test(c)) throw new ErrorCli(`Código inválido: "${c}".`);
+  const sinNombrar = unicos.filter((c) => !fraseNombraRq(frase, c));
+  if (sinNombrar.length && !RE_COLECTIVO.test(frase)) {
+    throw new ErrorCli(`La frase no nombra ${sinNombrar.join(', ')} ni habla del conjunto ("todos", "ambos", "los 3"…): para aprobar un lote, el usuario tiene que nombrar los RQ o decir que son todos.`);
+  }
+  const aca = [];
+  const enOtraRama = [];
+  for (const c of unicos) {
+    let estado;
+    try {
+      estado = cargarEstado(raiz, c);
+    } catch (e) {
+      if (String(e.message).startsWith('ESTADO_INEXISTENTE')) { enOtraRama.push(c); continue; }
+      throw e;
+    }
+    if (Number.isInteger(estado.etapa) && estado.etapa >= ETAPA.CIERRE) throw new ErrorCli(`${c} está cerrado: sacalo del lote.`);
+    if (!disenoEscrito(raiz, c)) throw new ErrorCli(`${c}: falta ## Diseño y ## Tareas en docs/rq/${c}/spec.md; el lote aprueba diseños ya escritos.`);
+    if (estado.clasificacion === 'arquitectonico' && !fs.existsSync(path.join(raiz, 'docs', 'rq', c, 'plan.md'))) {
+      throw new ErrorCli(`${c} es Arquitectónico: falta docs/rq/${c}/plan.md.`);
+    }
+    aca.push({ c, estado });
+  }
+  if (aca.length === 0) throw new ErrorCli(`Ninguno de ${unicos.join(', ')} está en este checkout: corré el lote desde la rama de cada RQ (rq/<código>).`);
+  // Todo o nada en este checkout: primero se verifican todas las frases.
+  for (const { estado } of aca) await verificarFrase(frase, verificacion, estado);
+  for (const { c } of aca) {
+    cambiarVinculado(repo, env, c, io, (s) => {
+      const fecha = ahora();
+      const hechos = [];
+      if (s.clasificacion_pendiente === true) {
+        s.clasificacion_pendiente = false;
+        s.clasificacion_confirmada = { frase, fecha, via: 'lote' };
+        hechos.push(`clasificación ${nombreDe(s.clasificacion)} confirmada`);
+      }
+      if (!aprobado(s, ETAPA.DISENO)) {
+        s.aprobaciones = [...lista(s.aprobaciones), { etapa: ETAPA.DISENO, frase, fecha, via: 'lote' }];
+        hechos.push('diseño y plan aprobados');
+      }
+      return `Lote: ${c} ${hechos.length ? hechos.join(', ') : 'ya estaba aprobado'}.`;
+    });
+  }
+  if (enOtraRama.length) {
+    io.stdout.write(`No están en este checkout: ${enOtraRama.join(', ')}. Desde la rama de cada uno, la misma frase: $RQ lote aprobar "<frase>" ${unicos.join(' ')}.\n`);
+  }
+}
+
+/** `skills importar`: las skills cargadas en esta sesión (según su transcripción) quedan anotadas en el RQ. */
+async function importarSkills(repo, elegido, verificacion, env, io, { silencioso = false } = {}) {
+  const raiz = repo.raiz;
+  const { id, skills } = await transcriptDeLaSesion(verificacion, 'importar las skills de la sesión');
+  const { codigo, estado } = activo(raiz, elegido);
+  const nuevas = [...skills].filter((s) => !tieneSkill(estado, s));
+  if (nuevas.length === 0) {
+    if (!silencioso) io.stdout.write(`${codigo}: no hay skills de esta sesión para sumar.\n`);
+    return;
+  }
+  cambiarVinculado(repo, env, codigo, silencioso ? { stdout: { write() {} } } : io, (s) => {
+    const fecha = ahora();
+    const etapa = etapaDerivada(s, raiz);
+    const faltan = nuevas.filter((x) => !tieneSkill(s, x));
+    s.skills = [...lista(s.skills), ...faltan.map((skill) => ({ skill, etapa, sesion: id, fecha, via: 'sesion' }))];
+    return `${codigo}: ${faltan.length} skill(s) de esta sesión anotadas (${faltan.join(', ')}).`;
+  });
+  if (silencioso) io.stdout.write(`Skills de esta sesión anotadas en ${codigo}: ${nuevas.join(', ')}.\n`);
+}
+
+/** RQ abiertos (estado.yml legible y etapa < cierre) que hay en el árbol: [{ codigo, actualizado }]. */
+function rqsAbiertosEnArbol(raiz) {
+  let dirs = [];
+  try {
+    dirs = fs.readdirSync(path.join(raiz, 'docs', 'rq'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const codigo of dirs.filter((d) => RE_CODIGO.test(d))) {
+    try {
+      const e = cargarEstado(raiz, codigo);
+      if (!(Number.isInteger(e.etapa) && e.etapa >= ETAPA.CIERRE)) out.push({ codigo, actualizado: String(e.actualizado ?? '') });
+    } catch {
+      // sin estado.yml legible: no es un RQ abierto
+    }
+  }
+  return out;
+}
+
+/** Texto crudo de docs/rq/ACTIVO ('' si no existe). */
+function textoActivo(raiz) {
+  try {
+    return fs.readFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+/** Avisos sobre ACTIVO: marcas de conflicto, RQ cerrados o que no están en el árbol. */
+function avisosActivo(raiz) {
+  const texto = textoActivo(raiz);
+  if (!texto) return [];
+  if (/^(?:<{7}|={7}|>{7})/m.test(texto)) return ['Aviso: docs/rq/ACTIVO tiene marcas de conflicto de un merge: $RQ activo reparar.'];
+  const abiertos = new Set(rqsAbiertosEnArbol(raiz).map((x) => x.codigo));
+  const sobran = rqsActivos(raiz).filter((c) => !abiertos.has(c));
+  return sobran.length ? [`Aviso: docs/rq/ACTIVO lista ${sobran.join(', ')}, que acá están cerrados o no existen: $RQ activo reparar.`] : [];
+}
+
+/** `activo reparar`: ACTIVO = los RQ abiertos del árbol (en el orden que tenían; los nuevos, por fecha), y si estaba en conflicto, resuelto. */
+function repararActivo(raiz, io) {
+  const previos = rqsActivos(raiz);
+  const abiertos = rqsAbiertosEnArbol(raiz);
+  const set = new Set(abiertos.map((x) => x.codigo));
+  const quedan = previos.filter((c) => set.has(c));
+  const nuevos = abiertos.filter((x) => !quedan.includes(x.codigo)).sort((a, b) => a.actualizado.localeCompare(b.actualizado)).map((x) => x.codigo);
+  const final = [...quedan, ...nuevos];
+  const conflicto = /^(?:<{7}|={7}|>{7})/m.test(textoActivo(raiz));
+  guardarActivos(raiz, final);
+  const l = [`docs/rq/ACTIVO: ${final.length ? final.join(', ') : 'vacío (borrado)'}.`];
+  const quitados = previos.filter((c) => !set.has(c));
+  if (quitados.length) l.push(`Quitados (cerrados o sin estado.yml acá): ${quitados.join(', ')}.`);
+  if (nuevos.length) l.push(`Sumados (abiertos en el árbol): ${nuevos.join(', ')}.`);
+  const sinFusionar = spawnSync('git', ['ls-files', '-u', '--', 'docs/rq/ACTIVO'], { cwd: raiz, encoding: 'utf8' });
+  if (sinFusionar.status === 0 && sinFusionar.stdout.trim()) {
+    const r = final.length
+      ? spawnSync('git', ['add', '--', 'docs/rq/ACTIVO'], { cwd: raiz, encoding: 'utf8' })
+      : spawnSync('git', ['rm', '-q', '--cached', '--ignore-unmatch', '--', 'docs/rq/ACTIVO'], { cwd: raiz, encoding: 'utf8' });
+    l.push(r.status === 0 ? 'Conflicto de docs/rq/ACTIVO resuelto en el índice.' : `No pude marcar el conflicto como resuelto: ${String(r.stderr).trim()}`);
+  } else if (conflicto) l.push('Tenía marcas de conflicto: quedó limpio.');
+  io.stdout.write(`${l.join('\n')}\n`);
+}
+
+/**
+ * Al abrir o retomar un RQ dentro de una sesión de Claude Code: las skills ya cargadas en la sesión quedan en el RQ y,
+ * si la sesión tiene autonomía registrada, se aplica. Nada de esto frena el abrir: un problema queda como aviso.
+ */
+async function alAbrirEnSesion(repo, env, codigo, io, verificacion) {
+  if (typeof verificacion?.env?.CLAUDE_CODE_SESSION_ID !== 'string') return;
+  try {
+    await importarSkills(repo, codigo, verificacion, env, io, { silencioso: true });
+  } catch (e) {
+    io.stderr.write(`Aviso: no pude anotar las skills de la sesión (${e.message}).\n`);
+  }
+  try {
+    const aut = await autonomiaVerificada(verificacion);
+    if (aut) aplicarAutonomia(repo, env, codigo, aut, io);
+  } catch (e) {
+    io.stderr.write(`Aviso: la autonomía de la sesión no se aplicó (${e.message}).\n`);
+  }
 }
 
 function msgCambiosAjenos(codigo, ajenos) {
@@ -684,6 +955,67 @@ function verificarLocal(repo, elegido, que, capturas, env, io) {
 }
 
 /**
+ * Specs pasados por ruta, como los espera el runner: con barras `/` y, si la ruta es absoluta y está dentro de la
+ * carpeta del script de tests.e2e (donde suele estar la config de Playwright), relativa a esa carpeta. Playwright
+ * toma cada argumento como filtro y una ruta absoluta de Windows no coincide con nada ("No tests found").
+ */
+function specsParaElComando(specs, comando) {
+  const script = scriptDelComando(comando);
+  const dir = script && path.isAbsolute(script) ? path.dirname(script) : null;
+  return specs.map((s) => {
+    const abs = path.isAbsolute(s) ? path.resolve(s) : null;
+    if (abs && dir) {
+      const rel = path.relative(dir, abs);
+      if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) return rel.split(path.sep).join('/');
+    }
+    return s.replace(/\\/g, '/');
+  });
+}
+
+/** Archivos con cambios bajo docs/rq/<otro>/qa/ (otro RQ que no es `rq`): Map ruta → 'M' (trackeado) | '?' (nuevo). */
+function qaDeOtrosRq(raiz, rq) {
+  const out = new Map();
+  const r = spawnSync('git', ['status', '--porcelain', '-z', '--untracked-files=all', '--', 'docs/rq'], { cwd: raiz, encoding: 'utf8' });
+  if (r.status !== 0) return null;
+  for (const linea of r.stdout.split('\0').filter(Boolean)) {
+    const ruta = linea.slice(3);
+    const m = /^docs\/rq\/([^/]+)\/qa\//.exec(ruta);
+    if (!m || m[1] === rq) continue;
+    out.set(ruta, linea.startsWith('??') ? '?' : 'M');
+  }
+  return out;
+}
+
+/**
+ * Los specs de regresión de otros RQ escriben sus capturas en docs/rq/<otro>/qa/: lo que la corrida cambió ahí (y
+ * estaba limpio antes) vuelve a como estaba, y lo nuevo se borra. Devuelve cuántos archivos tocó.
+ */
+function restaurarQaAjena(raiz, rq, antes) {
+  if (!antes) return 0;
+  const despues = qaDeOtrosRq(raiz, rq);
+  if (!despues) return 0;
+  const volver = [];
+  let n = 0;
+  for (const [ruta, tipo] of despues) {
+    if (antes.has(ruta)) continue;
+    if (tipo === 'M') volver.push(ruta);
+    else {
+      try {
+        fs.rmSync(path.join(raiz, ruta), { force: true });
+        n += 1;
+      } catch {
+        // queda para descartar a mano
+      }
+    }
+  }
+  if (volver.length) {
+    const r = spawnSync('git', ['checkout', '--', ...volver], { cwd: raiz, encoding: 'utf8' });
+    if (r.status === 0) n += volver.length;
+  }
+  return n;
+}
+
+/**
  * Corre tests.e2e del proyecto y registra el resultado contra HEAD. Si el comando trae {specs}, corre los specs dados
  * o los del RQ; --completo (o ningún spec) corre la suite entera, que es la que exige publicar en PROD.
  */
@@ -700,7 +1032,7 @@ function verificar(repo, elegido, args, env, io) {
     );
   }
   const conSpecsEnComando = base.includes('{specs}');
-  const specs = res.completo || !conSpecsEnComando ? [] : posicionales.length ? posicionales.map((s) => s.replace(/\\/g, '/')) : specsDelRq(raiz, estado);
+  const specs = res.completo || !conSpecsEnComando ? [] : posicionales.length ? specsParaElComando(posicionales, rutasEn(base, raiz, proyecto)) : specsDelRq(raiz, estado);
   // Con {specs}, sin --completo y sin specs deducibles del diff (p. ej. viven fuera del repo): no se corre la suite
   // entera sin que nadie lo pida.
   if (conSpecsEnComando && !res.completo && specs.length === 0) {
@@ -721,13 +1053,20 @@ function verificar(repo, elegido, args, env, io) {
     throw new ErrorCli(msgE2eEnCurso(lockTomado(lock)));
   }
   let r;
+  const antes = qaDeOtrosRq(raiz, rq);
   try {
     const envE2e = { ...process.env, ...env, BACG_E2E_LOCK: lock, ...(url ? { E2E_URL: String(url), BASE_URL: String(url) } : {}) };
     r = spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: envE2e });
   } finally {
     soltarLock(lock);
   }
+  const restauradas = restaurarQaAjena(raiz, rq, antes);
+  if (restauradas) io.stdout.write(`Capturas de otros RQ que regeneró la corrida, devueltas a como estaban: ${restauradas}.\n`);
   if (r.error) io.stderr.write(`No pude ejecutar "${cmd}": ${r.error.message}\n`);
+  // Playwright sin specs que coincidan: no es un E2E fallido del RQ, es una ruta mal pasada. No se registra.
+  if (r.status !== 0 && specs.length && /No tests found/i.test(`${r.stdout ?? ''}\n${r.stderr ?? ''}`)) {
+    throw new ErrorCli(`El runner no encontró tests con ${specs.map((s) => `"${s}"`).join(' ')} (No tests found). No se registró el E2E. Pasá la ruta del spec como la espera el runner de tests.e2e (relativa a su carpeta, p. ej. e2e/<spec>.spec.ts).`);
+  }
   const ok = r.status === 0;
   if (!ok) io.stdout.write(`${resumenFalla(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80, { id: `e2e-${rq}` })}\n`);
   estado.e2e = { ok, fecha: ahora(), comando: cmd, head: commitHead(raiz), completo };
@@ -1383,7 +1722,7 @@ export async function main(
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
@@ -1393,6 +1732,10 @@ export async function main(
     else if (sub === 'clasificacion') uso((args[0] === 'confirmar' && n === 2) || (args[0] === 'cambiar' && n === 3));
     else if (sub === 'commit') uso(n >= 2);
     else if (sub === 'auditar') uso(n === 0 || (n === 2 && args[0] === '--cerrar'));
+    else if (sub === 'autonomia' && args[0] === 'aplicar') uso(n === 1);
+    else if (sub === 'lote') uso(args[0] === 'aprobar' && n >= 3);
+    else if (sub === 'skills') uso(args[0] === 'importar' && n === 1);
+    else if (sub === 'activo') uso(args[0] === 'reparar' && n === 1);
     else if (!['abrir', 'cerrar', 'verificar'].includes(sub)) uso(n === aridad[sub]);
 
     const repo = buscarRepo(cwd, { dirLin: dirLineamientos({ env }) });
@@ -1426,7 +1769,7 @@ export async function main(
         break;
       }
       case 'abrir':
-        abrir(repo, args, env, io);
+        await abrir(repo, args, env, io, verificacion);
         break;
       case 'etapa': {
         const pedida = etapaValida(args[0]);
@@ -1457,6 +1800,16 @@ export async function main(
         break;
       }
       case 'autonomia': {
+        if (args[0] === 'sesion') {
+          await autonomiaSesion(repo, textoNoVacio(args[1], 'La frase'), verificacion, env, io);
+          break;
+        }
+        if (args[0] === 'aplicar') {
+          const aut = await autonomiaVerificada(verificacion);
+          if (!aut) throw new ErrorCli('Esta sesión no tiene autonomía registrada: $RQ autonomia sesion "<frase del usuario>".');
+          aplicarAutonomia(repo, env, activo(raiz, elegido).codigo, aut, io);
+          break;
+        }
         const h = entero(args[0]);
         if (h === null || h < ETAPA.DISENO || h > ETAPA.DEV) throw new ErrorCli(`hasta inválido: "${args[0]}" (tiene que ser un entero de ${ETAPA.DISENO} a ${ETAPA.DEV}).`);
         const frase = textoNoVacio(args[1], 'La frase');
@@ -1464,6 +1817,15 @@ export async function main(
         cambiarVinculado(repo, env, elegido, io, (s) => { s.autonomia = { hasta: h, frase, fecha: ahora() }; return `Autonomía hasta la etapa ${h} registrada.`; });
         break;
       }
+      case 'lote':
+        await loteAprobar(repo, args, verificacion, env, io);
+        break;
+      case 'skills':
+        await importarSkills(repo, elegido, verificacion, env, io);
+        break;
+      case 'activo':
+        repararActivo(raiz, io);
+        break;
       case 'clasificacion': {
         const accion = args[0];
         let nueva = null;
@@ -1557,6 +1919,7 @@ export async function main(
           imprimirEstado(repo, codigo, estado, io, env);
           for (const a of avisosDeAtraso(raiz, codigo, estado)) io.stdout.write(`${a}\n`);
         }
+        for (const a of avisosActivo(raiz)) io.stdout.write(`${a}\n`);
         for (const c of cerrados) io.stdout.write(`Cerrado con pendientes: ${c.codigo} (falta: ${c.pendientes.join(', ')}; al hacerlos, $RQ paso … --rq ${c.codigo}).\n`);
         break;
       }

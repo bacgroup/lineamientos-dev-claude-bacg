@@ -16,6 +16,7 @@ import { PLUGINS_REQUERIDOS } from './hooks/session-start.mjs';
 import { estadoSkillsOdoo, ramaSkills, usaOdoo, tieneAddons } from './odoo-skills.mjs';
 import { fileURLToPath } from 'node:url';
 import { higienePlugins, textoCandidato, bloqueApagar } from './higiene.mjs';
+import { ramaDev } from './previa.mjs';
 
 const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'rq.mjs');
 
@@ -38,6 +39,38 @@ export function scriptDelComando(comando) {
   if (comillas) return comillas[1];
   const token = c.split(/\s+/).find((t) => /\.(?:mjs|cjs|js|ts|py|sh|ps1)$/i.test(t) && !t.startsWith('-'));
   return token ?? null;
+}
+
+/**
+ * Regla de permisos que deja correr `gh pr merge` (permissions.allow de los settings de la cuenta, de `dirs` y de sus
+ * carpetas padre), como "<archivo>: <regla>", o null.
+ */
+export function reglaMergeEnAjustes(dirs, env, home) {
+  const archivos = new Set();
+  const cuenta = dirConfigClaude({ env, home });
+  archivos.add(path.join(cuenta, 'settings.json'));
+  archivos.add(path.join(cuenta, 'settings.local.json'));
+  for (const d of dirs.filter(Boolean)) {
+    let x = path.resolve(d);
+    for (let i = 0; i < 4; i++) {
+      archivos.add(path.join(x, '.claude', 'settings.json'));
+      archivos.add(path.join(x, '.claude', 'settings.local.json'));
+      const padre = path.dirname(x);
+      if (padre === x) break;
+      x = padre;
+    }
+  }
+  for (const a of archivos) {
+    let allow;
+    try {
+      allow = JSON.parse(fs.readFileSync(a, 'utf8'))?.permissions?.allow;
+    } catch {
+      continue;
+    }
+    const r = lista(allow).find((x) => typeof x === 'string' && /^Bash\(\s*gh\s+pr\s+merge\b/i.test(x.trim()));
+    if (r) return `${a}: ${r}`;
+  }
+  return null;
 }
 
 function bloqueJson(id, tests) {
@@ -202,7 +235,21 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
     como: `Sumá "e2e" y "e2e_url" en proyectos.${repo.proyectoId}.tests de ~/.claude/bacg-dev.json.`,
   });
 
-  // 11. Ajustes locales presentes (orienta)
+  // 11. Merge a la rama de DEV en modo automático (orienta): la autonomía hasta DEV incluye mergear el PR del RQ a
+  // DEV, y el modo automático de Claude Code lo niega sin una regla de permisos. La compuerta del plugin sigue
+  // frenando el merge a PROD sin el OK de la etapa 5.
+  const dev = ramaDev(proyecto, null);
+  if (dev) {
+    const regla = reglaMergeEnAjustes([cwd, repo.raiz], env, home);
+    sumar({
+      id: 'merge-dev', titulo: `Merge del PR a ${dev} en modo automático`, obligatorio: false,
+      estado: regla ? 'ok' : 'aviso',
+      detalle: regla ?? 'sin regla de permisos: el modo automático niega gh pr merge y la autonomía hasta DEV se corta ahí',
+      como: 'Sumá "Bash(gh pr merge:*)" a permissions.allow de .claude/settings.local.json (de esta carpeta o del repo). Los merges a PROD los sigue frenando la compuerta del plugin hasta el OK del usuario ($RQ aprobar 5).',
+    });
+  }
+
+  // 12. Ajustes locales presentes (orienta)
   sumar({
     id: 'local', titulo: 'Ajustes de esta PC (~/.claude/bacg-dev.json)', obligatorio: false,
     estado: ajustesLocales(repo.proyectoId, home) ? 'ok' : 'aviso',

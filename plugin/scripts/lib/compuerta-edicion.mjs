@@ -119,7 +119,7 @@ export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
     if (saltoValido(estado, 'edicion')) return allow();
     if (clasificacionPendiente(estado)) {
       ultimo = ultimo ?? deny(
-        `La clasificación del RQ ${codigo} (${nombreDe(estado.clasificacion)}) espera la confirmación del usuario: proponésela con su motivo y lo que implica, y registrá su respuesta con ${cli()} clasificacion confirmar "<su frase>" (o clasificacion cambiar <exploracion|acotado|arquitectonico> "<su frase>").`,
+        `La clasificación del RQ ${codigo} (${nombreDe(estado.clasificacion)}) espera la confirmación del usuario: proponésela con su motivo y lo que implica, y registrá su respuesta con ${cli()} clasificacion confirmar "<su frase>" (o clasificacion cambiar <exploracion|acotado|arquitectonico> "<su frase>"). Si el usuario ya dio autonomía para la sesión o aprobó varios RQ juntos: ${cli()} autonomia aplicar o ${cli()} lote aprobar "<su frase>" <códigos…>.`,
       );
       continue;
     }
@@ -127,7 +127,7 @@ export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
     // spike) cubre desarrollo y DEV, nunca el diseño.
     if (!etapaCumplida(estado, ETAPA.DISENO, ctxEtapa)) {
       ultimo = ultimo ?? deny(
-        `Falta el diseño aprobado del RQ ${codigo}: docs/rq/${codigo}/spec.md y la aprobación del usuario con ${cli()} aprobar ${ETAPA.DISENO} "<su frase>" (etapa ${ETAPA.DISENO}, en toda clasificación).`,
+        `Falta el diseño aprobado del RQ ${codigo}: docs/rq/${codigo}/spec.md y la aprobación del usuario con ${cli()} aprobar ${ETAPA.DISENO} "<su frase>" (etapa ${ETAPA.DISENO}, en toda clasificación). Con autonomía de sesión registrada, ${cli()} autonomia aplicar (Exploración y Acotado con ## Diseño y ## Tareas); varios RQ con una frase del usuario: ${cli()} lote aprobar "<su frase>" <códigos…>.`,
       );
       continue;
     }
