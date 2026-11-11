@@ -1200,3 +1200,21 @@ test('git switch -c <rama> && git add <docs> && git commit -> allow; switch a un
   assert.equal(evaluar('git switch otra && git add docs/n.md && git commit -m x', raiz).decision, 'deny');
   assert.equal(evaluar('git switch -c docs/a origin/main && git add docs/n.md && git commit -m x', raiz).decision, 'deny', 'con punto de partida');
 });
+
+test('gh pr merge de un PR que sólo trae docs o tests a una rama que no es PROD -> allow sin RQ; con código o a PROD, contra el RQ', () => {
+  const raiz = repoConRemoto();
+  const dirLin = dirLinRamas();
+  const ev = (archivos, base = 'dev') => evaluarBash({
+    comando: 'gh pr merge 5 --merge',
+    cwd: raiz,
+    ctx: { textosUsuario: [], basePr: () => base, archivosPr: () => archivos },
+    dirLin,
+  });
+  assert.equal(ev(['docs/backlog.md', 'docs/rq/R-1/estado.yml', 'docs/log/rq.jsonl']).decision, 'allow', 'sólo docs a dev');
+  let r = ev(['docs/backlog.md', 'src/a.ts']);
+  assert.equal(r.decision, 'deny', 'con código');
+  assert.match(r.motivo, /^No hay RQ activo/);
+  assert.equal(ev(['docs/backlog.md'], 'main').decision, 'deny', 'a PROD sigue contra el RQ');
+  assert.equal(ev([]).decision, 'deny', 'sin archivos legibles');
+  assert.equal(ev(Array.from({ length: 100 }, (_, i) => `docs/${i}.md`)).decision, 'deny', '100 o más: la lista de gh puede estar cortada');
+});

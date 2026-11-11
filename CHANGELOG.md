@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.2.2: merge de un PR de sólo docs sin RQ (2026-11-10)
+
+- `gh pr merge` de un PR que sólo trae docs o tests (según `gh pr view --json files`), a una rama que no es de PROD, pasa sin RQ, igual que el push de sólo docs de la 4.2.1. Antes, el PR que registraba un cierre se podía publicar pero no mergear sin abrir un RQ. A PROD, con código, sin archivos legibles o con 100 o más archivos (la lista de gh puede venir cortada), se sigue verificando contra el RQ.
+
 ## 4.2.1: publicar docs sin trabas (2026-11-10)
 
 Lo que frenó el cierre y el registro de RQ ya desplegados en la sesión del 2026-11-10: el push de una rama de docs pedía un RQ y la etapa 3, y las frases dichas a mitad de un turno no contaban.
