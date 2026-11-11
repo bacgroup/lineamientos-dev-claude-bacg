@@ -11,6 +11,7 @@ import { evaluarEdicion, escrituraProhibida } from '../compuerta-edicion.mjs';
 import { evaluarBash } from '../compuerta-bash.mjs';
 import { evaluarMcp } from '../compuerta-mcp.mjs';
 import { resolverMcp, proyectoRegistrado, proyectosRegistrados, refsProd } from '../contexto.mjs';
+import { proyectosLocales } from '../proyectos-locales.mjs';
 import { denegar } from '../salida.mjs';
 
 const CAMPO_RUTA = { Edit: 'file_path', Write: 'file_path', MultiEdit: 'file_path', NotebookEdit: 'notebook_path' };
@@ -75,7 +76,7 @@ export async function handler(entrada, { dirLin = dirLineamientos() } = {}) {
     // registrado tiene refs de PROD se tratan como PROD sin estado (falla cerrada).
     const corto = tool.toLowerCase().split('__').pop();
     if (!proyecto && RAMAS.includes(corto)) {
-      const conProd = proyectosRegistrados(dirLin).find((x) => refsProd(x.proyecto).length > 0);
+      const conProd = proyectosRegistrados(dirLin, { locales: proyectosLocales({ cwd, ajustes: false }) }).find((x) => refsProd(x.proyecto).length > 0);
       if (conProd) {
         proyecto = conProd.proyecto;
         raiz = null;

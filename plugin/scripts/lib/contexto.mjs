@@ -5,6 +5,7 @@ import path from 'node:path';
 import { buscarRepo, cargarProyecto, carpetaProyecto } from './config.mjs';
 import { rqsActivos, cargarEstado } from './estado.mjs';
 import { entradaMcpProd } from './mcp-prod.mjs';
+import { proyectosLocales } from './proyectos-locales.mjs';
 
 const esObjeto = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
 const lista = (x) => (Array.isArray(x) ? x : []);
@@ -51,12 +52,13 @@ function contiene(proyecto, id) {
 }
 
 /** Todos los proyectos registrados (salvo `_*`). Un proyecto.yml inválido lanza. */
-export function proyectosRegistrados(dirLin) {
+// `locales`: proyectos con la configuración en su repo ({ id, proyecto, raiz }); se suman si su id no está ya.
+export function proyectosRegistrados(dirLin, { locales = [] } = {}) {
   let entradas;
   try {
     entradas = fs.readdirSync(path.join(dirLin, 'proyectos'), { withFileTypes: true });
   } catch {
-    return [];
+    entradas = [];
   }
   const out = [];
   for (const e of entradas) {
@@ -64,6 +66,7 @@ export function proyectosRegistrados(dirLin) {
     const proyecto = proyectoRegistrado(e.name, dirLin);
     if (proyecto) out.push({ id: e.name, proyecto });
   }
+  for (const l of locales) if (!out.some((x) => x.id === l.id)) out.push(l);
   return out.sort((a, b) => a.id.localeCompare(b.id));
 }
 
@@ -90,20 +93,25 @@ export function resolverMcp({ cwd, toolInput, dirLin, toolName = null }) {
     proyecto = proyectoRegistrado(repo.proyectoId, dirLin, repo.raiz);
     if (proyecto) proyectoId = repo.proyectoId;
   }
+  let cacheLocales = null;
+  const locales = () => (cacheLocales ??= proyectosLocales({ cwd }));
+  let raizLocal = null;
   const ref = norm(esObjeto(toolInput) ? toolInput.project_id : null);
   if (ref && !(proyecto && contiene(proyecto, ref))) {
-    const otro = proyectosRegistrados(dirLin).find((x) => contiene(x.proyecto, ref));
-    if (otro) ({ id: proyectoId, proyecto } = otro);
+    const otro = proyectosRegistrados(dirLin, { locales: locales() }).find((x) => contiene(x.proyecto, ref));
+    if (otro) ({ id: proyectoId, proyecto, raiz: raizLocal = null } = otro);
   }
   // Servidor MCP de PROD (n8n, Odoo…) que el proyecto de cwd no declara: el primer proyecto que lo declare.
   if (toolName && !(proyecto && entradaMcpProd(proyecto, toolName))) {
-    const otro = proyectosRegistrados(dirLin).find((x) => entradaMcpProd(x.proyecto, toolName));
-    if (otro) ({ id: proyectoId, proyecto } = otro);
+    const otro = proyectosRegistrados(dirLin, { locales: locales() }).find((x) => entradaMcpProd(x.proyecto, toolName));
+    if (otro) ({ id: proyectoId, proyecto, raiz: raizLocal = null } = otro);
   }
   let raiz = null;
   if (proyecto) {
     if (repo && repo.proyectoId === proyectoId) {
       raiz = repo.raiz;
+    } else if (raizLocal) {
+      raiz = raizLocal;
     } else {
       const padre = lista(proyecto.repos).find(
         (r) => esObjeto(r) && r.rol === 'padre' && typeof r.ruta_local === 'string' && r.ruta_local.trim() !== '',

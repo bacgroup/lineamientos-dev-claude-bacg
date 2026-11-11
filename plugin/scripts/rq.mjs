@@ -471,6 +471,19 @@ function stagearPropiosDeLaCli(raiz, codigo) {
   }
 }
 
+/** PLG-DFF (pedido 6): ¿spec.md del RQ ya trae `## Diseño` y `## Tareas`? */
+function disenoEscrito(raiz, codigo) {
+  try {
+    const t = fs.readFileSync(path.join(raiz, 'docs', 'rq', codigo, 'spec.md'), 'utf8');
+    return /^## Diseño\b/m.test(t) && /^## Tareas\b/m.test(t);
+  } catch {
+    return false;
+  }
+}
+
+// Exploración y Acotado van en línea salvo que el usuario elija otra cosa (PLG-DFF, pedido 6).
+const EN_LINEA_POR_DEFECTO = ['spike', 'bounded'];
+
 const MODOS_EJECUCION = { inline: 'inline', 'executing-plans': 'inline', subagentes: 'subagentes', 'subagent-driven-development': 'subagentes' };
 
 const MSG_EJECUCION = 'Antes del primer commit, preguntale al usuario cómo ejecutar el plan (executing-plans en línea o subagent-driven-development) y registralo: $RQ ejecucion inline|subagentes "<su frase>".';
@@ -483,12 +496,12 @@ function hayCommitDeCodigo(raiz, codigo, estado, proyecto) {
 
 /**
  * Sin brainstorming (y, según el tipo, causa, tareas o plan): no se commitea código. Y antes del primer commit de
- * código (salvo Exploración, que va en línea) el usuario eligió cómo se ejecuta el plan.
+ * código (salvo Exploración y Acotado, que van en línea) el usuario eligió cómo se ejecuta el plan.
  */
 function exigirDesarrollo(estado, raiz, proyecto) {
   const falta = faltaParaEtapa(estado, ETAPA.DESARROLLO, raiz);
   if (falta.length) throw new ErrorCli(`Antes de commitear código del ${estado.codigo} falta: ${falta.join('; ')}. Si el usuario decide saltearlo: $RQ saltar skills "<frase>" "<motivo>".`);
-  if (estado.clasificacion !== 'spike' && !estado.ejecucion && !hayCommitDeCodigo(raiz, estado.codigo, estado, proyecto)) throw new ErrorCli(MSG_EJECUCION);
+  if (!EN_LINEA_POR_DEFECTO.includes(estado.clasificacion) && !estado.ejecucion && !hayCommitDeCodigo(raiz, estado.codigo, estado, proyecto)) throw new ErrorCli(MSG_EJECUCION);
 }
 
 /**
@@ -1435,6 +1448,10 @@ export async function main(
           if (nueva) s.clasificacion = nueva;
           s.clasificacion_pendiente = false;
           s.clasificacion_confirmada = { frase, fecha: ahora() };
+          if (s.clasificacion === 'bounded' && !lista(s.aprobaciones).some((a) => a?.etapa === ETAPA.DISENO) && disenoEscrito(raiz, s.codigo)) {
+            s.aprobaciones = [...lista(s.aprobaciones), { etapa: ETAPA.DISENO, frase, fecha: ahora(), via: 'clasificacion' }];
+            return `Clasificación ${nombreDe(s.clasificacion)} confirmada. Diseño y tareas de spec.md aprobados con la misma frase.`;
+          }
           return `Clasificación ${nombreDe(s.clasificacion)} confirmada.`;
         });
         break;

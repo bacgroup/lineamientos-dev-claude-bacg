@@ -319,7 +319,7 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
   }
 
   // --- Lovable ---
-  if (sufijo(nombre, 'deploy_project')) {
+  if (sufijo(nombre, 'deploy_project') && proyectosLovable(proyecto).length > 0) {
     return (
       exigirProd(
         ests,
@@ -330,7 +330,7 @@ export function evaluarMcp({ toolName, toolInput, proyecto, estado, estados, ctx
     );
   }
 
-  if (sufijo(nombre, 'respond_to_approval')) {
+  if (sufijo(nombre, 'respond_to_approval') && proyectosLovable(proyecto).length > 0) {
     return (
       exigirProd(
         ests,

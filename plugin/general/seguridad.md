@@ -51,6 +51,7 @@ Lo que la red de seguridad agrega bloquea, pero no cuenta como paso cumplido del
 - no se detectan funciones invocadas indirectamente por vistas, triggers o reglas, operadores definidos por el usuario ni llamadas con notación de atributo (`(t).f`);
 - la lista blanca de funciones se aplica por nombre: una función propia con el mismo nombre que una de la lista, en otro schema del `search_path`, pasaría;
 - los `project_id` que no son de PROD (o desconocidos) se permiten;
+- un `project_id` se reconoce como de un proyecto propio si está en el registro de lineamientos o en un repo con `.bacg-dev/` debajo de la carpeta de la sesión (hasta dos niveles) o en `proyectos.<id>.raiz` de `~/.claude/bacg-dev.json`; un repo con `.bacg-dev/` en otro lado y sin esa entrada no se ve desde fuera de él. El deploy de Lovable sólo se controla en proyectos que declaran `lovable`;
 - si `sql:<ref>` no figura en `circuito_prod`, no hay chequeo de orden.
 
 Tampoco se protege de la edición deliberada de `estado.yml` por caminos que la compuerta no ve, ni de **falsificar el transcript** (escribir en `~/.claude/projects/*.jsonl` con algo que no sea Edit/Write ni las formas de Bash de arriba): las aprobaciones se validan contra ese archivo. Nunca hagas ninguna de las dos cosas.

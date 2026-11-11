@@ -54,7 +54,7 @@ La etapa sale sola de la evidencia (`$RQ estado` la muestra); `$RQ etapa <n>` es
 |---|---|---|---|---|
 | 0 | Arranque y clasificación | esta skill | esta skill | RQ abierto, fila en backlog, encuadre en `spec.md`, clasificación confirmada |
 | 1 | Diseño y plan | `superpowers:brainstorming` (sección 2.1); ARQ si amerita (sección 3) | `superpowers:systematic-debugging` (causa raíz en `spec.md`, `## Causa`) y después `superpowers:brainstorming` | diseño y tareas o plan según la clasificación; `$RQ aprobar 1 "<frase>"` en toda clasificación · editar código lo exige |
-| 2 | Desarrollo | `superpowers:test-driven-development`; ejecución elegida por el usuario (sección 2.2) | `superpowers:test-driven-development`: primero el test que reproduce el bug, en rojo | `$RQ commit "<mensaje>" <rutas>` por tarea; refuerzo de UI (sección 4) · el primer commit de código exige `brainstorming` (en BUG, además `systematic-debugging` y `## Causa`; en Acotado, `## Tareas`; en Arquitectónico, `writing-plans` y `plan.md`) y la ejecución elegida |
+| 2 | Desarrollo | `superpowers:test-driven-development`; ejecución elegida por el usuario (sección 2.2) | `superpowers:test-driven-development`: primero el test que reproduce el bug, en rojo | `$RQ commit "<mensaje>" <rutas>` por tarea; refuerzo de UI (sección 4) · el primer commit de código exige `brainstorming` (en BUG, además `systematic-debugging` y `## Causa`; en Acotado, `## Tareas`; en Arquitectónico, `writing-plans` y `plan.md`) y, en Arquitectónico, la ejecución elegida |
 | 3 | Verificación | una revisión (sección 5) | una revisión (sección 5) | `$RQ verificar` (E2E live), `$RQ verificar --local` si toca UI (sección 4) y `$RQ revision ok\|bloqueante "<nota>"` · la revisión ok exige `test-driven-development`, la verificación local si toca UI y, si el RQ toca rutas `sensible`, `claude-security` |
 | 4 | DEV / Preview | | | sola en Exploración y Acotado; en Arquitectónico, `$RQ aprobar 4 "<frase>"` |
 | 5 | PROD y entrega | `superpowers:verification-before-completion` antes de pedir el OK | | `$RQ aprobar 5 "<frase>"` y circuito completo (sección 6) · publicar exige las skills de arriba, la revisión y el E2E completo |
@@ -102,14 +102,14 @@ Las cuatro últimas son las oficiales de `github.com/odoo/odoo/tree/20.0/skills`
 | ARQ | no | no | sección 3; `lineamientos-dev-claude-bacg:decision-arq` + ADR |
 | Plan | no | `## Tareas` en `spec.md` | `superpowers:writing-plans` → `docs/rq/<código>/plan.md` |
 | `/prototype` | no | proponerlo al usuario si toca UI | proponerlo al usuario si toca UI |
-| Aprobación | `$RQ aprobar 1 "<frase>"` | `$RQ aprobar 1 "<frase>"` | `$RQ aprobar 1 "<frase>"` (diseño y plan juntos) |
+| Aprobación | `$RQ aprobar 1 "<frase>"` | `$RQ aprobar 1 "<frase>"`, o la misma frase de `clasificacion confirmar` si `## Diseño` y `## Tareas` ya están en `spec.md`: escribilos antes de pedir la confirmación y una respuesta cubre las dos | `$RQ aprobar 1 "<frase>"` (diseño y plan juntos) |
 
 **Exploración termina al final de la sonda:** el resultado es una recomendación en `spec.md`. Sólo se commitea bajo `docs/rq/<código>/` (el código de la sonda, en `docs/rq/<código>/sonda/`), además de lo que escribe la CLI; construirlo es un RQ nuevo.
 
 ### 2.2 Reglas con Superpowers (mandan sobre las de cada skill)
 
 - Spec y plan van a `docs/rq/<código>/spec.md` y `plan.md`, nunca a `docs/superpowers/…`. Una pasada, sin self-review extra; una aprobación del usuario (`aprobar 1`).
-- **Ejecución:** antes del primer commit de código, preguntale al usuario en el chat, con texto, cómo ejecutar el plan: `superpowers:executing-plans` en línea o `superpowers:subagent-driven-development`. Registrá su respuesta literal con `$RQ ejecucion inline|subagentes "<su frase>"`; sin eso, `$RQ commit` no commitea código. Exploración no pregunta: va en línea. `writing-plans` nombra en la cabecera del plan la ejecución elegida, no `subagent-driven-development` por defecto. Con subagentes, sin reviewer por tarea: la revisión es una sola, en la etapa 3.
+- **Ejecución:** antes del primer commit de código, preguntale al usuario en el chat, con texto, cómo ejecutar el plan: `superpowers:executing-plans` en línea o `superpowers:subagent-driven-development`. Registrá su respuesta literal con `$RQ ejecucion inline|subagentes "<su frase>"`; sin eso, `$RQ commit` no commitea código. Exploración y Acotado no preguntan: van en línea (en Acotado, si el usuario pide subagentes, `$RQ ejecucion subagentes "<su frase>"`). `writing-plans` nombra en la cabecera del plan la ejecución elegida, no `subagent-driven-development` por defecto. Con subagentes, sin reviewer por tarea: la revisión es una sola, en la etapa 3.
 - `superpowers:requesting-code-review` no se usa: la revisión es la de la sección 5.
 - `superpowers:finishing-a-development-branch` no se usa: la entrega es la sección 6 (`$RQ entregar` y `$RQ desplegar`).
 - `superpowers:using-git-worktrees`: sólo si `reglas.md` del proyecto lo pide. Si el E2E corre contra la app del checkout principal, no.

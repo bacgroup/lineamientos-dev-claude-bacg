@@ -85,10 +85,6 @@ test('commit: sólo docs no corre tests; BUG sin systematic-debugging no commite
   e.skills = [{ skill: 'superpowers:brainstorming', etapa: 1 }, { skill: 'superpowers:systematic-debugging', etapa: 1 }];
   guardarEstado(raiz, e);
   r = await correr(raiz, ['commit', 'fix: arreglo', 'src/a.ts'], env);
-  assert.equal(r.code, 1);
-  assert.match(r.err, /Antes del primer commit, preguntale al usuario cómo ejecutar el plan/);
-  assert.equal((await correr(raiz, ['ejecucion', 'inline', 'en línea'], env)).code, 0);
-  r = await correr(raiz, ['commit', 'fix: arreglo', 'src/a.ts'], env);
   assert.equal(r.code, 0, r.out + r.err);
 });
 
