@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.2.1: publicar docs sin trabas (2026-11-10)
+
+Lo que frenó el cierre y el registro de RQ ya desplegados en la sesión del 2026-11-10: el push de una rama de docs pedía un RQ y la etapa 3, y las frases dichas a mitad de un turno no contaban.
+- El primer push de una rama nueva (`git push -u origin <rama>`, sin upstream) que sólo trae docs o tests pasa sin RQ, como ya pasaba con upstream: se miran los commits que ningún remoto tiene. Si la rama ya está en el remoto pero sin upstream, se compara contra esa rama. Una rama nueva que es de PROD se sigue verificando contra el RQ. Antes, sin upstream, todo push iba contra el RQ: "No hay RQ activo" o, con uno abierto para destrabar, "Falta la etapa 3".
+- `git switch -c <rama>` (o `checkout -b`, con o sin `-q`) antes de `git add <docs> && git commit` en el mismo comando ya no se niega: crear una rama en HEAD no cambia el índice. Con punto de partida o a una rama existente sigue siendo en comandos aparte.
+- Las frases que el usuario manda mientras el agente trabaja (llegan como mensaje en cola) cuentan como texto suyo para `clasificacion`, `aprobar`, `ejecucion`, `autonomia` y `saltar`. Antes había que pedírselas de nuevo.
+- `paso hecho` con un paso de un `circuito_prod` anterior (un pendiente anotado antes de que el proyecto lo renombrara) explica que ya no existe y lista los pasos vigentes; el de un paso desconocido también los lista.
+- `entregar --rq <código>` parado en la rama de otro RQ muestra el PR de la rama del RQ pedido (`rq/<código>`), con un aviso, y no el de HEAD.
+
 ## 4.2.0: menos contexto gastado en salidas de comandos (2026-11-10)
 
 Lo útil de un proxy de compresión como Headroom, hecho dentro del plugin con hooks (Headroom no sirve en la app de escritorio: no respeta `ANTHROPIC_BASE_URL`).

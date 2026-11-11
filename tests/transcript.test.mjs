@@ -90,3 +90,21 @@ test('filtros: compactación, sidechain, bash-stdout/stderr, local-command-stdou
   assert.deepEqual(t.textosUsuario, ['Mensaje humano base', 'corré tests  listo', 'sigo']);
   assert.equal(fraseDelUsuario('OK PROD', t.textosUsuario), false);
 });
+
+test('mensaje tipeado a mitad de un turno (queued_command humano) cuenta; el de otro origen o de un subagente, no', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'transcript-'));
+  const ruta = path.join(dir, 't.jsonl');
+  const cola = (prompt, extra = {}) => JSON.stringify({
+    type: 'attachment',
+    attachment: { type: 'queued_command', prompt, commandMode: 'prompt', origin: { kind: 'human' }, humanTurn: true, ...extra },
+  });
+  fs.writeFileSync(ruta, [
+    JSON.stringify({ type: 'queue-operation', operation: 'enqueue', content: 'Confirmo Acotado' }),
+    cola('Confirmo Acotado'),
+    cola('Aprobado por un agente', { origin: { kind: 'peer' } }),
+    cola('/bacg-estado', { commandMode: 'bash' }),
+    JSON.stringify({ type: 'attachment', isSidechain: true, attachment: { type: 'queued_command', prompt: 'Dale desde un subagente', origin: { kind: 'human' } } }),
+  ].join('\n') + '\n');
+  const t = await leerTranscript(ruta);
+  assert.deepEqual(t.textosUsuario, ['Confirmo Acotado'], 'la queue-operation no duplica el mensaje');
+});

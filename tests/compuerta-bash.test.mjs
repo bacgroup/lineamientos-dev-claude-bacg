@@ -1133,3 +1133,70 @@ test('red de frases: falla cerrada ante rq.mjs en una variable o sin subcomando 
   // asignación, como lo indica SKILL.md, `abrir … --clasificacion` pasa; ver el test anterior).
   assert.equal(evaluar('RQ=/ruta/rq.mjs; node "$RQ" abrir R-9 --tipo rq --clasificacion acotado --tarea "x"', raiz, []).decision, 'deny');
 });
+
+// ---------- Publicar docs sin fricción: rama nueva sin upstream, switch -c antes del commit ----------
+
+// Lineamientos de prueba con ramas_prod [main] y ramas_solo_pr [dev]: una rama de docs nueva no es PROD.
+function dirLinRamas() {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-ramas-'));
+  fs.cpSync(DIR_LIN, d, { recursive: true });
+  fs.appendFileSync(path.join(d, 'proyectos', 'demo', 'proyecto.yml'), 'ramas_prod: [main]\nramas_solo_pr: [dev]\n');
+  return d;
+}
+
+test('primer push de una rama nueva de docs (sin upstream) -> allow sin RQ; con código, la compuerta de siempre', () => {
+  const raiz = repoConRemoto();
+  const dirLin = dirLinRamas();
+  const ev = (comando) => evaluarBash({ comando, cwd: raiz, ctx: { textosUsuario: [] }, dirLin });
+  git(raiz, 'switch', '-q', '-c', 'docs/registro');
+  fs.mkdirSync(path.join(raiz, 'docs', 'rq', 'R-1'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'estado.yml'), 'x');
+  fs.writeFileSync(path.join(raiz, 'docs', 'backlog.md'), 'x');
+  git(raiz, 'add', '.');
+  git(raiz, 'commit', '-q', '-m', 'docs');
+  assert.equal(ev('git push -u origin docs/registro').decision, 'allow', 'rama nueva sólo con docs');
+  assert.equal(ev('git push -u origin HEAD').decision, 'allow', 'HEAD a rama nueva');
+  // Con un RQ activo sin etapa 3, un push de sólo docs tampoco lo necesita.
+  activar(raiz, base({ etapa: 0 }));
+  git(raiz, 'add', '.');
+  git(raiz, 'commit', '-q', '-m', 'docs: activo');
+  assert.equal(ev('git push -u origin docs/registro').decision, 'allow', 'docs con un RQ activo sin verificar');
+  fs.rmSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'));
+  git(raiz, 'add', '-A');
+  git(raiz, 'commit', '-q', '-m', 'docs: sin activo');
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
+  git(raiz, 'add', '.');
+  git(raiz, 'commit', '-q', '-m', 'código');
+  const r = ev('git push -u origin docs/registro');
+  assert.equal(r.decision, 'deny', 'rama nueva con código');
+  assert.match(r.motivo, /^No hay RQ activo/);
+});
+
+test('push sin upstream a una rama que ya está en el remoto: se compara contra esa rama', () => {
+  const raiz = repoConRemoto();
+  const dirLin = dirLinRamas();
+  const ev = (comando) => evaluarBash({ comando, cwd: raiz, ctx: { textosUsuario: [] }, dirLin });
+  git(raiz, 'switch', '-q', '-c', 'docs/x');
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
+  git(raiz, 'add', '.');
+  git(raiz, 'commit', '-q', '-m', 'código');
+  git(raiz, 'push', '-q', 'origin', 'docs/x'); // en el remoto, sin -u
+  fs.mkdirSync(path.join(raiz, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'n.md'), 'x');
+  git(raiz, 'add', '.');
+  git(raiz, 'commit', '-q', '-m', 'docs');
+  assert.equal(ev('git push origin docs/x').decision, 'allow', 'lo nuevo respecto de origin/docs/x es sólo docs');
+});
+
+test('git switch -c <rama> && git add <docs> && git commit -> allow; switch a una rama existente sigue negado', () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', nombre: 'demo-app' });
+  fs.mkdirSync(path.join(raiz, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'docs', 'n.md'), 'x');
+  assert.deepEqual(evaluar('git switch -q -c docs/a && git add docs/n.md && git commit -m x', raiz), { decision: 'allow', critica: false }, 'con -q');
+  assert.deepEqual(evaluar('git switch -c docs/a && git add docs/n.md && git commit -m "docs: x\n\nCuerpo"', raiz), { decision: 'allow', critica: false });
+  assert.deepEqual(evaluar('git checkout -b docs/a && git add docs/n.md && git commit -m x', raiz), { decision: 'allow', critica: false });
+  assert.equal(evaluar('git switch otra && git add docs/n.md && git commit -m x', raiz).decision, 'deny');
+  assert.equal(evaluar('git switch -c docs/a origin/main && git add docs/n.md && git commit -m x', raiz).decision, 'deny', 'con punto de partida');
+});

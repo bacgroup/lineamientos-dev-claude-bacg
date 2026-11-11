@@ -789,6 +789,10 @@ function entregar(repo, elegido, env, io) {
   const rama = salida(raiz, ['rev-parse', '--abbrev-ref', 'HEAD']) ?? '?';
   const protegida = enRamaProtegida(raiz, proyectoDe(repo, env));
   if (protegida) l.push(`Rama equivocada: ${protegida} sólo recibe cambios por PR. Pasá a ${ramaDelRq(codigo)} (git switch -c ${ramaDelRq(codigo)}).`);
+  // Parado en la rama de otro RQ (varios activos): el PR que importa es el de la rama de este, no el de HEAD.
+  const ramaPropia = ramaDelRq(codigo);
+  const otraRamaDeRq = rama.startsWith('rq/') && rama !== ramaPropia;
+  if (otraRamaDeRq) l.push(`Aviso: estás en ${rama}, la rama de otro RQ; el PR de abajo es el de ${ramaPropia}.`);
   const cuenta = salida(raiz, ['rev-list', '--left-right', '--count', '@{u}...HEAD']);
   if (cuenta === null) l.push(`Rama: ${rama}, sin upstream (git push -u origin ${rama}).`);
   else {
@@ -815,7 +819,7 @@ function entregar(repo, elegido, env, io) {
   } else if (env.BACG_DEV_SIN_GH === '1') {
     l.push('PR y CI: sin consultar (BACG_DEV_SIN_GH).');
   } else {
-    const r = spawnSync('gh', ['pr', 'view', '--json', 'number,state,url,statusCheckRollup'], { cwd: raiz, encoding: 'utf8' });
+    const r = spawnSync('gh', ['pr', 'view', ...(otraRamaDeRq ? [ramaPropia] : []), '--json', 'number,state,url,statusCheckRollup'], { cwd: raiz, encoding: 'utf8' });
     if (r.status !== 0) {
       // PLG-RAMAS: con rama de DEV, el PR del RQ va a DEV (sin --base, gh usa la rama por defecto, que puede ser PROD).
       const proy = proyectoDe(repo, env);
@@ -978,10 +982,21 @@ function auditar(repo, args, env, io) {
   io.stdout.write(`${l.join('\n')}\n`);
 }
 
-function pasoOficial(repo, env, p) {
+function pasoOficial(repo, env, p, estado) {
   const proyecto = proyectoDe(repo, env);
-  const oficial = pasosCircuito(proyecto).map((x) => x.paso).find((x) => normPaso(x) === normPaso(p));
-  if (!oficial) throw new ErrorCli(`El paso "${p}" no figura en circuito_prod del proyecto ${repo.proyectoId}.`);
+  const vigentes = pasosCircuito(proyecto).map((x) => x.paso);
+  const oficial = vigentes.find((x) => normPaso(x) === normPaso(p));
+  if (!oficial) {
+    // Un pendiente anotado con un circuito anterior (el proyecto renombró o partió el paso): se dice cuáles lo
+    // reemplazan en lugar de dejarlo sin salida.
+    const viejo = lista(estado?.pendientes).some((x) => normPaso(x) === normPaso(p));
+    const lista_ = vigentes.length ? vigentes.join(', ') : 'ninguno';
+    throw new ErrorCli(
+      viejo
+        ? `El paso "${p}" es de un circuito_prod anterior del proyecto ${repo.proyectoId} y ya no existe. Los pasos vigentes son: ${lista_}. Registrá los que correspondan (paso hecho <paso> "<evidencia>"); al registrar uno, los pendientes del RQ se recalculan con el circuito vigente.`
+        : `El paso "${p}" no figura en circuito_prod del proyecto ${repo.proyectoId}. Los pasos vigentes son: ${lista_}.`,
+    );
+  }
   return { proyecto, oficial };
 }
 
@@ -993,7 +1008,7 @@ function registrarPaso(repo, elegido, paso, env, io) {
     throw new ErrorCli('Los pasos sql:/push:/merge-prs-sync: se registran solos; si los hiciste por fuera, usá paso hecho <paso> "<evidencia>".');
   }
   const { estado } = activo(repo.raiz, elegido);
-  const { oficial } = pasoOficial(repo, env, p);
+  const { oficial } = pasoOficial(repo, env, p, estado);
   const hechos = lista(estado.circuito);
   if (hechos.some((c) => normPaso(c?.paso) === normPaso(oficial))) {
     io.stdout.write(`El paso ${oficial} ya estaba registrado.\n`);
@@ -1010,7 +1025,7 @@ function registrarHecho(repo, elegido, paso, evidencia, env, io) {
   const p = textoNoVacio(paso, 'El paso').trim();
   textoNoVacio(evidencia, 'La evidencia');
   const { estado } = activo(repo.raiz, elegido);
-  const { oficial } = pasoOficial(repo, env, p);
+  const { oficial } = pasoOficial(repo, env, p, estado);
   const hechos = lista(estado.circuito);
   if (hechos.some((c) => normPaso(c?.paso) === normPaso(oficial) && c?.no_aplica !== true)) {
     io.stdout.write(`El paso ${oficial} ya estaba registrado.\n`);
@@ -1029,7 +1044,7 @@ function marcarNoAplica(repo, elegido, paso, motivo, env, io) {
   if (pasoObligatorio(p)) throw new ErrorCli('Los pasos push: y merge-prs-sync: no se pueden marcar como no aplica.');
   textoNoVacio(motivo, 'El motivo');
   const { codigo, estado } = activo(repo.raiz, elegido);
-  const { oficial } = pasoOficial(repo, env, p);
+  const { oficial } = pasoOficial(repo, env, p, estado);
   const hechos = lista(estado.circuito);
   if (hechos.some((c) => normPaso(c?.paso) === normPaso(oficial))) {
     io.stdout.write(`El paso ${oficial} ya estaba registrado.\n`);
