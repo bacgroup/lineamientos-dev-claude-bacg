@@ -69,6 +69,8 @@ export function vecesQueLoDijo(frase, textosUsuario) {
 // Sólo cuenta: type "user", sin isMeta (cuerpos de skills), sin tool_result,
 // y origen ausente o humano (los hand-backs de subagentes son origin peer).
 function textoHumano(entry) {
+  // Un mensaje que el usuario manda mientras el agente trabaja queda como adjunto queued_command (origen humano).
+  if (entry?.type === 'attachment') return textoEnCola(entry);
   if (!entry || entry.type !== 'user' || entry.isMeta) return null;
   if (entry.isCompactSummary === true || entry.isSidechain === true) return null;
   if (entry.origin !== undefined && entry.origin?.kind !== 'human') return null;
@@ -86,6 +88,15 @@ function textoHumano(entry) {
     return null;
   }
   texto = texto.replace(RE_ENVOLTORIOS, '').trim();
+  return texto === '' || RE_AVISO_SISTEMA.test(texto) ? null : texto;
+}
+
+// Texto de un mensaje en cola tipeado por el humano a mitad de un turno, o null.
+function textoEnCola(entry) {
+  const a = entry.attachment;
+  if (entry.isSidechain === true || a?.type !== 'queued_command' || typeof a.prompt !== 'string') return null;
+  if (a.origin?.kind !== 'human' || (a.commandMode !== undefined && a.commandMode !== 'prompt')) return null;
+  const texto = a.prompt.replace(RE_ENVOLTORIOS, '').trim();
   return texto === '' || RE_AVISO_SISTEMA.test(texto) ? null : texto;
 }
 

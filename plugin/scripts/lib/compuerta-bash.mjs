@@ -399,6 +399,17 @@ function analizarCommit(args) {
   return { todos, rutas };
 }
 
+/**
+ * `git switch -c|-C|--create <rama>` o `git checkout -b|-B <rama>` sin punto de partida: crea la rama en HEAD y no
+ * toca el índice (lo que está en stage sigue igual), así que no impide un `git add && git commit` de docs después.
+ */
+function creaRamaDesdeHead(sub, resto) {
+  const crear = sub === 'switch' ? ['-c', '-C', '--create', '--force-create'] : sub === 'checkout' ? ['-b', '-B'] : [];
+  const args = resto.filter((a) => a !== '-q' && a !== '--quiet');
+  if (crear.length === 0 || args.length !== 2 || !crear.includes(args[0])) return false;
+  return !args[1].startsWith('-');
+}
+
 function analizarGit(args, dir, compartido, tocar, info) {
   let d = dir;
   let i = 0;
@@ -453,7 +464,7 @@ function analizarGit(args, dir, compartido, tocar, info) {
   // amplio (-A, -u, ., :/) o cualquier otro cambio de índice obliga a commitear en un comando aparte.
   const agregadas = sub === 'add' ? rutasDeAdd(args.slice(i + 1)) : null;
   if (agregadas) (compartido.agregados ??= []).push(...agregadas.map((r) => ({ dir: d, ruta: r })));
-  else if (CAMBIAN_INDICE.has(sub)) compartido.indice = true;
+  else if (CAMBIAN_INDICE.has(sub) && !creaRamaDesdeHead(sub, args.slice(i + 1))) compartido.indice = true;
   return ops;
 }
 
@@ -1129,15 +1140,51 @@ function destino(op, dirLin, ctx) {
  */
 function pushSoloLibres(op, dest) {
   if (op.op !== 'push' || !pushDeLaRamaActual(op, dest.raiz)) return false;
-  let salida;
-  try {
-    salida = git(dest.raiz, ['diff', '--name-only', '--no-renames', '-z', '@{u}...HEAD']);
-  } catch {
-    return false; // sin upstream: no se sabe qué se publica
-  }
+  const salida = archivosQuePublica(op, dest);
+  if (salida === null) return false;
   const archivos = salida.split('\0').filter(Boolean);
   const rels = relativasARaiz(dest.raiz, dest.raiz, archivos);
   return rels.every((rel) => rel !== null && tipoArchivo(rel, dest.proyecto) === 'libre');
+}
+
+/**
+ * Archivos (separados por \0) que el push de la rama actual publica, o null si no se puede saber.
+ * - Con upstream: lo que tiene HEAD y el upstream no (`@{u}...HEAD`).
+ * - Sin upstream, con la rama destino ya en algún remoto (`git push origin HEAD:x` o una rama sin -u): contra esa rama.
+ * - Sin upstream y con una rama nueva (el primer `git push -u origin <rama>` de una rama de docs): los commits que
+ *   ningún remoto tiene (`HEAD --not --remotes`). Sólo si el destino no es PROD: una rama de PROD nueva se verifica
+ *   contra el RQ como siempre.
+ */
+function archivosQuePublica(op, dest) {
+  try {
+    return git(dest.raiz, ['diff', '--name-only', '--no-renames', '-z', '@{u}...HEAD']);
+  } catch {
+    // sin upstream: se sigue abajo
+  }
+  let rama;
+  try {
+    rama = git(dest.raiz, ['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+  } catch {
+    return null;
+  }
+  if (!rama || rama === 'HEAD') return null;
+  const refspec = (Array.isArray(op.refspecs) ? op.refspecs : [])[0];
+  const destinoRama = sinRefsHeads(refspec && refspec.includes(':') ? refspec.split(':').pop() : rama);
+  let remotas = [];
+  try {
+    remotas = git(dest.raiz, ['for-each-ref', '--format=%(refname)', `refs/remotes/*/${destinoRama}`]).split(/\r?\n/).filter(Boolean);
+  } catch {
+    return null;
+  }
+  try {
+    if (remotas.length) return git(dest.raiz, ['diff', '--name-only', '--no-renames', '-z', `${remotas[0]}...HEAD`]);
+    if (dest.prod) return null;
+    // Sin ninguna rama remota conocida (repo sin fetch ni remoto) no hay contra qué comparar: se verifica contra el RQ.
+    if (!git(dest.raiz, ['for-each-ref', '--count=1', '--format=%(refname)', 'refs/remotes']).trim()) return null;
+    return git(dest.raiz, ['log', '--format=', '--name-only', '--no-renames', '-z', 'HEAD', '--not', '--remotes']);
+  } catch {
+    return null;
+  }
 }
 
 /** Evalúa la publicación contra un RQ. Devuelve el deny o null. */
