@@ -15,6 +15,7 @@ import { reposHermanos } from './multi-repo.mjs';
 import { PLUGINS_REQUERIDOS } from './hooks/session-start.mjs';
 import { estadoSkillsOdoo, ramaSkills, usaOdoo, tieneAddons } from './odoo-skills.mjs';
 import { fileURLToPath } from 'node:url';
+import { higienePlugins, textoCandidato, bloqueApagar } from './higiene.mjs';
 
 const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'rq.mjs');
 
@@ -105,6 +106,26 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
     detalle: instalados === null ? 'no pude leer ~/.claude/plugins/installed_plugins.json' : faltan.length ? `faltan: ${faltan.join(', ')}` : undefined,
     como: faltan.length ? faltan.map((p) => `/plugin install ${p}`).join(' · ') : 'Verificalos con /plugin.',
   });
+
+  // 5b. Plugins que sobran en esta carpeta (PLG-CTX): los que no se usan acá. Los hermanos (otra derivación del mismo
+  // ciclo, que comparte skills con este) y los requeridos nunca se proponen apagar.
+  const higiene = instalados === null ? null : higienePlugins({ cwd, env, home, requeridos: PLUGINS_REQUERIDOS });
+  if (higiene) {
+    const { candidatos, sesiones, archivo, tokens } = higiene;
+    sumar({
+      id: 'higiene', titulo: 'Plugins que sobran en esta carpeta', obligatorio: false,
+      estado: candidatos.length ? 'aviso' : 'ok',
+      detalle: candidatos.length ? `${candidatos.length} plugin(s), ~${tokens} tokens por sesión` : undefined,
+      como: candidatos.length
+        ? [
+            ...candidatos.map((c) => `- ${textoCandidato(c, sesiones)}`),
+            `Para apagarlos sólo en esta carpeta y esta PC, que el usuario sume esto a ${archivo} (sin pisar otras claves; .claude/ no lo edita el agente):`,
+            bloqueApagar(candidatos),
+            'Después, reiniciá la sesión. Vale para toda cuenta de Claude que abra esta carpeta: si otra cuenta usa alguno de estos plugins acá, no lo apagues. Los plugins de la app de escritorio (los que no figuran en ~/.claude/settings.json) se administran desde la app.',
+          ].join('\n')
+        : undefined,
+    });
+  }
 
   // 6. Repo de un proyecto
   if (!repo) {

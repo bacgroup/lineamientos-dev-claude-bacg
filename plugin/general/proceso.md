@@ -74,6 +74,8 @@ Los tests que fallan en `main` por causas ajenas se declaran una vez en `tests.r
 
 Cada RQ trabaja en su rama `rq/<código>`. Si el proyecto declara ramas que sólo reciben PR (la de DEV) o ramas de PROD, abrir el RQ pasa a su rama y la compuerta no deja commitear código en aquellas.
 
+Con rama de DEV y de PROD (por ejemplo `develop` y `main`), el orden es fijo: PR de la rama del RQ a DEV, despliegue y verificación en DEV, y después la promoción DEV → PROD. A PROD sólo llega lo que ya está en la rama de DEV de origin: la compuerta niega un push, un merge o un PR a PROD que venga de otra rama. Un hotfix directo a PROD sólo con el salto `rama`, en palabras del usuario.
+
 ## Despliegue
 
 El circuito de PROD (`circuito_prod`) se adapta al cambio:
@@ -83,6 +85,7 @@ El circuito de PROD (`circuito_prod`) se adapta al cambio:
 - `rq.mjs desplegar` arma el plan completo (con los bloques SQL del handoff de base si hay migraciones). Con el OK de PROD, el agente lo ejecuta de punta a punta.
 - Lo hecho por fuera (un merge desde la web, una migración ya aplicada) se registra con su evidencia, y un push o un PR ya mergeado se detectan solos.
 - Los pasos manuales (publicar en Lovable) quedan como pendientes del usuario y no bloquean el cierre.
+- Un paso `dev:<texto>` (por ejemplo `dev:verificado`) es la verificación en DEV: a diferencia de los manuales, los pasos que siguen lo esperan, así que la promoción a PROD no pasa hasta registrarlo con su evidencia.
 
 ## Saltos de emergencia
 
@@ -91,6 +94,8 @@ Si el usuario dice con sus palabras "salteá la compuerta X porque Y" (X: edici�
 ## Retomar, sesiones y subagentes
 
 No hay relevo. Al retomar, el arranque dice dónde quedó el RQ y reinyecta el encuadre (cabecera de `docs/rq/<código>/spec.md`); `rq.mjs entregar` dice qué falta (tests, E2E, revisión, PR, CI y pasos de PROD). El cierre deja el changelog y una línea en `docs/log/rq.jsonl`. Los RQ abiertos con la versión anterior del ciclo (etapas 0 a 7) se convierten solos a la numeración nueva.
+
+Contexto: en los repos del plugin, una salida de Bash o PowerShell de más de 4.000 caracteres que no es lectura de código, diff, búsqueda ni `rq.mjs` (logs, Docker, `gh`, tests) llega compactada: errores con su contexto, principio y final, JSON sin campos de ruido. El original queda en `~/.claude/bacg-dev/salidas/` (7 días) y la salida dice la ruta para releerlo con Read o grep. Los tests y el E2E que fallan en `rq.mjs` muestran los errores aunque estén en el medio del log, más la ruta de la salida completa. Al compactar la conversación, el plugin pide conservar el estado de cada RQ abierto, las frases del usuario y los rojos. El compactador se apaga con `"compactar": false` en `~/.claude/bacg-dev.json` o `BACG_DEV_SIN_COMPACTAR=1`. El agente lee código por tramos (Grep y Read) y no vuelca archivos ni diffs enteros por Bash (skill `ciclo-rq`, sección 2.3). El alta propone apagar en la carpeta los plugins que repiten skills de este o que no se usan ahí: cada plugin habilitado suma su listado de skills a todas las sesiones.
 
 Un RQ por conversación: después de cerrar y pushear, `/clear`. Pueden estar activos varios RQ en el mismo repo (`--rq` elige el RQ en curso); para repartir tareas de un RQ están los subagentes, que ven las aprobaciones y las skills registradas en el RQ.
 

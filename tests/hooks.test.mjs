@@ -612,15 +612,16 @@ test('user-prompt fuera de un repo registrado → nada', () => {
   assert.equal(userPrompt(tmp('suelto como-')), null);
 });
 
-const TIMEOUTS = { 'pre-tool': 30, 'post-tool': 30, 'session-start': 30, 'user-prompt': 10 };
+const TIMEOUTS = { 'pre-tool': 30, 'post-tool': 30, 'session-start': 30, 'user-prompt': 10, 'pre-compact': 15 };
 
-test('hooks.json declara los cuatro eventos con sus matchers', () => {
+test('hooks.json declara los cinco eventos con sus matchers', () => {
   const h = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const esperado = {
     PreToolUse: ['pre-tool', 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|mcp__.*'],
     PostToolUse: ['post-tool', 'Bash|PowerShell|Skill|mcp__.*__(execute_sql|apply_migration)'],
     SessionStart: ['session-start', 'startup|resume|clear|compact'],
     UserPromptSubmit: ['user-prompt', undefined],
+    PreCompact: ['pre-compact', undefined],
   };
   assert.deepEqual(Object.keys(h).sort(), Object.keys(esperado).sort());
   for (const [evento, [script, matcher]] of Object.entries(esperado)) {
@@ -634,7 +635,7 @@ test('hooks.json declara los cuatro eventos con sus matchers', () => {
 });
 
 test('cada handler vive en lib/hooks y se exporta', async () => {
-  for (const n of ['pre-tool', 'post-tool', 'session-start', 'user-prompt']) {
+  for (const n of ['pre-tool', 'post-tool', 'session-start', 'user-prompt', 'pre-compact']) {
     const m = await import(`../plugin/scripts/lib/hooks/${n}.mjs`);
     assert.equal(typeof m.handler, 'function', n);
   }

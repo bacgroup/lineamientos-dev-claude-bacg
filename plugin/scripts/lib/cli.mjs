@@ -2,8 +2,10 @@
 // ni en el Bash del agente, así que SessionStart y los motivos de deny la dan resuelta.
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { compactarTexto, guardarSalida } from './compactar.mjs';
 
 /** Primero <CLAUDE_PLUGIN_ROOT>/scripts/rq.mjs si existe; si no, el rq.mjs al lado de esta librería. */
 export function rutaCli(pluginRoot = process.env.CLAUDE_PLUGIN_ROOT) {
@@ -112,6 +114,23 @@ export const PISTA_SIN_TESTS =
 export function cola(salida, n = 60) {
   const l = String(salida ?? '').replace(RE_ANSI, '').trimEnd().split(/\r?\n/);
   return (l.length > n ? [`[… ${l.length - n} líneas antes]`, ...l.slice(-n)] : l).join('\n');
+}
+
+/**
+ * PLG-CTX: lo que se muestra cuando un test o el E2E falla. Corta, igual que `cola`. Larga: las últimas `n` líneas
+ * más cada línea de error de antes con su contexto (el FAIL de un test suele salir en el medio, seguido del teardown),
+ * y la salida completa guardada en ~/.claude/bacg-dev/salidas/ con la ruta al final.
+ */
+export function resumenFalla(salida, n = 60, { home = os.homedir(), id = 'falla' } = {}) {
+  const texto = String(salida ?? '');
+  const l = texto.replace(RE_ANSI, '').trimEnd().split(/\r?\n/);
+  if (l.length <= n + 20) return l.join('\n');
+  const r = compactarTexto(texto, { cabeza: 5, cola: n, maxLineas: n + 20 });
+  try {
+    return `${r.texto}\n[salida completa: ${guardarSalida({ cuerpo: texto, id, home })}]`;
+  } catch {
+    return r.texto;
+  }
 }
 
 /** Comando E2E con `{specs}` reemplazado por los specs (entre comillas) o, sin specs, por nada: la suite completa. */

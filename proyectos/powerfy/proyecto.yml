@@ -49,14 +49,19 @@ lovable:
   workspace_id: ""
   proyectos: {}
 
-# Un commit que sólo toca un repo de addons no dispara deploy-dev.yml: hay que correrlo a mano.
+# Orden DEV → PROD. Primero el cambio mergeado en 18.0-dev de cada repo que toca, desplegado en DEV y probado en
+# https://dev.powerfy.cloud: un commit que sólo toca un repo de addons no dispara deploy-dev.yml (gh workflow run
+# deploy-dev.yml en powerfy-docker). Se registra con rq.mjs paso hecho dev:verificado "<qué se probó, run de deploy>".
+# Los push:<repo> son la promoción 18.0-dev → 18.0 (con ramas_prod, sólo cuenta el push o merge a 18.0) y esperan
+# a dev:verificado, que no es manual: sin él, la compuerta no deja pasar a 18.0. powerfy-docker va último (revisá su
+# delta: el build de PROD toma los addons de 18.0).
 circuito_prod:
+  - paso: "dev:verificado"
   - paso: "push:powerfy-addons"
   - paso: "push:powerfy-ai"
   - paso: "push:powerfy-bi"
   - paso: "push:powerfy-l10n"
   - paso: "push:powerfy-docker"
-  - paso: "manual:verificar-en-dev-y-promover-18.0"     # gh workflow run deploy-dev.yml si no hubo push a powerfy-docker; ff a 18.0 revisando el delta de powerfy-docker
   - paso: "manual:deploy-demo-y-resnapshot-golden"      # si el cambio toca módulos instalados en DEMO
   - paso: "manual:deploy-web"                           # sólo si afecta a www.powerfy.io
 

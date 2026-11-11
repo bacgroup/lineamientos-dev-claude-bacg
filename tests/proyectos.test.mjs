@@ -9,7 +9,7 @@ import { basesProd } from '../plugin/scripts/lib/stack.mjs';
 const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const proyectos = path.join(raiz, 'proyectos');
 
-const RE_PASO = /^(sql|push|merge-prs-sync|manual):.+|^sync-lineamientos$/;
+const RE_PASO = /^(sql|push|merge-prs-sync|manual|dev):.+|^sync-lineamientos$/;
 const ENCABEZADO_BACKLOG = '| Código | Tarea | Prioridad | Estado | Impacto | Link |';
 // lovable, datos, ramas_prod y agentes_externos son opcionales: el stack por defecto es Supabase + Lovable.
 const CLAVES = ['id', 'nombre', 'cuenta_github', 'repos', 'entornos', 'circuito_prod', 'ui', 'sensible', 'tests'];

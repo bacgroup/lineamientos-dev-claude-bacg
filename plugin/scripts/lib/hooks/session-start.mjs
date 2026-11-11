@@ -18,6 +18,7 @@ import { etapaDerivada, cerradosConPendientes } from '../estado.mjs';
 import { NOMBRE_ETAPA } from '../etapas.mjs';
 import { lineaStack } from '../stack.mjs';
 import { reposDebajo, textoArranque } from '../arranque.mjs';
+import { higienePlugins } from '../higiene.mjs';
 
 export { rutaCli };
 
@@ -112,6 +113,21 @@ function pluginsFaltantes(home, env) {
   return `Faltan plugins requeridos. Pedile al usuario que corra:\n${lineas.join('\n')}`;
 }
 
+/**
+ * PLG-CTX: plugins hermanos habilitados (otra derivación del mismo ciclo: comparten ciclo-rq y otras skills). Conviven
+ * en la PC y no se apagan; acá sólo se aclara que en esta carpeta rige este. No lee transcripciones.
+ */
+function avisoHermanos(cwd, home, env) {
+  try {
+    const hermanos = higienePlugins({ cwd, env, home, requeridos: PLUGINS_REQUERIDOS, soloHermanos: true })?.hermanos ?? [];
+    if (!hermanos.length) return null;
+    const ids = hermanos.map((h) => h.id.split('@')[0]);
+    return `Plugin hermano también habilitado: ${hermanos.map((h) => `${h.id} (comparte ${h.compartidas.join(', ')})`).join('; ')}. Es el mismo ciclo para otros proyectos, con su propia configuración: en esta carpeta rige lineamientos-dev-claude-bacg. Usá sus skills (lineamientos-dev-claude-bacg:ciclo-rq, …) y su CLI, no las de ${ids.join(' ni ')}. No propongas apagarlo ni tocar su configuración.`;
+  } catch {
+    return null;
+  }
+}
+
 function version(archivo) {
   const t = leer(archivo);
   if (t === null) return null;
@@ -169,6 +185,8 @@ export async function handler(
     } catch {
       // el arranque sólo orienta: si falla, queda la lista de repos
     }
+    const hermanos = avisoHermanos(cwd, home, env);
+    if (hermanos) lineas.push(hermanos);
     return contexto('SessionStart', lineas.join('\n\n'));
   }
 
@@ -229,6 +247,8 @@ export async function handler(
 
   const faltan = pluginsFaltantes(home, env);
   if (faltan) partes.push(faltan);
+  const hermanos = avisoHermanos(cwd, home, env);
+  if (hermanos) partes.push(hermanos);
   const aviso = avisoVersion(dirLin, pluginRoot);
   if (aviso) partes.push(aviso);
 

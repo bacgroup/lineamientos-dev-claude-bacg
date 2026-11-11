@@ -17,6 +17,7 @@ import { resolverMcp, cargarRqsDe, proyectoRegistrado, refsProd, norm } from '..
 import { resumirError } from '../salida.mjs';
 import { rutasTocadas } from '../transcript.mjs';
 import { espejar } from '../multi-repo.mjs';
+import { compactadorActivo, compactarSalida, salidaLarga } from './compactador.mjs';
 
 const esObjeto = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
 const lista = (x) => (Array.isArray(x) ? x : []);
@@ -155,16 +156,22 @@ function registrarMcp(tool, input, cwd, resp, dirLin) {
 }
 
 export async function handler(entrada, { dirLin = dirLineamientos() } = {}) {
+  const tool = entrada?.tool_name;
+  const input = esObjeto(entrada?.tool_input) ? entrada.tool_input : {};
+  const cwd = typeof entrada?.cwd === 'string' && entrada.cwd ? entrada.cwd : process.cwd();
+  const resp = entrada?.tool_response;
+  let salida = null;
   try {
-    const tool = entrada?.tool_name;
-    const input = esObjeto(entrada?.tool_input) ? entrada.tool_input : {};
-    const cwd = typeof entrada?.cwd === 'string' && entrada.cwd ? entrada.cwd : process.cwd();
-    const resp = entrada?.tool_response;
     if ((tool === 'Bash' || tool === 'PowerShell') && typeof input.command === 'string') registrarBash(input.command, cwd, resp, dirLin);
     else if (tool === 'Skill') await registrarSkill(input, cwd, entrada?.session_id, entrada?.transcript_path);
     else if (typeof tool === 'string' && tool.startsWith('mcp__')) registrarMcp(tool, input, cwd, resp, dirLin);
-    return null;
   } catch (e) {
-    return { systemMessage: `Aviso: no se pudo registrar el paso del circuito de PROD (${resumirError(e)})` };
+    salida = { systemMessage: `Aviso: no se pudo registrar el paso del circuito de PROD (${resumirError(e)})` };
   }
+  // PLG-CTX: la salida que ve el modelo, compactada si es larga (el registro de arriba ya usó la original).
+  if ((tool === 'Bash' || tool === 'PowerShell') && salidaLarga(resp) && compactadorActivo(cwd, { dirLin })) {
+    const compacta = compactarSalida({ tool, input, resp, toolUseId: entrada?.tool_use_id });
+    if (compacta) salida = { ...(salida ?? {}), hookSpecificOutput: { hookEventName: 'PostToolUse', updatedToolOutput: compacta } };
+  }
+  return salida;
 }

@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
-import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, cola, conSpecs, shellDeTests } from './lib/cli.mjs';
+import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
 import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
@@ -22,6 +22,7 @@ import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
 import { pasosAlta, formatoAlta, bloqueante } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
+import { ordenDeRamas } from './lib/promocion.mjs';
 import { textoArranque } from './lib/arranque.mjs';
 import { instalarSkillsOdoo, ramaSkills, SKILLS_ODOO, dirSkills } from './lib/odoo-skills.mjs';
 import { ETAPA, NOMBRE_ETAPA } from './lib/etapas.mjs';
@@ -532,7 +533,7 @@ function correrTests(raiz, estado, proyecto, io, { silencioso = false } = {}) {
       rojos.push(...fallos);
       continue;
     }
-    io.stdout.write(`${cola(salidaTest)}\n`);
+    io.stdout.write(`${resumenFalla(salidaTest, 60, { id: `tests-${estado.codigo}` })}\n`);
     codigo = r.status ?? 1;
     break;
   }
@@ -728,7 +729,7 @@ function verificar(repo, elegido, args, env, io) {
   }
   if (r.error) io.stderr.write(`No pude ejecutar "${cmd}": ${r.error.message}\n`);
   const ok = r.status === 0;
-  if (!ok) io.stdout.write(`${cola(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80)}\n`);
+  if (!ok) io.stdout.write(`${resumenFalla(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80, { id: `e2e-${rq}` })}\n`);
   estado.e2e = { ok, fecha: ahora(), comando: cmd, head: commitHead(raiz), completo };
   guardar(raiz, estado);
   const alcance = completo ? 'suite completa' : `${specs.length} spec(s) del RQ; antes de PROD: $RQ verificar --completo`;
@@ -815,7 +816,12 @@ function entregar(repo, elegido, env, io) {
     l.push('PR y CI: sin consultar (BACG_DEV_SIN_GH).');
   } else {
     const r = spawnSync('gh', ['pr', 'view', '--json', 'number,state,url,statusCheckRollup'], { cwd: raiz, encoding: 'utf8' });
-    if (r.status !== 0) l.push(`PR: no hay PR de esta rama (gh pr create --fill).`);
+    if (r.status !== 0) {
+      // PLG-RAMAS: con rama de DEV, el PR del RQ va a DEV (sin --base, gh usa la rama por defecto, que puede ser PROD).
+      const proy = proyectoDe(repo, env);
+      const orden = ordenDeRamas(proy, lista(proy?.repos).find((x) => String(x?.nombre ?? '').toLowerCase() === nombreRepo(raiz).toLowerCase()));
+      l.push(`PR: no hay PR de esta rama (gh pr create --fill${orden ? ` --base ${orden.dev}` : ''}).`);
+    }
     else {
       try {
         const pr = JSON.parse(r.stdout);
@@ -1124,7 +1130,14 @@ function desplegar(repo, elegido, args, env, io) {
     const falta = hecho ? undefined : faltaAntes({ proyecto, estado, paso, raiz, rutas, sedes });
     const p = paso.trim();
     let como = '';
-    if (/^push:/i.test(p)) como = `git push en ${p.slice(5)}`;
+    if (/^push:/i.test(p)) {
+      // PLG-RAMAS: con ramas de PROD y de DEV, el paso es la promoción DEV → PROD, después de verificar en DEV.
+      const nombre = p.slice(5);
+      const orden = ordenDeRamas(proyecto, repos.find((x) => String(x?.nombre ?? '').toLowerCase() === nombre.toLowerCase()));
+      como = orden
+        ? `promoción ${orden.dev} → ${orden.prod[0]} en ${nombre}, con el cambio ya mergeado en ${orden.dev}, desplegado y verificado en DEV (gh pr create --base ${orden.prod[0]} --head ${orden.dev}, o git push origin origin/${orden.dev}:${orden.prod[0]} si es fast-forward)`
+        : `git push en ${nombre}`;
+    }
     else if (/^sql:/i.test(p)) {
       const ref = p.slice(4);
       const r = repos.find((x) => String(baseDelRepo(x) ?? '').toLowerCase() === ref.toLowerCase());
@@ -1144,6 +1157,7 @@ function desplegar(repo, elegido, args, env, io) {
         ? `gh pr list -R ${cuenta}/${sede} --head ${rama}; gh pr merge <n> --merge -R ${cuenta}/${sede}`
         : `mergear el PR ${rama} de ${sede}`;
     } else if (esManual(p)) como = 'manual: lo hace el usuario; no bloquea el cierre';
+    else if (/^dev:/i.test(p)) como = `en DEV, antes de PROD (los que siguen lo esperan): con el cambio desplegado y probado en DEV, $RQ paso hecho ${p} "<qué se probó y dónde>"`;
     l.push(`${n}. [${hecho ? 'x' : ' '}] ${p}: ${como}${falta ? ` (antes: ${falta})` : ''}`);
   }
   if (n === 0) l.push('El circuito no tiene pasos para este RQ.');

@@ -17,7 +17,7 @@ const PY_LOVABLE = `id: px\nnombre: PX\nrepos:\n  - { nombre: app-x, rol: padre 
 const PY_SIN_LOVABLE = 'id: py\nnombre: PY\nrepos:\n  - { nombre: app-y, rol: padre }\n';
 
 const repoCon = (yml, nombre) => crearRepoTemporal({ nombre, archivos: { '.bacg-dev/proyecto.yml': yml } });
-const homeVacio = () => fs.mkdtempSync(path.join(os.tmpdir(), 'home bacg-'));
+const homeVacio = () => fs.mkdtempSync(path.join(os.tmpdir(), 'home locales-'));
 const env = (home) => ({ HOME: home, USERPROFILE: home });
 
 function hook(cwd, tool, input, home = homeVacio()) {
