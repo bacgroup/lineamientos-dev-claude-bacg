@@ -1,5 +1,54 @@
 # Changelog
 
+## 4.4.0: compuertas de cumplimiento, OK flexibles y Superpowers como eje (2026-11-15)
+
+**Origen.** El retrabajo de R-MOD-V2 en dev-fullflow (`nkick25/dev-fullflow` → `docs/rq/PLG-DFF2/`): 22 devoluciones, unos 82 puntos y 6 casos de producto que encontró el usuario, todo con las compuertas en verde. A eso se suman cuatro premisas del usuario: los OK eran rígidos y la autonomía los volvía a pedir; Superpowers había quedado como optativo; la revisión miraba poco la calidad; y los mockups eran optativos. El plugin controlaba que una skill se cargó, no que se cumplió.
+
+Las reglas nuevas valen para los RQ abiertos desde la 4.4 (`reglas: 44` en `estado.yml`). Un RQ en curso las toma con `rq.mjs reglas actualizar`, y un proyecto que todavía no las adopta declara `reglas: 43` en `proyecto.yml`.
+
+**OK flexibles (premisa 1)**
+- `rq.mjs ok "<frase>"`: una respuesta del usuario registra todo lo pendiente del RQ hasta DEV (clasificación, diseño y plan escritos, ejecución y autonomía) y cuenta como un solo uso de la frase.
+- `rq.mjs autonomia total "<frase>" [--ejecucion subagentes]`: lo mismo para todos los RQ de la sesión, Arquitectónico incluido. Antes, la autonomía de sesión no aprobaba el diseño de un Arquitectónico ni la ejecución, y la misma frase no se podía reusar.
+- La frase puede ser el tramo inicial de una oración cortado en una coma ("Sí, dale" de "Sí, dale, el diseño está bien"), si trae un verbo de aprobación y nada que la niegue, la frene o la postergue. "OK, pero mañana" sigue sin valer.
+- PROD y los saltos siguen pidiendo su frase propia.
+
+**Superpowers como eje (premisa 2)**
+- Antes del primer commit de código se exigen `brainstorming`, `writing-plans` (también en Acotado), `test-driven-development` (antes recién en la verificación) y la skill de la ejecución elegida.
+- En la verificación se exigen `requesting-code-review` (antes prohibida), `verification-before-completion` y, después de una revisión bloqueante, `receiving-code-review`.
+- `ciclo-rq` ya no dice "el resto es opcional" y nombra los únicos reemplazos deliberados.
+
+**Revisión de calidad (premisa 3)**
+- Tres pasadas exigidas para `revision ok`: `pr-review-toolkit:code-reviewer`, `pr-review-toolkit:pr-test-analyzer` y el agente nuevo del plugin `revisor-rq` (`plugin/agents/revisor-rq.md`). Este último revisa el diff contra el spec: traza, criterios centrales, paridad, duplicados, dominio, canon y devoluciones.
+- El hook `PostToolUse` anota los subagentes de un plugin (herramienta Agent) como skills del RQ.
+- La revisión guarda el commit revisado y vence si después entra código.
+
+**Journey y mockups (premisa 4, cambios 1 y 2, P-4)**
+- Para editar UI, `## Diseño` tiene que traer:
+  - `### Journey` (3 pasos o más);
+  - `### Mockups` (archivo en `docs/rq/<código>/mockups/` o link de Figma);
+  - `### Referencias leídas`;
+  - `### Paridad`.
+- Las skills de UI valen por contexto: una compactación las vence.
+- `verificar --local` pide capturas a 390, 768 y 1280 y la `ref-*.png` de la referencia.
+- `diseno-frontend` se reescribió como checklist con evidencia: el mockup y `/prototype` definen layout, nunca estilos.
+
+**Lista cerrada y traza (P-11, P-14, P-16, P-17)**
+- `rq.mjs devolucion`: puntos numerados con su evidencia. Al segundo punto sobre el mismo elemento corta la iteración con un protocolo.
+- `rq.mjs trazar`: arma `traza.yml` desde el criterio de aceptación. La revisión exige un estado por ítem y un test en cada "hecho".
+- El diseño de un Arquitectónico exige `### Criterios centrales`.
+
+**El plugin como proyecto propio**
+- `.bacg-dev/proyecto.yml` (PROD = `main`). El backlog del plugin pasa a `docs/backlog.md`.
+- `npm test` muestra sólo los fallos (`tests/reporter-fallos.mjs`, el formato que reconoce `tests.rojos_conocidos`) y `npm run test:e2e` corre el ciclo de la CLI.
+
+**Otros cambios**
+- `decision-arq` tiene una sola ruta de ADR y ya no trae una ruta fija de Windows.
+- Las descripciones de `design-taste-frontend` y `redesign-existing-projects` quedan acotadas a su uso dentro del ciclo.
+- `tokens.md` declara el piso de calidad que no se recorta por tokens.
+
+**Quedó en el backlog**
+- Paridad ejecutable automática (P-1 y P-2), `cotejar` (P-3), lint del canon (P-5), performance (P-7), `asesor-gestion` (P-9), kits de dominio (P-10), costo por resultado (P-12), estándar de avisos (P-18), paridad con uso real (P-19), los cambios 3, 9 y 10 de la propuesta, y los falsos positivos de la compuerta de Bash con textos que nombran `rq.mjs`.
+
 ## 4.3.1: el plugin se instala en Cowork (2026-11-15)
 
 - `decision-arq`: la description decía `proyectos/<id>/adr/` y Cowork rechazaba el paquete ("SKILL.md description cannot contain XML tags"). Ahora dice `proyectos/{id}/adr/`; el cuerpo de la skill no cambia.

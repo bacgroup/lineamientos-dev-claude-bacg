@@ -1,11 +1,11 @@
 ---
 name: ciclo-rq
-description: Usar antes de cualquier cambio de código o base de datos en un repo con .bacg-lineamientos o .bacg-dev/ (o cuando el usuario pide un RQ, un BUG, /bacg-rq o /bacg-estado). Arranca o retoma la sesión, distingue RQ de BUG y confirma la clasificación con el usuario, hace el encuadre y la fila del backlog, delega diseño, plan y desarrollo en Superpowers sin duplicarlo, exige refuerzo de UI, E2E live y verificación local, lleva la entrega hasta PROD y cierra con changelog y log.
+description: Usar antes de cualquier cambio de código o base de datos en un repo con .bacg-lineamientos o .bacg-dev/ (o cuando el usuario pide un RQ, un BUG, /bacg-rq o /bacg-estado). Arranca o retoma la sesión, distingue RQ de BUG y confirma la clasificación con el usuario, hace el encuadre y la fila del backlog. Superpowers es el motor obligatorio de diseño, plan, TDD, ejecución, revisión y verificación (esta skill no lo reemplaza, lo refuerza con evidencia). Exige journey y mockups si toca UI, revisión de calidad multi-pasada, E2E live y verificación local, registra los OK del usuario con una sola respuesta, lleva la entrega hasta PROD y cierra con changelog y log.
 ---
 
 # Ciclo de un RQ o BUG
 
-El plugin pone el marco de entrada (arranque, clasificación, encuadre y backlog) y de salida (entrega, changelog y log). Lo del medio lo hace Superpowers. **Un artefacto por fase, una pasada por artefacto:** lo aprobado no se vuelve a revisar salvo que el usuario lo pida. Al usuario se le pide: confirmar la clasificación, aprobar el diseño y plan, elegir cómo se ejecuta el plan y el OK de PROD (y el de DEV en Arquitectónico).
+El plugin pone el marco de entrada (arranque, clasificación, encuadre y backlog) y de salida (entrega, changelog y log), y las compuertas que piden **evidencia de cumplimiento**, no sólo que una skill se cargó. **Lo del medio lo hace Superpowers, completo y obligatorio:** `brainstorming` → `writing-plans` → `test-driven-development` → `executing-plans` o `subagent-driven-development` → `requesting-code-review` → `verification-before-completion` (y `systematic-debugging` en un BUG). Las skills de BACG (UI, ARQ, Odoo, n8n) se suman a ese motor; ninguna lo reemplaza. Los únicos reemplazos deliberados están en la sección 2.2. **Un artefacto por fase, una aprobación del usuario por artefacto:** lo aprobado no se vuelve a pedir salvo que el usuario lo pida. Al usuario se le pide una sola respuesta para lo que va hasta DEV (`$RQ ok`, sección 6) y el OK de PROD aparte.
 
 `$RQ` es la línea `CLI del RQ: node "<ruta>"` que inyecta `SessionStart`; si falta, `node "${CLAUDE_PLUGIN_ROOT}/scripts/rq.mjs"`. En Bash escribilo con la ruta literal (`node "<ruta>/rq.mjs" <subcomando> …`) o asigná la variable en el mismo comando (`RQ="node <ruta>/rq.mjs"; $RQ <subcomando> …`); `$RQ` no existe en el shell por sí sola. Se corre desde la raíz del repo y es la única vía para escribir `docs/rq/<código>/estado.yml` y `docs/rq/ACTIVO`. `$RQ estado` dice dónde está el RQ; corrélo al retomar o cuando una compuerta bloquee. La configuración del proyecto está en `.bacg-dev/` del repo (o, en proyectos viejos, en la copia de lineamientos); `proyecto.yml` se lee con Read.
 
@@ -57,14 +57,14 @@ Si el usuario pide trabajar varios RQ en la misma sesión:
 
 ## 2. Etapas y skills
 
-La etapa sale sola de la evidencia (`$RQ estado` la muestra); `$RQ etapa <n>` es opcional. **Las skills de proceso son las de esta tabla, una vez por RQ**: el hook las registra en el RQ en curso y la CLI las exige al avanzar. En este repo no rige la regla de `using-superpowers` de invocar toda skill con un 1 % de chance; el resto es opcional.
+La etapa sale sola de la evidencia (`$RQ estado` la muestra); `$RQ etapa <n>` es opcional. **Las skills de proceso de esta tabla son obligatorias y se siguen completas, una vez por RQ**: el hook las registra en el RQ en curso y la CLI las exige al avanzar. Con reglas 4.4 (los RQ abiertos desde la 4.4; un proyecto que todavía no las adopta declara `reglas: 43`), antes del primer commit de código se exigen `brainstorming`, `writing-plans` (también en Acotado: su salida va a `## Tareas`), `test-driven-development` y la skill de la ejecución elegida; en la verificación, `requesting-code-review`, `verification-before-completion` y las pasadas de revisión de la sección 5. Las demás skills de Superpowers se usan cuando su descripción aplica. No hace falta invocar las que no tienen que ver con la tarea por un 1 % de chance.
 
 | # | Etapa | RQ | BUG | Se cumple con · lo exige |
 |---|---|---|---|---|
 | 0 | Arranque y clasificación | esta skill | esta skill | RQ abierto, fila en backlog, encuadre en `spec.md`, clasificación confirmada |
 | 1 | Diseño y plan | `superpowers:brainstorming` (sección 2.1); ARQ si amerita (sección 3) | `superpowers:systematic-debugging` (causa raíz en `spec.md`, `## Causa`) y después `superpowers:brainstorming` | diseño y tareas o plan según la clasificación; `$RQ aprobar 1 "<frase>"` en toda clasificación · editar código lo exige |
 | 2 | Desarrollo | `superpowers:test-driven-development`; ejecución elegida por el usuario (sección 2.2) | `superpowers:test-driven-development`: primero el test que reproduce el bug, en rojo | `$RQ commit "<mensaje>" <rutas>` por tarea; refuerzo de UI (sección 4) · el primer commit de código exige `brainstorming` (en BUG, además `systematic-debugging` y `## Causa`; en Acotado, `## Tareas`; en Arquitectónico, `writing-plans` y `plan.md`) y, en Arquitectónico, la ejecución elegida |
-| 3 | Verificación | una revisión (sección 5) | una revisión (sección 5) | `$RQ verificar` (E2E live), `$RQ verificar --local` si toca UI (sección 4) y `$RQ revision ok\|bloqueante "<nota>"` · la revisión ok exige `test-driven-development`, la verificación local si toca UI y, si el RQ toca rutas `sensible`, `claude-security` |
+| 3 | Verificación | una revisión (sección 5) | una revisión (sección 5) | `$RQ verificar` (E2E live), `$RQ verificar --local` si toca UI (sección 4) y `$RQ revision ok\|bloqueante "<nota>"` · la revisión ok exige `test-driven-development`, la verificación local si toca UI y, si el RQ toca rutas `sensible`, `claude-security`; con reglas 4.4, además las pasadas, la traza y las devoluciones cerradas (sección 5) |
 | 4 | DEV / Preview | | | sola en Exploración y Acotado; en Arquitectónico, `$RQ aprobar 4 "<frase>"` |
 | 5 | PROD y entrega | `superpowers:verification-before-completion` antes de pedir el OK | | `$RQ aprobar 5 "<frase>"` y circuito completo (sección 6) · publicar exige las skills de arriba, la revisión y el E2E completo |
 | 6 | Cierre | sección 7 | sección 7 | `$RQ cerrar` |
@@ -110,7 +110,8 @@ Las cuatro últimas son las oficiales de `github.com/odoo/odoo/tree/20.0/skills`
 | Diseño | pregunta y sonda (2–3 frases) en `spec.md` | diseño corto en `spec.md` | spec completa en `spec.md` |
 | ARQ | no | no | sección 3; `lineamientos-dev-claude-bacg:decision-arq` + ADR |
 | Plan | no | `## Tareas` en `spec.md` | `superpowers:writing-plans` → `docs/rq/<código>/plan.md` |
-| `/prototype` | no | proponerlo al usuario si toca UI | proponerlo al usuario si toca UI |
+| Journey y mockups (si toca UI) | no | obligatorios en `## Diseño` (sección 4) | obligatorios en `## Diseño` (sección 4) |
+| Criterios centrales | no | recomendados | `### Criterios centrales` en `## Diseño` (1 a 3; la aprobación lo exige) |
 | Aprobación | `$RQ aprobar 1 "<frase>"` | `$RQ aprobar 1 "<frase>"`, o la misma frase de `clasificacion confirmar` si `## Diseño` y `## Tareas` ya están en `spec.md`: escribilos antes de pedir la confirmación y una respuesta cubre las dos | `$RQ aprobar 1 "<frase>"` (diseño y plan juntos) |
 | Varios RQ (sección 1.1) | autonomía de sesión o `lote aprobar` | autonomía de sesión o `lote aprobar` | sólo `lote aprobar` (con `plan.md`) |
 
@@ -118,10 +119,11 @@ Las cuatro últimas son las oficiales de `github.com/odoo/odoo/tree/20.0/skills`
 
 ### 2.2 Reglas con Superpowers (mandan sobre las de cada skill)
 
-- Spec y plan van a `docs/rq/<código>/spec.md` y `plan.md`, nunca a `docs/superpowers/…`. Una pasada, sin self-review extra; una aprobación del usuario (`aprobar 1`).
-- **Ejecución:** antes del primer commit de código, preguntale al usuario en el chat, con texto, cómo ejecutar el plan: `superpowers:executing-plans` en línea o `superpowers:subagent-driven-development`. Registrá su respuesta literal con `$RQ ejecucion inline|subagentes "<su frase>"`; sin eso, `$RQ commit` no commitea código. Exploración y Acotado no preguntan: van en línea (en Acotado, si el usuario pide subagentes, `$RQ ejecucion subagentes "<su frase>"`). `writing-plans` nombra en la cabecera del plan la ejecución elegida, no `subagent-driven-development` por defecto. Con subagentes, sin reviewer por tarea: la revisión es una sola, en la etapa 3.
-- `superpowers:requesting-code-review` no se usa: la revisión es la de la sección 5.
-- `superpowers:finishing-a-development-branch` no se usa: la entrega es la sección 6 (`$RQ entregar` y `$RQ desplegar`).
+Los reemplazos deliberados, y sólo éstos:
+- Spec y plan van a `docs/rq/<código>/spec.md` y `plan.md`, nunca a `docs/superpowers/…`. El self-review de `brainstorming` y `writing-plans` se hace; lo que no hay es una segunda aprobación del usuario: una sola (`aprobar 1` o `ok`).
+- **Ejecución:** antes del primer commit de código de un Arquitectónico, la ejecución está elegida: `superpowers:executing-plans` en línea o `superpowers:subagent-driven-development`. Con autonomía total o con `$RQ ok` queda registrada (en línea por defecto, `--ejecucion subagentes` si el usuario la pidió); si no, preguntale al usuario y registrá su respuesta con `$RQ ejecucion inline|subagentes "<su frase>"`. Exploración y Acotado van en línea. `writing-plans` nombra en la cabecera del plan la ejecución elegida. Con subagentes, sin reviewer por tarea: la revisión es una sola, en la etapa 3.
+- `superpowers:requesting-code-review` arma la revisión única de la etapa 3, que reemplaza los reviewers por tarea (sección 5).
+- `superpowers:finishing-a-development-branch` no se usa: la entrega es la sección 6 (`$RQ entregar` y `$RQ desplegar`), con las compuertas de PROD.
 - `superpowers:using-git-worktrees`: sólo si `reglas.md` del proyecto lo pide. Si el E2E corre contra la app del checkout principal, no.
 - No armes un TO DO aparte con la checklist de cada skill: el plan es la lista.
 
@@ -164,7 +166,13 @@ Resultado: `docs/rq/<código>/arq.md` de una página (contexto, opciones y trade
 - `lineamientos-dev-claude-bacg:diseno-frontend` siempre, y seguí su orden (canon primero);
 - `lineamientos-dev-claude-bacg:redesign-existing-projects` si el archivo ya existe (pantalla existente: se audita antes de cambiarla);
 - además, las de `ui.skills` / `ui.reglas` de `proyecto.yml`, que se suman a estas;
-- la sección `## Diseño` en `docs/rq/<código>/spec.md` con el entregable de `diseno-frontend`: canon que aplica, dirección, auditoría, estados, revisión en móvil y alineación con los componentes vecinos.
+- la sección `## Diseño` en `docs/rq/<código>/spec.md` con el entregable de `diseno-frontend`: canon que aplica, dirección, auditoría, estados, revisión en móvil y alineación con los componentes vecinos;
+- con reglas 4.4, la **evidencia del diseño** dentro de `## Diseño` (la compuerta la busca antes del primer cambio de UI):
+  - `### Journey`: el recorrido del usuario paso a paso (rol, pantalla, decisión, datos), 3 pasos o más. Es la base de las decisiones funcionales: no se decide el paso a paso a ciegas.
+  - `### Mockups`: un mockup navegable del journey, estilo Figma (pantallas enlazadas que se recorren con clics), en `docs/rq/<código>/mockups/` (HTML, PNG o SVG) o el link de Figma. El mockup define layout y flujo; los estilos salen del canon.
+  - `### Referencias leídas`: la pantalla o el componente de referencia, leído entero (o "no aplica — motivo").
+  - `### Paridad`: si el RQ reemplaza un flujo o convive con él, cada campo, modal, paso posterior, navegación y cálculo del flujo viejo y dónde queda en el nuevo (`reusa`, `reimplementa` con justificación o `fuera` con la frase del usuario); si no, "no aplica — motivo".
+- con reglas 4.4, las skills de UI valen **por contexto**: después de una compactación, la compuerta las vuelve a pedir. Cuando el usuario devuelve algo de UI, recargá el canon y `redesign-existing-projects` antes de tocar el archivo.
 
 **Cambio menor** (un texto, un ícono, un tooltip o un espaciado puntual; sin componentes nuevos, sin cambiar el layout ni lo que se ve en móvil, sin tocar un estilo compartido): antes de cargar nada, preguntale al usuario en el chat, con texto, si omite el refuerzo. No uses botones: la compuerta sólo acepta sus palabras. Si acepta: `$RQ saltar ui "<su frase>" "<motivo>"`, y se sigue pidiendo sólo el canon del proyecto. Ante la duda, no lo propongas.
 
@@ -172,7 +180,7 @@ Resultado: `docs/rq/<código>/arq.md` de una página (contexto, opciones y trade
 
 **E2E live** (todo RQ y BUG): al menos un flujo de Playwright Test que recorre el cambio en la app levantada (`entornos.local` o la preview de `entornos.dev`), no en jsdom. En un BUG, el flujo reproduce el síntoma: rojo antes del arreglo, verde después. Traza y capturas a `docs/rq/<código>/qa/`. `$RQ verificar` corre `tests.e2e` de `proyecto.yml` (con `E2E_URL`/`BASE_URL` = `tests.e2e_url`) y lo registra. Si el comando trae `{specs}`, corre sólo los specs del RQ (los de su diff o los que le pases por ruta, también fuera del repo: una ruta absoluta dentro de la carpeta del script de `tests.e2e` se pasa relativa a esa carpeta, como la espera Playwright; si el runner dice "No tests found", no se registra un E2E fallido) mientras desarrollás; si no encuentra ninguno no corre la suite entera: lo dice y pide la ruta o `--completo`; antes de PROD, `$RQ verificar --completo`; sin E2E en verde la compuerta no deja publicar código. Nunca dos E2E a la vez: `verificar` toma un lock por proyecto y, mientras corre, la compuerta niega lanzar el mismo script E2E a mano (esperá a que termine). Las capturas que los specs de regresión escriben en `docs/rq/<otro RQ>/qa/` vuelven solas a como estaban al terminar. Sólo se omite si el usuario lo dice con sus palabras y el cambio no tiene superficie de app: `$RQ saltar e2e "<frase>" "<motivo>"`.
 
-**Verificación local** (RQ o BUG que toca UI: `Toca: UI [x]` en el encuadre o archivos de UI en el diff): el E2E aislado no alcanza. Recorré el cambio en el entorno local (o la preview de DEV) con un usuario del rol real, guardá al menos una captura en `docs/rq/<código>/qa/` y registralo con `$RQ verificar --local "<qué se recorrió y con qué rol>" docs/rq/<código>/qa/<captura>.png …`. Vale con el navegador del agente o con un script de Playwright corrido desde la PC contra el mismo entorno local, con el usuario del rol real y sin mocks; si el panel del navegador está oculto (viewport 0×0), usá Playwright. Nombrá en el texto con qué se recorrió. Sin eso no hay revisión ok. Sólo se omite si el usuario lo dice con sus palabras: `$RQ saltar verificacion-local "<frase>" "<motivo>"`.
+**Verificación local** (RQ o BUG que toca UI: `Toca: UI [x]` en el encuadre o archivos de UI en el diff): el E2E aislado no alcanza. Recorré el cambio en el entorno local (o la preview de DEV) con un usuario del rol real, guardá al menos una captura en `docs/rq/<código>/qa/` y registralo con `$RQ verificar --local "<qué se recorrió y con qué rol>" docs/rq/<código>/qa/<captura>.png …`. Vale con el navegador del agente o con un script de Playwright corrido desde la PC contra el mismo entorno local, con el usuario del rol real y sin mocks; si el panel del navegador está oculto (viewport 0×0), usá Playwright. Nombrá en el texto con qué se recorrió. Sin eso no hay revisión ok. Con reglas 4.4 las capturas son de la pantalla nueva a 390, 768 y 1280 (el ancho en el nombre) y, si `### Referencias leídas` nombra una referencia, también `ref-<pantalla>-<ancho>.png` de la referencia en el mismo estado. Sólo se omite si el usuario lo dice con sus palabras: `$RQ saltar verificacion-local "<frase>" "<motivo>"`.
 
 ## 5. Revisión (una sola, RQ y BUG)
 

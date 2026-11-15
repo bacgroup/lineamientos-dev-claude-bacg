@@ -4,6 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { main } from '../plugin/scripts/rq.mjs';
 import { cargarEstado, etapaCumplida, guardarEstado } from '../plugin/scripts/lib/estado.mjs';
@@ -37,11 +38,14 @@ const SPEC_ARQ = '# R-1\n\n## Diseño\nalgo\n\n### Criterios centrales\n- C-1: u
 
 test('reglas 44: abrir deja la marca salvo en un proyecto con `reglas: 43`; un RQ viejo la toma con `reglas actualizar`', async () => {
   {
+    // Copia del fixture tal cual (con `reglas: 43`): abrir escribe el backlog y no tiene que tocar el original.
+    const copiaFixture43 = fs.mkdtempSync(path.join(os.tmpdir(), 'lin43-'));
+    fs.cpSync(path.join(import.meta.dirname, 'fixtures', 'lineamientos'), copiaFixture43, { recursive: true });
     const s43 = sesionDePrueba();
     const viejo = crearRepoTemporal({ proyectoId: 'demo' });
     const r43 = await main(['abrir', 'R-9', '--tipo', 'rq', '--clasificacion', 'bounded'], {
       cwd: viejo, home: s43.home,
-      env: { ...process.env, ...s43.env, BACG_LINEAMIENTOS_DIR: path.join(import.meta.dirname, 'fixtures', 'lineamientos'), BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1', BACG_DEV_SIN_PREVIA: '1' },
+      env: { ...process.env, ...s43.env, BACG_LINEAMIENTOS_DIR: copiaFixture43, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1', BACG_DEV_SIN_PREVIA: '1' },
       stdout: { write() {} }, stderr: { write() {} },
     });
     assert.equal(r43, 0);
