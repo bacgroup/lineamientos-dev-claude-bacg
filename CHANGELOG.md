@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.3.1: el plugin se instala en Cowork (2026-11-15)
+
+- `decision-arq`: la description decía `proyectos/<id>/adr/` y Cowork rechazaba el paquete ("SKILL.md description cannot contain XML tags"). Ahora dice `proyectos/{id}/adr/`; el cuerpo de la skill no cambia.
+- Test nuevo en `manifiestos.test.mjs`: ninguna description de skills, comandos, `plugin.json` o `marketplace.json` puede traer algo con forma de etiqueta (`<x>`).
+
 ## 4.3.0: aprobaciones de una vez y varios RQ en una sesión (2026-11-11)
 
 Lo que frenó la sesión del 2026-11-11 (dos RQ de UI a la vez, "de manera automatizada" por pedido del usuario): la aprobación general del usuario no cubría ningún RQ y hubo que dictarle una frase por RQ, las skills se cargaron dos veces y el cambio de ramas dejó trabas.
