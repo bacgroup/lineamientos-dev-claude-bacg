@@ -52,6 +52,18 @@ test('el hook anota el subagent_type de un plugin como pasada del RQ; un subagen
   assert.ok(!nombres.includes('Explore'));
 });
 
+test('la transcripción cuenta los subagentes de un plugin como skills (skills importar los anota aunque el hook no haya corrido)', async () => {
+  const { leerTranscript } = await import('../plugin/scripts/lib/transcript.mjs');
+  const s = sesionDePrueba();
+  s.entrada({ type: 'assistant', message: { content: [
+    { type: 'tool_use', name: 'Agent', input: { subagent_type: 'pr-review-toolkit:pr-test-analyzer', prompt: 'x' } },
+    { type: 'tool_use', name: 'Agent', input: { subagent_type: 'general-purpose', prompt: 'x' } },
+  ] } });
+  const t = await leerTranscript(s.ruta);
+  assert.ok(t.skills.has('pr-review-toolkit:pr-test-analyzer'));
+  assert.ok(!t.skills.has('general-purpose'));
+});
+
 test('4.4: revision ok sin las pasadas falla y las nombra; con las pasadas guarda el commit revisado', async () => {
   const raiz = await rqListoParaRevisar();
   const sin = await correr(raiz, ['revision', 'ok', 'sin pasadas']);

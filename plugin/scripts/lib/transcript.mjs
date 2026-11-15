@@ -109,6 +109,10 @@ function skillsDe(entry) {
   if (entry?.type !== 'assistant' || !Array.isArray(entry.message?.content)) return out;
   for (const b of entry.message.content) {
     if (b?.type === 'tool_use' && b.name === 'Skill' && typeof b.input?.skill === 'string') out.push(b.input.skill);
+    // Subagentes de un plugin (pasadas de revisión): cuentan como skills, igual que los anota el hook PostToolUse.
+    else if (b?.type === 'tool_use' && (b.name === 'Agent' || b.name === 'Task') && typeof b.input?.subagent_type === 'string' && b.input.subagent_type.includes(':')) {
+      out.push(b.input.subagent_type);
+    }
   }
   return out;
 }
