@@ -1977,7 +1977,10 @@ export async function main(
           const sensible = sensibleSinRevisar(estado, rutasDelRq(raiz, estado), proyectoDe(repo, env));
           if (sensible) throw new ErrorCli(`El ${codigo} toca ${sensible} (ruta sensible): falta claude-security (Skill "claude-security:claude-security") o, si el usuario lo decide, $RQ saltar seguridad "<frase>" "<motivo>".`);
         }
-        estado.revision = { ok: veredicto === 'ok', fecha: ahora(), nota };
+        // 4.4: el commit revisado (la revisión vence si después entra código) y las bloqueantes (piden receiving-code-review).
+        const head = commitHead(raiz);
+        estado.revision = { ok: veredicto === 'ok', fecha: ahora(), nota, ...(reglas44(estado) && head ? { head } : {}) };
+        if (veredicto === 'bloqueante' && reglas44(estado)) estado.revisiones_bloqueantes = (Number(estado.revisiones_bloqueantes) || 0) + 1;
         guardar(raiz, estado);
         io.stdout.write(`Revisión registrada: ${veredicto}.\n`);
         break;

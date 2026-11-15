@@ -164,6 +164,11 @@ export async function handler(entrada, { dirLin = dirLineamientos() } = {}) {
   try {
     if ((tool === 'Bash' || tool === 'PowerShell') && typeof input.command === 'string') registrarBash(input.command, cwd, resp, dirLin);
     else if (tool === 'Skill') await registrarSkill(input, cwd, entrada?.session_id, entrada?.transcript_path);
+    // Subagentes de un plugin (pasadas de revisión como pr-review-toolkit:code-reviewer): se anotan como skills del RQ
+    // para que `revision ok` pueda exigirlas. Los genéricos (Explore, general-purpose) no llevan "plugin:" y no cuentan.
+    else if ((tool === 'Agent' || tool === 'Task') && typeof input.subagent_type === 'string' && input.subagent_type.includes(':')) {
+      await registrarSkill({ skill: input.subagent_type }, cwd, entrada?.session_id, entrada?.transcript_path);
+    }
     else if (typeof tool === 'string' && tool.startsWith('mcp__')) registrarMcp(tool, input, cwd, resp, dirLin);
   } catch (e) {
     salida = { systemMessage: `Aviso: no se pudo registrar el paso del circuito de PROD (${resumirError(e)})` };

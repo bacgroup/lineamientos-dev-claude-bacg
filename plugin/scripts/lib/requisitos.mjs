@@ -12,6 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { saltoValido } from './estado.mjs';
 import { globARegExp, tipoArchivo } from './rutas.mjs';
 import { buscarRepo, dirLineamientos } from './config.mjs';
@@ -156,6 +157,30 @@ export function exigencias(estado) {
 }
 
 /**
+ * Pasadas de la revisión de calidad (PLG-DFF2, premisa 3): subagentes que el hook anota en el RQ al correrlos
+ * (herramienta Agent con su subagent_type). code-reviewer mira calidad y convenciones; pr-test-analyzer, si los tests
+ * prueban el comportamiento; revisor-rq (de este plugin), el diff contra el spec, la traza, la paridad y los duplicados.
+ */
+export const PASADAS_REVISION = ['pr-review-toolkit:code-reviewer', 'pr-review-toolkit:pr-test-analyzer', 'lineamientos-dev-claude-bacg:revisor-rq'];
+
+/**
+ * ¿La revisión registrada sigue valiendo? Con reglas 4.4 guarda el commit revisado (`head`): si después entraron
+ * commits con archivos de producto (no docs ni tests), venció. Sin `head` (revisiones de antes) o sin poder leer git,
+ * vale como antes.
+ */
+export function revisionVigente(raiz, estado, proyecto) {
+  const head = estado?.revision?.head;
+  if (!raiz || typeof head !== 'string' || !/^[0-9a-f]{7,40}$/.test(head)) return true;
+  try {
+    const rutas = execFileSync('git', ['diff', '--name-only', '--no-renames', `${head}..HEAD`], { cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\n').filter(Boolean);
+    return !rutas.some((r) => tipoArchivo(r, proyecto) !== 'libre' && !esPropioDeLaCli(r));
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Reglas 4.4 (PLG-DFF2, premisa 2): Superpowers es el motor del ciclo y se sigue completo. Antes del primer commit de
  * código, el diseño (brainstorming), el plan (writing-plans, salvo Exploración), TDD y la skill de la ejecución elegida;
  * en la verificación, el pedido de revisión y la verificación antes de dar algo por hecho.
@@ -176,6 +201,7 @@ function exigencias44(estado) {
   }
   l.push({ etapa: VERIFICACION, skill: 'superpowers:requesting-code-review' }, { etapa: VERIFICACION, skill: 'superpowers:verification-before-completion' });
   if (Number(estado?.revisiones_bloqueantes) > 0) l.push({ etapa: VERIFICACION, skill: 'superpowers:receiving-code-review' });
+  for (const skill of PASADAS_REVISION) l.push({ etapa: VERIFICACION, skill, pasada: true });
   l.push({ etapa: PROD, revision: true });
   return l;
 }
@@ -196,6 +222,7 @@ export function faltaParaEtapa(estado, etapa, raiz, proyecto = undefined) {
     if (x.tareas && !tareasEnSpec(raiz, estado.codigo)) out.push(`las tareas en docs/rq/${estado.codigo}/spec.md (## Tareas)`);
     if (x.plan && !planEnDisco(raiz, estado.codigo)) out.push(`el plan en docs/rq/${estado.codigo}/plan.md`);
     if (x.revision && estado?.revision?.ok !== true) out.push('la revisión ($RQ revision ok)');
+    else if (x.revision && !revisionVigente(raiz, estado, py)) out.push('la revisión otra vez: venció por commits de código posteriores ($RQ revision ok)');
   }
   if (etapa >= ETAPA.VERIFICACION && !verificacionLocalOk(estado) && tocaUi(estado, raiz, py, rutasRq())) {
     // Antes que la revisión: la verificación local es evidencia de la etapa 3, la revisión la cierra.

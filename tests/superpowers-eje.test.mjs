@@ -5,7 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { exigencias } from '../plugin/scripts/lib/requisitos.mjs';
 
-const skillsEn = (estado, etapa) => exigencias(estado).filter((x) => x.etapa === etapa && x.skill).map((x) => x.skill.split(':').pop()).sort();
+// Las pasadas de revisión (subagentes) se prueban en revision-calidad.test.mjs.
+const skillsEn = (estado, etapa) => exigencias(estado).filter((x) => x.etapa === etapa && x.skill && !x.pasada).map((x) => x.skill.split(':').pop()).sort();
 
 test('4.4 Acotado: plan, TDD y ejecución en línea antes del primer commit de código', () => {
   const e = { codigo: 'R-1', tipo: 'rq', clasificacion: 'bounded', reglas: 44 };
