@@ -31,7 +31,8 @@ async function correr(cwd, args, env) {
 function lin(yml) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-'));
   fs.mkdirSync(path.join(dir, 'proyectos', 'demo'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'proyectos', 'demo', 'proyecto.yml'), `id: demo\n${yml}`);
+  // Estos tests son de las reglas de la 4.3 (las de la 4.4 están en superpowers-eje, revision-calidad y vecinos).
+  fs.writeFileSync(path.join(dir, 'proyectos', 'demo', 'proyecto.yml'), `id: demo\nreglas: 43\n${yml}`);
   return { BACG_LINEAMIENTOS_DIR: dir };
 }
 

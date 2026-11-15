@@ -401,7 +401,8 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
       circuito: [],
       saltos: [],
       base: commitHead(raiz),
-      reglas: REGLAS_ACTUALES,
+      // Reglas de cumplimiento 4.4 por defecto; un proyecto que todavía no las adopta declara `reglas: 43`.
+      ...(proyectoDe(repo, env)?.reglas === 43 ? {} : { reglas: REGLAS_ACTUALES }),
     };
     // RQ multi-repo: si el mismo código está activo en otro repo del proyecto, hereda lo compartido.
     vinculo = heredar(raiz, repo.proyectoId, proyectoDe(repo, env), nuevo);

@@ -4,19 +4,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { main } from '../plugin/scripts/rq.mjs';
 import { cargarEstado, etapaCumplida, guardarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { vecesQueLoDijo } from '../plugin/scripts/lib/transcript.mjs';
 import { tramoDeAprobacion } from '../plugin/scripts/lib/ok.mjs';
 import { reglas44 } from '../plugin/scripts/lib/reglas.mjs';
-import { crearRepoTemporal, sesionDePrueba } from './helpers.mjs';
+import { crearRepoTemporal, sesionDePrueba, lineamientos44 } from './helpers.mjs';
 
-const AQUI = path.dirname(fileURLToPath(import.meta.url));
-const DIR_LIN = fs.mkdtempSync(path.join(os.tmpdir(), 'lin-fixture-'));
-fs.cpSync(path.join(AQUI, 'fixtures', 'lineamientos'), DIR_LIN, { recursive: true });
+const DIR_LIN = lineamientos44();
 
 function correrCon(sesion) {
   return async (cwd, args) => {
@@ -39,7 +35,18 @@ const escribir = (raiz, codigo, archivo, texto) => {
 };
 const SPEC_ARQ = '# R-1\n\n## Diseño\nalgo\n\n### Criterios centrales\n- C-1: uno\n';
 
-test('reglas 44: abrir deja la marca; un RQ viejo la toma con `reglas actualizar`', async () => {
+test('reglas 44: abrir deja la marca salvo en un proyecto con `reglas: 43`; un RQ viejo la toma con `reglas actualizar`', async () => {
+  {
+    const s43 = sesionDePrueba();
+    const viejo = crearRepoTemporal({ proyectoId: 'demo' });
+    const r43 = await main(['abrir', 'R-9', '--tipo', 'rq', '--clasificacion', 'bounded'], {
+      cwd: viejo, home: s43.home,
+      env: { ...process.env, ...s43.env, BACG_LINEAMIENTOS_DIR: path.join(import.meta.dirname, 'fixtures', 'lineamientos'), BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1', BACG_DEV_SIN_PREVIA: '1' },
+      stdout: { write() {} }, stderr: { write() {} },
+    });
+    assert.equal(r43, 0);
+    assert.equal(reglas44(cargarEstado(viejo, 'R-9')), false);
+  }
   const s = sesionDePrueba();
   const correr = correrCon(s);
   const raiz = crearRepoTemporal({ proyectoId: 'demo' });

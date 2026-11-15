@@ -20,6 +20,7 @@ import { rutasDelRq } from './circuito.mjs';
 import { exigenciasOdoo, usaOdoo } from './odoo-skills.mjs';
 import { ETAPA, etapaProyectoAV4 } from './etapas.mjs';
 import { esPropioDeLaCli } from './arbol.mjs';
+import { reglas44 } from './reglas.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x : []);
 
@@ -140,6 +141,7 @@ export function exigenciasDelProyecto(estado, proyecto, rutasRq) {
 
 /** Exigencias por etapa según el tipo: [{ etapa, skill?, causa?, tareas?, plan?, revision? }]. */
 export function exigencias(estado) {
+  if (reglas44(estado)) return exigencias44(estado);
   const bug = esBug(estado);
   const l = [];
   const { DESARROLLO, VERIFICACION, PROD } = ETAPA;
@@ -149,6 +151,31 @@ export function exigencias(estado) {
   else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: DESARROLLO, skill: 'superpowers:writing-plans' }, { etapa: DESARROLLO, plan: true });
   l.push({ etapa: VERIFICACION, skill: 'superpowers:test-driven-development' });
   if (!bug) l.push({ etapa: PROD, skill: 'superpowers:verification-before-completion' });
+  l.push({ etapa: PROD, revision: true });
+  return l;
+}
+
+/**
+ * Reglas 4.4 (PLG-DFF2, premisa 2): Superpowers es el motor del ciclo y se sigue completo. Antes del primer commit de
+ * código, el diseño (brainstorming), el plan (writing-plans, salvo Exploración), TDD y la skill de la ejecución elegida;
+ * en la verificación, el pedido de revisión y la verificación antes de dar algo por hecho.
+ */
+function exigencias44(estado) {
+  const bug = esBug(estado);
+  const { DESARROLLO, VERIFICACION, PROD } = ETAPA;
+  const spike = estado?.clasificacion === 'spike';
+  const l = [{ etapa: DESARROLLO, skill: 'superpowers:brainstorming' }];
+  if (bug) l.push({ etapa: DESARROLLO, skill: 'superpowers:systematic-debugging' }, { etapa: DESARROLLO, causa: true });
+  if (!spike) l.push({ etapa: DESARROLLO, skill: 'superpowers:writing-plans' });
+  if (estado?.clasificacion === 'bounded') l.push({ etapa: DESARROLLO, tareas: true });
+  else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: DESARROLLO, plan: true });
+  l.push({ etapa: DESARROLLO, skill: 'superpowers:test-driven-development' });
+  if (!spike) {
+    const sub = estado?.ejecucion?.modo === 'subagentes';
+    l.push({ etapa: DESARROLLO, skill: sub ? 'superpowers:subagent-driven-development' : 'superpowers:executing-plans' });
+  }
+  l.push({ etapa: VERIFICACION, skill: 'superpowers:requesting-code-review' }, { etapa: VERIFICACION, skill: 'superpowers:verification-before-completion' });
+  if (Number(estado?.revisiones_bloqueantes) > 0) l.push({ etapa: VERIFICACION, skill: 'superpowers:receiving-code-review' });
   l.push({ etapa: PROD, revision: true });
   return l;
 }
