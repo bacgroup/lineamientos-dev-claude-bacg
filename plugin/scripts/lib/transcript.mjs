@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import readline from 'node:readline';
 import path from 'node:path';
+import { tramosDeAprobacion } from './ok.mjs';
 
 // Envoltorios que inyecta el sistema o la app dentro de mensajes "user" (avisos, eventos de CI y de otras sesiones,
 // mensajes de agentes, elementos de una página); una etiqueta sin cerrar se come hasta el final.
@@ -59,8 +60,11 @@ export function mismaFrase(a, b) {
  */
 export function vecesQueLoDijo(frase, textosUsuario) {
   if (paraComparar(frase ?? '') === '') return 0;
+  // 4.4 (PLG-DFF2): además, una oración cuenta si la frase es su tramo inicial de aprobación ("Sí, dale" en "Sí, dale,
+  // pero mañana revisamos"); ver ok.mjs.
+  const cuenta = (o) => mismaFrase(o, frase) || tramosDeAprobacion(o, paraComparar).some((t) => mismaFrase(t, frase));
   return textosUsuario.reduce(
-    (n, t) => n + (mismaFrase(t, frase) ? 1 : String(t).split(/[.!?¡¿;\n]+|\s\+\s/).filter((o) => mismaFrase(o, frase)).length),
+    (n, t) => n + (mismaFrase(t, frase) ? 1 : String(t).split(/[.!?¡¿;\n]+|\s\+\s/).filter(cuenta).length),
     0,
   );
 }

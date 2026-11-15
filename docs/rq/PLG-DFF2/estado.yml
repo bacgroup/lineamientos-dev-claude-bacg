@@ -9,14 +9,25 @@ autonomia:
   frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
   fecha: '2026-11-15T17:33:57.038Z'
   via: sesion
-aprobaciones: []
-tests: null
+aprobaciones:
+  - etapa: 1
+    frase: Apruebo el diseño y el plan de PLG-DFF2
+    fecha: '2026-11-15T23:33:48.484Z'
+tests:
+  ok: true
+  arbol: 81465465c57393cc432d3aa52d34ab04a733db65
+  fecha: '2026-11-15T23:39:34.552Z'
+  comandos:
+    - npm test
+  rojos_conocidos:
+    - hooks.test.mjs > session-start avisa si la cuenta activa de gh no es la del proyecto
+    - 'previa.test.mjs > previa: PR abiertos contra DEV con sus módulos; bloquea si el PR nombra el código'
 revision: null
 circuito: []
 saltos: []
 base: 6a9224397823d770621d1ad0a730e7cef63e1990
 version_ciclo: 4
-actualizado: '2026-11-15T17:36:17.096Z'
+actualizado: '2026-11-15T23:39:34.554Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -40,7 +51,21 @@ skills:
     etapa: 0
     fecha: '2026-11-15T17:36:17.094Z'
     sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:test-driven-development
+    etapa: 1
+    fecha: '2026-11-15T23:33:59.080Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:executing-plans
+    etapa: 1
+    fecha: '2026-11-15T23:33:59.433Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
 clasificacion_confirmada:
   frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
   fecha: '2026-11-15T17:33:57.038Z'
   via: sesion
+ejecucion:
+  modo: inline
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-15T23:39:02.225Z'
+  via: sesion-total
+reglas: 44

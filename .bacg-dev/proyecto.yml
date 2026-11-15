@@ -1,0 +1,48 @@
+# El plugin como proyecto de sí mismo: los cambios al plugin pasan por el mismo ciclo de RQ que exige a los demás.
+# PROD = main (el marketplace instala desde main). No hay rama de DEV: el PR del RQ va a main con el OK de la etapa 5.
+
+version_ciclo: 4
+id: plugin
+nombre: Plugin lineamientos-dev-claude-bacg
+cuenta_github: bacgroup
+
+repos:
+  - nombre: lineamientos-dev-claude-bacg
+    rol: padre
+    push_prod: true
+
+datos:
+  motor: ninguno
+  migraciones: []
+
+ramas_prod: ["main"]
+
+entornos:
+  local:
+    app: ""
+  dev:
+    tipo: ninguno
+  prod:
+    url: "https://github.com/bacgroup/lineamientos-dev-claude-bacg"
+
+circuito_prod:
+  - paso: "push:lineamientos-dev-claude-bacg"
+  - paso: "manual:actualizar-el-plugin-en-las-pc"
+
+ui:
+  patrones: []
+  skills: []
+
+sensible:
+  rutas: []
+
+tests:
+  shell: bash
+  unit: "npm test"
+  # Dependen de gh autenticado con cuenta propia (fallan en la nube): PLG-GH.
+  rojos_conocidos:
+    - "session-start avisa si la cuenta activa de gh no es la del proyecto"
+    - "previa: PR abiertos contra DEV con sus módulos"
+  # E2E del plugin: el ciclo completo de la CLI (abrir → aprobar → commit → verificar → cerrar) en repos temporales.
+  e2e: "npm run test:e2e"
+  e2e_chequear_url: false
