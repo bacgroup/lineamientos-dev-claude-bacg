@@ -22,6 +22,8 @@ import { exigenciasOdoo, usaOdoo } from './odoo-skills.mjs';
 import { ETAPA, etapaProyectoAV4 } from './etapas.mjs';
 import { esPropioDeLaCli } from './arbol.mjs';
 import { reglas44 } from './reglas.mjs';
+import { pendientes as pendientesDevolucion } from './devoluciones.mjs';
+import { faltasTraza } from './traza.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x : []);
 
@@ -223,6 +225,12 @@ export function faltaParaEtapa(estado, etapa, raiz, proyecto = undefined) {
     if (x.plan && !planEnDisco(raiz, estado.codigo)) out.push(`el plan en docs/rq/${estado.codigo}/plan.md`);
     if (x.revision && estado?.revision?.ok !== true) out.push('la revisión ($RQ revision ok)');
     else if (x.revision && !revisionVigente(raiz, estado, py)) out.push('la revisión otra vez: venció por commits de código posteriores ($RQ revision ok)');
+  }
+  if (etapa >= ETAPA.VERIFICACION && reglas44(estado)) {
+    // P-11: la lista cerrada de devoluciones; P-16: la traza del spec (Acotado y Arquitectónico).
+    const pend = pendientesDevolucion(estado);
+    if (pend.length) out.push(`cerrar las devoluciones pendientes (${pend.map((d) => d.n).join(', ')}) con su evidencia ($RQ devolucion <n> hecho|consultado|rechazado "<evidencia>")`);
+    if (raiz && ['bounded', 'arquitectonico'].includes(estado?.clasificacion)) out.push(...faltasTraza(raiz, estado.codigo));
   }
   if (etapa >= ETAPA.VERIFICACION && !verificacionLocalOk(estado) && tocaUi(estado, raiz, py, rutasRq())) {
     // Antes que la revisión: la verificación local es evidencia de la etapa 3, la revisión la cierra.

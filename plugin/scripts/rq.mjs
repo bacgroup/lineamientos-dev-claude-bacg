@@ -36,6 +36,8 @@ import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 import { avisoMergeado } from './lib/rq-rama.mjs';
 import { REGLAS_ACTUALES, reglas44 } from './lib/reglas.mjs';
 import { faltasCapturas, refExigida } from './lib/diseno-ui.mjs';
+import { agregar as agregarDevolucion, marcar as marcarDevolucion, listado as listadoDevoluciones, PROTOCOLO_CORTE } from './lib/devoluciones.mjs';
+import { trazar as trazarSpec } from './lib/traza.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -60,6 +62,8 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   autonomia aplicar                  (aplica la autonomía de la sesión al RQ, p. ej. después de escribir ## Diseño y ## Tareas)
   ok "<frase>" [--ejecucion inline|subagentes]   (una respuesta del usuario registra todo lo pendiente del RQ hasta DEV: clasificación, diseño y plan escritos, ejecución y autonomía; nunca PROD)
   reglas actualizar                  (pasa el RQ a las reglas de cumplimiento de la 4.4)
+  devolucion [agregar "<punto>" [--elemento <x>] | <n> hecho|consultado|rechazado "<evidencia>"]   (lista cerrada de devoluciones del usuario; corta la iteración al segundo punto sobre el mismo elemento)
+  trazar                             (arma o completa docs/rq/<código>/traza.yml desde el criterio de aceptación del spec)
   lote aprobar "<frase>" <código>…   (una frase del usuario que nombra los RQ o dice "todos": confirma la clasificación y aprueba el diseño de cada uno; PROD sigue siendo por RQ)
   skills importar                    (anota en el RQ las skills ya cargadas en esta sesión de Claude Code)
   activo reparar                     (rehace docs/rq/ACTIVO con los RQ abiertos que hay en el árbol; resuelve un conflicto de merge)
@@ -1808,7 +1812,7 @@ export async function main(
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
@@ -1822,6 +1826,8 @@ export async function main(
     else if (sub === 'autonomia' && args[0] === 'total') uso(n === 2 || n === 4);
     else if (sub === 'ok') uso(n === 1 || n === 3);
     else if (sub === 'reglas') uso(args[0] === 'actualizar' && n === 1);
+    else if (sub === 'devolucion') uso(n === 0 || (args[0] === 'agregar' && (n === 2 || n === 4)) || (args[0] !== 'agregar' && n === 3));
+    else if (sub === 'trazar') uso(n === 0);
     else if (sub === 'lote') uso(args[0] === 'aprobar' && n >= 3);
     else if (sub === 'skills') uso(args[0] === 'importar' && n === 1);
     else if (sub === 'activo') uso(args[0] === 'reparar' && n === 1);
@@ -1880,7 +1886,13 @@ export async function main(
         const frase = textoNoVacio(args[1], 'La frase');
         // ETAPA.CIERRE es el 6 de hoy; en un RQ abierto con 3.x, ese número era el OK de PROD.
         const e = pedida === ETAPA.CIERRE && activo(raiz, elegido).estado._v3 === true ? ETAPA.PROD : pedida;
-        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
+        const aAprobar = activo(raiz, elegido).estado;
+        // P-17 (4.4): el diseño de un Arquitectónico declara sus criterios centrales antes de pedir la aprobación.
+        if (e === ETAPA.DISENO && aAprobar.clasificacion === 'arquitectonico' && reglas44(aAprobar)) {
+          const falta = faltaDisenoEscrito(raiz, aAprobar);
+          if (falta && /Criterios centrales/.test(falta)) throw new ErrorCli(`Antes de pedir la aprobación del diseño falta ### Criterios centrales en docs/rq/${aAprobar.codigo}/spec.md (1 a 3 criterios contra los que se revisa toda recomendación estructural).`);
+        }
+        await verificarFrase(frase, verificacion, aAprobar);
         if (e !== pedida) io.stdout.write(`${AVISO_PROD_V3}\n`);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.aprobaciones = [...lista(s.aprobaciones), { etapa: e, frase, fecha: ahora() }];
@@ -1919,6 +1931,37 @@ export async function main(
       case 'ok':
         await okDelUsuario(repo, elegido, args, verificacion, env, io);
         break;
+      case 'devolucion': {
+        if (args.length === 0) {
+          io.stdout.write(`${listadoDevoluciones(activo(raiz, elegido).estado)}\n`);
+          break;
+        }
+        if (args[0] === 'agregar') {
+          const { res, posicionales } = opciones(args.slice(1), ['elemento']);
+          const texto = textoNoVacio(posicionales[0], 'El punto');
+          cambiarVinculado(repo, env, elegido, io, (s) => {
+            const { n, corte, vueltas } = agregarDevolucion(s, texto, res.elemento, ahora());
+            return `Devolución ${n} anotada (pendiente).${corte ? `\n${PROTOCOLO_CORTE(res.elemento, vueltas)}` : ''}`;
+          });
+          break;
+        }
+        const [n, nuevo, evidencia] = args;
+        if (entero(n) === null) throw new ErrorUso();
+        cambiarVinculado(repo, env, elegido, io, (s) => {
+          const error = marcarDevolucion(s, entero(n), nuevo, evidencia, ahora());
+          if (error) throw new ErrorCli(error);
+          return `Devolución ${n}: ${nuevo}.`;
+        });
+        break;
+      }
+      case 'trazar': {
+        const { codigo } = activo(raiz, elegido);
+        const r = trazarSpec(raiz, codigo);
+        io.stdout.write(r.total
+          ? `Traza en ${r.ruta}: ${r.total} ítem(s) del criterio de aceptación, ${r.nuevos} nuevo(s). Completá archivos, test y estado (hecho | parcial | fuera) de cada uno.\n`
+          : `El spec de ${codigo} no tiene ítems en "## Criterio de aceptación": no hay nada que trazar.\n`);
+        break;
+      }
       case 'reglas': {
         if (args[0] !== 'actualizar') throw new ErrorUso();
         cambiarVinculado(repo, env, elegido, io, (s) => {

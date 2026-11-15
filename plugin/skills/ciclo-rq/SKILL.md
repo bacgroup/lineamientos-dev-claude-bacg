@@ -176,7 +176,16 @@ Resultado: `docs/rq/<código>/arq.md` de una página (contexto, opciones y trade
 
 ## 5. Revisión (una sola, RQ y BUG)
 
-`pr-review-toolkit:code-reviewer` sobre el diff del RQ, una vez, al final del desarrollo (también con subagentes). Además, sólo si corresponde: `pr-review-toolkit:silent-failure-hunter` si el cambio toca manejo de errores o fallbacks (en un BUG que venía de un error tragado, siempre); `claude-security` si toca `sensible` (la revisión ok lo exige); en un proyecto con Odoo, `odoo-review` y `odoo-security` (sección 2.0.1); `engineering:debug` si un BUG cuesta reproducirlo. El resultado va a `$RQ revision ok|bloqueante "<nota>"`; con bloqueantes, se corrigen y se revisa sólo lo corregido.
+**Con reglas 4.4** (RQ abiertos desde la 4.4 o con `$RQ reglas actualizar`) la revisión es de calidad, no sólo de seguridad, y se prueba con evidencia:
+1. `superpowers:requesting-code-review` arma el pedido (diff, spec y plan).
+2. Tres pasadas en paralelo, como subagentes (herramienta Agent, en un solo mensaje): `pr-review-toolkit:code-reviewer` (calidad y convenciones), `pr-review-toolkit:pr-test-analyzer` (si los tests prueban el comportamiento) y `lineamientos-dev-claude-bacg:revisor-rq` (el diff contra el spec: traza, criterios centrales, paridad, duplicados, dominio, canon y devoluciones). El hook las anota en el RQ; `revision ok` las exige.
+3. Antes: `$RQ trazar` arma `docs/rq/<código>/traza.yml` desde el criterio de aceptación. Completá por ítem los archivos, el test que prueba el comportamiento (no sólo que aparece un texto) y el estado (`hecho`, `parcial` o `fuera` con la frase del usuario). En Acotado y Arquitectónico la revisión ok lo exige.
+4. Con bloqueantes, `superpowers:receiving-code-review` antes de corregir. La revisión guarda el commit revisado: si después entra código, vence y se vuelve a pedir.
+5. "Probado", "cubierto" o "bien probado" en un cierre exigen citar el informe (tests, traza o batería) que lo prueba: `superpowers:verification-before-completion`.
+
+**Devoluciones del usuario** (todo lo que marca sobre lo entregado): cada punto va a la lista cerrada con `$RQ devolucion agregar "<punto>" --elemento <pantalla o componente>`, y se cierra con `$RQ devolucion <n> hecho|consultado|rechazado "<evidencia>"`. Un punto ambiguo se consulta antes de implementarlo. Las premisas del usuario ("cero texto") entran como puntos que no se cierran hasta el final. `$RQ devolucion` lista los puntos. Al segundo punto sobre el mismo elemento, la CLI corta la iteración: seguí su protocolo (captura con la referencia, causa raíz, pedido literal, mockups) y no hagas otra vuelta a ojo. Con puntos pendientes, la revisión no se da por ok.
+
+Además, sólo si corresponde: `pr-review-toolkit:silent-failure-hunter` si el cambio toca manejo de errores o fallbacks (en un BUG que venía de un error tragado, siempre); `claude-security` si toca `sensible` (la revisión ok lo exige); en un proyecto con Odoo, `odoo-review` y `odoo-security` (sección 2.0.1); `engineering:debug` si un BUG cuesta reproducirlo. El resultado va a `$RQ revision ok|bloqueante "<nota>"`; con bloqueantes, se corrigen y se revisa sólo lo corregido.
 
 ## 6. Aprobaciones, commits y entrega
 

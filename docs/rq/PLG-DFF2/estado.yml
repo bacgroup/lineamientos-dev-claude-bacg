@@ -15,8 +15,8 @@ aprobaciones:
     fecha: '2026-11-15T23:33:48.484Z'
 tests:
   ok: true
-  arbol: f5ecbd6478ddf2b0de7bf55bdb47fd99d60622d6
-  fecha: '2026-11-15T23:48:12.474Z'
+  arbol: e13777e9310e04cf294b327566e20f25697e9acd
+  fecha: '2026-11-15T23:51:19.848Z'
   comandos:
     - npm test
   rojos_conocidos:
@@ -27,7 +27,7 @@ circuito: []
 saltos: []
 base: 6a9224397823d770621d1ad0a730e7cef63e1990
 version_ciclo: 4
-actualizado: '2026-11-15T23:48:12.476Z'
+actualizado: '2026-11-15T23:51:19.852Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
