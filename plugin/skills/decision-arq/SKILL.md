@@ -1,6 +1,6 @@
 ---
 name: decision-arq
-description: Usar cuando un RQ toma o revisa una decisión de arquitectura, datos, seguridad o despliegue en un proyecto con .bacg-lineamientos (etapa 1 de diseño y plan y etapa 6 de cierre del ciclo-rq). Decide si corresponde un ADR, lo redacta con contexto, opciones, decisión, consecuencias y estado, lo guarda en proyectos/<id>/adr/ de lineamientos-dev-claude-bacg y lo registra en el grafo con manage_adr.
+description: Usar cuando un RQ toma o revisa una decisión de arquitectura, datos, seguridad o despliegue en un proyecto con .bacg-lineamientos (etapa 1 de diseño y plan y etapa 6 de cierre del ciclo-rq). Decide si corresponde un ADR, lo redacta con contexto, opciones, decisión, consecuencias y estado, lo guarda en proyectos/{id}/adr/ de lineamientos-dev-claude-bacg y lo registra en el grafo con manage_adr.
 ---
 
 # Decisiones de arquitectura (ADR)
