@@ -125,6 +125,8 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
   const textosUsuario = [];
   const skills = new Set();
+  // Skills cargadas desde la última compactación: las que siguen en el contexto del modelo (P-4).
+  let skillsContexto = new Set();
   let primera = true;
   try {
     for await (const linea of rl) {
@@ -139,9 +141,13 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
       } catch {
         continue;
       }
+      if ((entry?.type === 'system' && entry.subtype === 'compact_boundary') || entry?.isCompactSummary === true) skillsContexto = new Set();
       const t = textoHumano(entry);
       if (t !== null) textosUsuario.push(t);
-      for (const s of skillsDe(entry)) skills.add(s);
+      for (const s of skillsDe(entry)) {
+        skills.add(s);
+        skillsContexto.add(s);
+      }
     }
   } catch {
     throw new Error('TRANSCRIPT_NO_DISPONIBLE');
@@ -149,7 +155,7 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
     rl.close();
     stream.destroy();
   }
-  return { textosUsuario, skills };
+  return { textosUsuario, skills, skillsContexto };
 }
 
 // Herramientas cuya entrada nombra un archivo que la sesión leyó o cambió.

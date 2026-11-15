@@ -35,6 +35,7 @@ import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
 import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 import { avisoMergeado } from './lib/rq-rama.mjs';
 import { REGLAS_ACTUALES, reglas44 } from './lib/reglas.mjs';
+import { faltasCapturas, refExigida } from './lib/diseno-ui.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -1025,6 +1026,12 @@ function verificarLocal(repo, elegido, que, capturas, env, io) {
     }
     if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw new ErrorCli(`La captura "${c}" no existe.`);
     rel.push(path.relative(raiz, abs).split(path.sep).join('/'));
+  }
+  // 4.4 (cambio 1 y lección 13): con UI, las capturas a 390, 768 y 1280 y, si hay referencia, la de la referencia.
+  const estadoRq = activo(raiz, elegido).estado;
+  if (reglas44(estadoRq) && tocaUi(estadoRq, raiz, proyectoDe(repo, env), rutasDelRq(raiz, estadoRq))) {
+    const faltan = faltasCapturas(rel, refExigida(raiz, codigo));
+    if (faltan.length) throw new ErrorCli(`La verificación local de un RQ con UI necesita también: ${faltan.join('; ')}. Guardalas en docs/rq/${codigo}/qa/ y pasalas todas.`);
   }
   cambiarVinculado(repo, env, elegido, io, (s) => {
     s.verificacion_local = { que: que.trim(), capturas: rel, fecha: ahora() };
