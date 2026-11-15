@@ -1,0 +1,46 @@
+codigo: PLG-DFF2
+tipo: rq
+clasificacion: arquitectonico
+clasificacion_pendiente: false
+tarea: Plugin — compuertas de cumplimiento (no de carga), OK flexibles y autonomía total, Superpowers como eje, revisión de calidad multi-pasada, journey UX y mockups obligatorios en UI (retrabajo R-MOD-V2)
+etapa: 0
+autonomia:
+  hasta: 4
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-15T17:33:57.038Z'
+  via: sesion
+aprobaciones: []
+tests: null
+revision: null
+circuito: []
+saltos: []
+base: 6a9224397823d770621d1ad0a730e7cef63e1990
+version_ciclo: 4
+actualizado: '2026-11-15T17:36:17.096Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:bacg-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-15T17:33:52.049Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-15T17:33:52.049Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    fecha: '2026-11-15T17:34:00.967Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: plugin-dev:create-plugin
+    etapa: 0
+    fecha: '2026-11-15T17:34:04.019Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:writing-plans
+    etapa: 0
+    fecha: '2026-11-15T17:36:17.094Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+clasificacion_confirmada:
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-15T17:33:57.038Z'
+  via: sesion

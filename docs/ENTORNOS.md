@@ -59,7 +59,7 @@ Después de los pasos de arriba, corré **`/bacg-alta`** en un repo del proyecto
 
 ## Cambios a lineamientos o al plugin
 
-- Rama + PR a `main` de este repo, con `npm test` en verde. Mejoras del plugin: `proyectos/plugin/backlog.md`.
+- Rama + PR a `main` de este repo, con `npm test` en verde. Mejoras del plugin: `docs/backlog.md`; el plugin se desarrolla con su propio ciclo de RQ (`.bacg-dev/proyecto.yml`).
 - Al subir la versión del plugin, el arranque de sesión avisa a cada uno: `/plugin marketplace update lineamientos-dev-claude-bacg`.
 
 ## Sesiones en la nube (opcional, no es el camino principal)
