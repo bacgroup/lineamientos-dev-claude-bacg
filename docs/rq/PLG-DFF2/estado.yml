@@ -23,10 +23,10 @@ tests:
     - hooks.test.mjs > session-start avisa si la cuenta activa de gh no es la del proyecto
     - 'previa.test.mjs > previa: PR abiertos contra DEV con sus módulos; bloquea si el PR nombra el código'
 revision:
-  ok: false
-  fecha: '2026-11-16T00:07:52.519Z'
-  nota: 'code-reviewer: tramo flexible activo para PROD y saltos y en RQ 4.3; ok/autonomía total cambiaban RQ 4.3; revisión vencida fallaba abierta; devoluciones rechazables sin el usuario. pr-test-analyzer: traza salteable sin criterios; falsos OK (si condicional, acuses, precondiciones). revisor-rq: ok gastaba la frase antes del diseño; pasadas no se repetían; skills y spec contradecían el código; duplicados.'
-  head: c838d9ac209178914bb02460a4ab0611cb5b1e7a
+  ok: true
+  fecha: '2026-11-16T00:23:04.538Z'
+  nota: Tres pasadas (code-reviewer, pr-test-analyzer, revisor-rq como subagente general) y re-pasadas sobre las correcciones; críticos e importantes corregidos con TDD; npm test 657 ok con 2 rojos conocidos de gh; E2E completo ok
+  head: 92f5c7da3440bcb84dd73fadba6135c324b51ffb
 circuito: []
 saltos:
   - compuerta: skills
@@ -35,7 +35,7 @@ saltos:
     fecha: '2026-11-16T00:22:01.105Z'
 base: 6a9224397823d770621d1ad0a730e7cef63e1990
 version_ciclo: 4
-actualizado: '2026-11-16T00:23:04.320Z'
+actualizado: '2026-11-16T00:23:04.541Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
