@@ -16,9 +16,9 @@ const paso = (pasos, id) => pasos.find((p) => p.id === id);
 
 test('alta: GitHub ok con la cuenta que devuelve gh api user', () => {
   const home = tmp('home-');
-  const p = pasosAlta({ cwd: tmp('ws-'), home, dirLin: tmp('lin-'), env: { ...process.env, BACG_DEV_SIN_GH: '' }, gh: () => 'nlopez-bacg' });
+  const p = pasosAlta({ cwd: tmp('ws-'), home, dirLin: tmp('lin-'), env: { ...process.env, BACG_DEV_SIN_GH: '' }, gh: () => 'cuenta-x' });
   assert.equal(paso(p, 'gh').estado, 'ok');
-  assert.match(paso(p, 'gh').detalle, /nlopez-bacg/);
+  assert.match(paso(p, 'gh').detalle, /cuenta-x/);
   const sin = pasosAlta({ cwd: tmp('ws-'), home, dirLin: tmp('lin-'), env: { ...process.env, BACG_DEV_SIN_GH: '' }, gh: () => null });
   assert.equal(paso(sin, 'gh').estado, 'falta');
   assert.match(paso(sin, 'gh').como, /gh api user/);

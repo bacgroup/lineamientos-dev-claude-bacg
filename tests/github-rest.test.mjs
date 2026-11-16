@@ -46,13 +46,13 @@ test('github.mjs: PR abiertos, archivos, checks y cuenta, todo por gh api', () =
     'repos/o/r/pulls/3/files': [{ filename: 'a/b.py' }],
     'repos/o/r/commits/abc/check-runs': { check_runs: [{ name: 'ci', status: 'completed', conclusion: 'success' }, { name: 'e2e', status: 'in_progress' }] },
     'repos/o/r/commits/abc/status': { statuses: [{ context: 'legacy', state: 'failure' }] },
-    user: { login: 'nlopez-bacg' },
+    user: { login: 'cuenta-x' },
   });
   try {
     assert.deepEqual(prsAbiertos('o/r', { base: 'dev' }).datos.map((p) => [p.number, p.autor, p.head, p.base]), [[3, 'ana', 'rq/X', 'dev']]);
     assert.deepEqual(archivosPr('o/r', 3).datos, ['a/b.py']);
     assert.deepEqual(checksDe('o/r', 'abc').datos.map((c) => c.estado), ['ok', 'en-curso', 'fallo']);
-    assert.equal(cuentaActual().datos, 'nlopez-bacg');
+    assert.equal(cuentaActual().datos, 'cuenta-x');
     assert.ok(gh.llamadas().every((a) => a[0] === 'api'), 'ninguna llamada fuera de gh api');
   } finally {
     gh.restaurar();
