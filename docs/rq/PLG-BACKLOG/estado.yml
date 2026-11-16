@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: arquitectonico
 clasificacion_pendiente: false
 tarea: 'Plugin — fuente única del backlog (hallazgo 8 de PLG-CLOUD): una sola fuente por proyecto, aviso si hay dos que difieren y migración de la copia central al repo.'
-etapa: 0
+etapa: 4
 autonomia:
   hasta: 4
   frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
@@ -34,7 +34,7 @@ saltos:
 base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T19:00:04.975Z'
+actualizado: '2026-11-16T19:00:25.606Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
