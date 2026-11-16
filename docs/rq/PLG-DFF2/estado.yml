@@ -13,6 +13,9 @@ aprobaciones:
   - etapa: 1
     frase: Apruebo el diseño y el plan de PLG-DFF2
     fecha: '2026-11-15T23:33:48.484Z'
+  - etapa: 5
+    frase: Doy el OK de PROD para mergear PLG-DFF2 pero primero fusionar los cambios en dev-fullflow
+    fecha: '2026-11-16T00:33:19.448Z'
 tests:
   ok: true
   arbol: 0934d18f06bd1492a8fdbad0768f80c807a5c9be
@@ -35,7 +38,7 @@ saltos:
     fecha: '2026-11-16T00:22:01.105Z'
 base: 6a9224397823d770621d1ad0a730e7cef63e1990
 version_ciclo: 4
-actualizado: '2026-11-16T00:23:04.541Z'
+actualizado: '2026-11-16T00:33:19.451Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
