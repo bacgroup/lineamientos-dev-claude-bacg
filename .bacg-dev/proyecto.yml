@@ -42,7 +42,6 @@ tests:
   # Dependen de gh autenticado con cuenta propia (fallan en la nube): PLG-GH.
   rojos_conocidos:
     - "session-start avisa si la cuenta activa de gh no es la del proyecto"
-    - "previa: PR abiertos contra DEV con sus módulos"
   # E2E del plugin: el ciclo completo de la CLI (abrir → aprobar → commit → verificar → cerrar) en repos temporales.
   e2e: "npm run test:e2e"
   e2e_chequear_url: false

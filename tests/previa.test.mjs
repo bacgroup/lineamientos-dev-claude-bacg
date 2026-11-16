@@ -125,21 +125,59 @@ test('previa: ignora ramas ya integradas en DEV y las de PROD', () => {
   const { lineas } = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto: { ...PROYECTO, ramas_prod: ['main'] }, codigo: 'R-4', env: ENV, dirLin: tmp('lin-vacio-') });
   const t = lineas.join('\n');
   assert.doesNotMatch(t, /rama main/);
-  assert.match(t, /Trabajo en paralelo: ninguna rama ni PR/);
+  // Sin consultar los PR (BACG_DEV_SIN_GH) no afirma "ni PR": sólo que no hay ramas.
+  assert.match(t, /Trabajo en paralelo: ninguna rama de otros/);
 });
 
-test('previa: PR abiertos contra DEV con sus módulos; bloquea si el PR nombra el código', () => {
-  const { raiz } = montar();
+// PLG-CLOUD: los PR se leen por REST (gh api …/pulls y …/pulls/{n}/files); GraphQL da 403 en la nube.
+function ghFalso({ prs = [], archivos = {}, error } = {}) {
   const llamadas = [];
   const gh = (args) => {
     llamadas.push(args);
-    return { datos: [{ number: 7, title: 'feat(R-7): algo', author: { login: 'ana' }, headRefName: 'feature-x', files: [{ path: 'mod_a/models/a.py' }, { path: 'mod_b/views/b.xml' }] }] };
+    if (error) return { error };
+    const ruta = args[1] ?? '';
+    const m = ruta.match(/pulls\/(\d+)\/files/);
+    if (m) return { datos: (archivos[m[1]] ?? []).map((filename) => ({ filename })) };
+    return { datos: prs };
   };
+  return { gh, llamadas };
+}
+const ENV_GH = { ...process.env, BACG_DEV_SIN_GH: '' };
+
+test('previa: PR abiertos contra DEV por REST, con sus módulos; bloquea si el PR nombra el código', () => {
+  const { raiz } = montar();
+  const { gh, llamadas } = ghFalso({
+    prs: [{ number: 7, title: 'feat(R-7): algo', user: { login: 'ana' }, head: { ref: 'feature-x' }, base: { ref: 'dev' } }],
+    archivos: { 7: ['mod_a/models/a.py', 'mod_b/views/b.xml'] },
+  });
   const proyecto = { ...PROYECTO, cuenta_github: 'OrgX' };
-  const { lineas, bloqueos } = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto, codigo: 'R-7', env: { ...process.env }, dirLin: tmp('lin-vacio-'), gh });
-  assert.deepEqual(llamadas[0].slice(0, 6), ['pr', 'list', '-R', 'OrgX/demo-app', '--base', 'dev']);
+  const { lineas, bloqueos } = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto, codigo: 'R-7', env: ENV_GH, dirLin: tmp('lin-vacio-'), gh });
+  assert.equal(llamadas[0][0], 'api');
+  assert.match(llamadas[0][1], /^repos\/OrgX\/demo-app\/pulls\?state=open.*base=dev/);
+  assert.match(llamadas[1][1], /^repos\/OrgX\/demo-app\/pulls\/7\/files/);
   assert.match(lineas.join('\n'), /PR #7 feat\(R-7\): algo · ana · feature-x · toca mod_a, mod_b/);
   assert.match(bloqueos.join('\n'), /PR abierto del código: #7 \(ana\)/);
+});
+
+test('previa: si no puede listar los PR lo dice y nunca afirma "ninguna rama ni PR"', () => {
+  const { raiz } = montar();
+  const { gh } = ghFalso({ error: 'HTTP 403' });
+  const proyecto = { ...PROYECTO, cuenta_github: 'OrgX' };
+  const t = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto, codigo: 'R-8', env: ENV_GH, dirLin: tmp('lin-vacio-'), gh }).lineas.join('\n');
+  assert.match(t, /no pude listar los PR \(HTTP 403\)/);
+  assert.doesNotMatch(t, /ninguna rama ni PR/);
+  // Con BACG_DEV_SIN_GH los PR no se consultan, y lo dice.
+  const t2 = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto, codigo: 'R-8', env: { ...process.env, BACG_DEV_SIN_GH: '1' }, dirLin: tmp('lin-vacio-'), gh }).lineas.join('\n');
+  assert.match(t2, /PR no consultados \(BACG_DEV_SIN_GH=1\)/);
+  assert.doesNotMatch(t2, /ninguna rama ni PR/);
+});
+
+test('previa: ve las ramas de otros aunque el clon traiga sólo main (refspec angosto, como en la nube)', () => {
+  const { raiz, pushear } = montar();
+  pushear('rq/R-9', { 'x.txt': 'x' }, 'feat(R-9): algo');
+  git(raiz, 'config', '--replace-all', 'remote.origin.fetch', '+refs/heads/dev:refs/remotes/origin/dev');
+  const t = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto: PROYECTO, codigo: 'R-10', env: ENV, dirLin: tmp('lin-vacio-') }).lineas.join('\n');
+  assert.match(t, /rama rq\/R-9/);
 });
 
 test('previa: backlog remoto (upstream de la copia de lineamientos), atraso de la copia y otras filas En curso', () => {

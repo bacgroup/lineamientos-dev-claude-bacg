@@ -14,14 +14,21 @@ aprobaciones:
     frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
     fecha: '2026-11-16T16:48:04.808Z'
     via: sesion-total
-tests: null
+tests:
+  ok: true
+  arbol: ea15f422b569cfff7ef781c93860b201611ddab0
+  fecha: '2026-11-16T16:50:31.182Z'
+  comandos:
+    - npm test
+  rojos_conocidos:
+    - hooks.test.mjs > session-start avisa si la cuenta activa de gh no es la del proyecto
 revision: null
 circuito: []
 saltos: []
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T16:48:04.810Z'
+actualizado: '2026-11-16T16:50:31.186Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
