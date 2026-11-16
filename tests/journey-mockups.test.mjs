@@ -141,3 +141,10 @@ test('4.4: verificar --local de un RQ con UI pide 390, 768 y 1280 y la captura d
   const ok = await correr(['verificar', '--local', 'recorrido con rol staff', rel('nuevo-390.png'), rel('nuevo-768.png'), rel('nuevo-1280.png'), rel('ref-1280.png')]);
   assert.equal(ok.code, 0, ok.err);
 });
+
+test('## Diseño: un bloque de código con # adentro no corta la sección; ##Tareas sin espacio sí', () => {
+  const conCodigo = DISENO_COMPLETO.replace('### Paridad', '```bash\n# un comentario\n```\n\n### Paridad');
+  assert.deepEqual(faltasDisenoUi(repo(conCodigo), 'R-1'), []);
+  const sinEspacio = '# R-1\n\n## Diseño\nalgo\n\n##Tareas\n' + DISENO_COMPLETO.replace('# R-1\n\n## Diseño\n', '');
+  assert.ok(faltasDisenoUi(repo(sinEspacio), 'R-1').length >= 3);
+});

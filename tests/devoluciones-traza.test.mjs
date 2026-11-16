@@ -167,3 +167,14 @@ test('devolucion: consultar también pide la frase del usuario', async () => {
   SESION.dijo('Usá el toast del canon');
   assert.equal((await correr(raiz, ['devolucion', '1', 'consultado', 'Usá el toast del canon'])).code, 0);
 });
+
+test('devolucion: una misma frase del usuario no cierra varios puntos ni sirve la de la autonomía', async () => {
+  const raiz = await rq();
+  await correr(raiz, ['devolucion', 'agregar', 'uno', '--elemento', 'a']);
+  await correr(raiz, ['devolucion', 'agregar', 'dos', '--elemento', 'b']);
+  SESION.dijo('Eso no va');
+  assert.equal((await correr(raiz, ['devolucion', '1', 'rechazado', 'Eso no va'])).code, 0);
+  const segunda = await correr(raiz, ['devolucion', '2', 'rechazado', 'Eso no va']);
+  assert.notEqual(segunda.code, 0);
+  assert.match(segunda.err, /ya está registrada/);
+});

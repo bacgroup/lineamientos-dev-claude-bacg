@@ -20,14 +20,23 @@ export function leerSpec(raiz, codigo) {
  */
 export function seccion(lineasOTexto, nivel, titulo) {
   const lineas = Array.isArray(lineasOTexto) ? lineasOTexto : String(lineasOTexto ?? '').split(/\r?\n/);
-  const re = new RegExp(`^\\s*#{${nivel}}\\s*${titulo}`, 'i');
-  const i = lineas.findIndex((l) => re.test(l) && !new RegExp(`^\\s*#{${nivel + 1}}`).test(l));
+  const re = new RegExp(`^\\s*#{${nivel}}(?!#)\\s*${titulo}`, 'i');
+  // Las líneas dentro de un bloque de código (``` … ```) no son encabezados aunque empiecen con #.
+  let enCodigo = false;
+  const fuera = lineas.map((l) => {
+    if (/^\s*```/.test(l)) {
+      enCodigo = !enCodigo;
+      return false;
+    }
+    return !enCodigo;
+  });
+  const i = lineas.findIndex((l, k) => fuera[k] && re.test(l));
   if (i === -1) return null;
-  const fin = new RegExp(`^\\s*#{1,${nivel}}\\s`);
+  const fin = new RegExp(`^\\s*#{1,${nivel}}(?!#)`);
   const out = [];
-  for (const l of lineas.slice(i + 1)) {
-    if (fin.test(l)) break;
-    out.push(l);
+  for (let k = i + 1; k < lineas.length; k++) {
+    if (fuera[k] && fin.test(lineas[k])) break;
+    out.push(lineas[k]);
   }
   return out;
 }

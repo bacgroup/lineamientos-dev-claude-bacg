@@ -288,3 +288,13 @@ test('ok en Acotado sin ## Diseño no registra nada', async () => {
   assert.notEqual((await correr(raiz, ['ok', 'Dale con el acotado'])).code, 0);
   assert.equal(cargarEstado(raiz, 'R-1').clasificacion_pendiente, true);
 });
+
+test('el tramo no vale si lo que sigue pide un cambio; sí si es un comentario positivo', () => {
+  const flex = { flexible: true };
+  for (const m of ['Dale, cambiá el diseño a tabla', 'Dale, mostrame el mockup y avanzá', 'Dale, hacé otra cosa en vez de eso', 'Dale, sacá el stepper']) {
+    assert.equal(vecesQueLoDijo('Dale', [m], flex), 0, m);
+  }
+  assert.equal(vecesQueLoDijo('Dale', ['Dale, me gusta'], flex), 1);
+  assert.equal(vecesQueLoDijo('Dale', ['Dale, gracias'], flex), 1);
+  assert.equal(vecesQueLoDijo('Dale', ['Dale, el journey quedó prolijo'], flex), 0);
+});

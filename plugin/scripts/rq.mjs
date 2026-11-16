@@ -152,6 +152,8 @@ function usosDeFrase(estado, frase, { sinSesion = false } = {}) {
     if (clave === 'frase' && typeof v === 'string' && mismaFrase(v, frase)) n += 1;
     else if (Array.isArray(v)) v.forEach((x) => visitar(x));
     else if (v && typeof v === 'object') {
+      // Un punto de devolución rechazado o consultado lleva como evidencia una frase del usuario: también es un uso.
+      if ((v.estado === 'rechazado' || v.estado === 'consultado') && typeof v.evidencia === 'string' && mismaFrase(v.evidencia, frase)) n += 1;
       if (v.via === 'ok' && typeof v.grupo === 'string') {
         if (!grupos.has(v.grupo) && typeof v.frase === 'string' && mismaFrase(v.frase, frase)) {
           grupos.add(v.grupo);
@@ -533,7 +535,7 @@ function aplicarAutonomia(repo, env, codigo, aut, io) {
 function noEsLaAutonomia(frase, verificacion, para) {
   const aut = autonomiaDeSesion(verificacion);
   if (aut && mismaFrase(aut.frase, frase)) {
-    throw new ErrorCli(`La frase de la autonomía de la sesión no vale para ${para}: pedile al usuario su decisión con palabras propias.`);
+    throw new ErrorCli(`La frase de la autonomía de la sesión no vale para ${para}: pedile al usuario su decisión con otras palabras (una oración distinta de la que dio la autonomía, por ejemplo nombrando el RQ o la acción: "Publicá ${'<código>'} en PROD").`);
   }
 }
 
@@ -1973,7 +1975,8 @@ export async function main(
         // Rechazar o consultar un punto del usuario lo decide el usuario: la evidencia es su frase literal.
         if (nuevo === 'rechazado' || nuevo === 'consultado') {
           try {
-            await verificarFrase(textoNoVacio(evidencia, 'La evidencia'), verificacion, activo(raiz, elegido).estado);
+            noEsLaAutonomia(textoNoVacio(evidencia, 'La evidencia'), verificacion, `un punto ${nuevo}`);
+            await verificarFrase(evidencia, verificacion, activo(raiz, elegido).estado);
           } catch (e) {
             throw new ErrorCli(`Un punto ${nuevo} lleva como evidencia la respuesta literal del usuario. ${e.message}`);
           }

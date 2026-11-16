@@ -17,6 +17,10 @@ const RE_CONDICION = /(?:^| )(?:pero|antes|primero|manana|despues|luego|mas tard
 // tilde que quería decir "sí" hace que el tramo no cuente (falla cerrada: vale la oración entera).
 const RE_SI_CONDICIONAL = /(?:^|[^\p{L}])si(?![\p{L}])/iu;
 const condiciona = (crudo, t) => RE_CONDICION.test(t) || RE_SI_CONDICIONAL.test(String(crudo ?? ''));
+// Lo que sigue al tramo tiene que ser un comentario positivo ("me gusta", "el diseño está bien", "confío en el plan"):
+// si pide algo ("cambiá…", "mostrame…", "sacá…"), el usuario no aprobó lo que hay. Lista cerrada: ante la duda, no vale.
+const RE_POSITIVO = /(?:^| )(?:bien|gusta|gustan|perfecto|genial|confio|gracias|excelente|correcto|buenisimo|joya|barbaro|de acuerdo|con todo|claro)(?: |$)/;
+const RE_PEDIDO = /(?:^| )(?:cambia|cambien|hace|haga|mostrame|mostra|muestra|agrega|agregale|saca|sacale|quita|pone|ponele|usa|move|mueve|arregla|corregi|modifica|reemplaza|proba|revisa|en vez|otra cosa|falta|sin)(?: |$)/;
 
 function basico(texto) {
   return String(texto ?? '')
@@ -44,7 +48,8 @@ export function tramosDeAprobacion(oracion, normalizar = basico) {
     const prefijo = partes.slice(0, k).join(',');
     const crudo = partes.slice(k).join(',');
     const resto = normalizar(crudo);
-    if (tramoDeAprobacion(prefijo, normalizar) && !RE_NEGACION.test(resto) && !condiciona(crudo, resto)) out.push(prefijo.trim());
+    if (tramoDeAprobacion(prefijo, normalizar) && !RE_NEGACION.test(resto) && !condiciona(crudo, resto)
+      && RE_POSITIVO.test(resto) && !RE_PEDIDO.test(resto)) out.push(prefijo.trim());
   }
   return out;
 }
