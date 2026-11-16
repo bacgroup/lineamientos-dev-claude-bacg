@@ -18,6 +18,8 @@ export function itemsDelSpec(texto) {
   const out = [];
   for (const l of lineas.slice(i + 1)) {
     if (/^\s*##\s/.test(l)) break;
+    // Sólo las viñetas del nivel principal: las indentadas son detalle del ítem anterior.
+    if (/^\s/.test(l)) continue;
     const m = l.match(RE_ITEM);
     if (!m) continue;
     const id = m[1].match(RE_ID);
