@@ -278,3 +278,11 @@ test('PLG-BKL2: una fila nueva va al final del primer grupo, también con otra t
   assert.deepEqual(parsearBacklog(t).map((x) => x['Código']), ['A', 'N']);
   assert.match(t, /\| g \| d \|\n$/);
 });
+
+test('PLG-BKL2: una fila cuyo código empieza con guion no se toma como separador', async () => {
+  const { upsertEnArchivo } = await import('../plugin/scripts/lib/backlog.mjs');
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'guion-')), 'backlog.md');
+  fs.writeFileSync(f, `${ENC}${fila('A', 'Pendiente')}${fila('-B', 'Pendiente')}${fila('C', 'Pendiente')}`);
+  assert.equal(upsertEnArchivo(f, 'C', { Estado: 'En curso' }), 'actualizada');
+  assert.deepEqual(parsearBacklog(fs.readFileSync(f, 'utf8')).map((x) => x['Código']), ['A', '-B', 'C']);
+});

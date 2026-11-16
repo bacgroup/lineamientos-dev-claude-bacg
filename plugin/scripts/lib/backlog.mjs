@@ -34,14 +34,14 @@ export function rangoEstado(estado) {
 
 // Un | sin escapar en un valor que escribe la CLI pasa a / (no rompe la tabla); un \| ya escapado en el archivo se respeta.
 const celda = (v) => String(v ?? '').replace(/(?<!\\)\|/g, '/').replace(/\s+/g, ' ').trim();
-const esFila = (l) => /^\|/.test(l.trim()) && !/^\|\s*:?-/.test(l.trim());
+// Separador de tabla: sólo |, -, : y espacios (una fila cuyo código empieza con - no lo es).
+const esSeparador = (l) => /^\|[\s|:-]*-[\s|:-]*$/.test(String(l ?? '').trim());
+const esFila = (l) => /^\|/.test(l.trim()) && !esSeparador(l);
 
 /** Celdas de una línea de tabla; un `\|` escapado es parte de la celda. */
 function partir(linea) {
   return linea.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim());
 }
-
-const esSeparador = (l) => /^\|\s*:?-/.test(String(l ?? '').trim());
 
 /**
  * Índices de las filas de datos del backlog a partir de su encabezado `iEnc`. La tabla sigue hasta el final del archivo
