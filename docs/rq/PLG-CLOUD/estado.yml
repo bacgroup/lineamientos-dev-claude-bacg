@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: arquitectonico
 clasificacion_pendiente: false
 tarea: 'Plugin — la experiencia en Claude Code en la nube (handoff PowerFy 16/11): GitHub por REST sin gh auth, odoo-skills por git anónimo, compuertas que ven escrituras por Bash y --sin-previa con frase, fetch real en el alta, plugins sincronizados, rojos de Odoo, specs en qa/, bundles compartidos y documentación.'
-etapa: 0
+etapa: 6
 autonomia:
   hasta: 4
   frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
@@ -40,7 +40,7 @@ saltos:
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T18:20:44.396Z'
+actualizado: '2026-11-16T18:21:39.079Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -138,3 +138,5 @@ e2e:
   head: 57f70236ba909595a863072c9fb6895be186b85a
   completo: true
 revisiones_bloqueantes: 1
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
