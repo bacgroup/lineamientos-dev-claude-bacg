@@ -1,0 +1,95 @@
+codigo: PLG-DFF3
+tipo: rq
+clasificacion: arquitectonico
+clasificacion_pendiente: false
+tarea: 'Plugin — paridad ejecutable automática (P-1, P-2): paridad --desde <componente V1> arma paridad.yml leyendo el árbol de accesibilidad y los imports de V1; plantilla de E2E que recorre el mismo caso en V1 y V2 y compara lo visible.'
+etapa: 0
+autonomia:
+  hasta: 4
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-16T00:36:32.751Z'
+  via: sesion-total
+aprobaciones: []
+tests: null
+revision: null
+circuito: []
+saltos: []
+base: 6e144941a569d6591f51101f845fc26ae4463b8b
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-16T00:36:32.751Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:bacg-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: plugin-dev:create-plugin
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: plugin-dev:plugin-validator
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: plugin-dev:skill-reviewer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:36:32.692Z'
+    via: sesion
+clasificacion_confirmada:
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-16T00:36:32.751Z'
+  via: sesion-total
