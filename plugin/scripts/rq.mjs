@@ -11,7 +11,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
 import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
-import { faltaParaEtapa, pasadasSinRepetir, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
+import { faltaParaEtapa, pasadasSinRepetir, PASADAS_REVISION, nombreSkill as nombreSkillDe, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, rutaBacklog, leerBacklog } from './lib/backlog.mjs';
@@ -686,11 +686,25 @@ async function loteAprobar(repo, args, verificacion, env, io) {
 /** `skills importar`: las skills cargadas en esta sesión (según su transcripción) quedan anotadas en el RQ. */
 async function importarSkills(repo, elegido, verificacion, env, io, { silencioso = false } = {}) {
   const raiz = repo.raiz;
-  const { id, skills } = await transcriptDeLaSesion(verificacion, 'importar las skills de la sesión');
+  const { id, skills, ultimoUso } = await transcriptDeLaSesion(verificacion, 'importar las skills de la sesión');
   const { codigo, estado } = activo(raiz, elegido);
+  // Pasadas de revisión corridas otra vez después de la última revisión: se anotan con su hora (como lo hace el hook).
+  const desde = estado.revision?.fecha;
+  const corta = (x) => String(x).split(':').pop().toLowerCase();
+  const repetidas = typeof desde !== 'string' ? [] : PASADAS_REVISION.flatMap((p) => {
+    const uso = [...(ultimoUso ?? new Map())].find(([n, t]) => corta(n) === corta(p) && t > desde);
+    const anotada = lista(estado.skills).some((x) => corta(nombreSkillDe(x)) === corta(p) && typeof x?.fecha === 'string' && x.fecha > desde);
+    return uso && !anotada ? [{ skill: uso[0], fecha: uso[1] }] : [];
+  });
+  if (repetidas.length) {
+    cambiarVinculado(repo, env, codigo, silencioso ? { stdout: { write() {} } } : io, (s) => {
+      s.skills = [...lista(s.skills), ...repetidas.map((r) => ({ ...r, etapa: etapaDerivada(s, raiz), sesion: id, via: 'sesion' }))];
+      return `${codigo}: pasadas de revisión corridas otra vez, anotadas (${repetidas.map((r) => r.skill).join(', ')}).`;
+    });
+  }
   const nuevas = [...skills].filter((s) => !tieneSkill(estado, s));
   if (nuevas.length === 0) {
-    if (!silencioso) io.stdout.write(`${codigo}: no hay skills de esta sesión para sumar.\n`);
+    if (!silencioso && !repetidas.length) io.stdout.write(`${codigo}: no hay skills de esta sesión para sumar.\n`);
     return;
   }
   cambiarVinculado(repo, env, codigo, silencioso ? { stdout: { write() {} } } : io, (s) => {

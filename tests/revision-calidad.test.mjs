@@ -158,3 +158,19 @@ test('pasadasSinRepetir respeta el salto de skills del usuario', async () => {
   assert.equal(pasadasSinRepetir(base).length, 3);
   assert.deepEqual(pasadasSinRepetir({ ...base, saltos: [{ compuerta: 'skills', frase: 'salteá las pasadas', motivo: 'm' }] }), []);
 });
+
+test('skills importar anota una pasada corrida otra vez después de la revisión, con la hora de la transcripción', async () => {
+  const raiz = await rqListoParaRevisar();
+  const s = sesionDePrueba();
+  const pasada = (t) => s.entrada({ type: 'assistant', timestamp: t, message: { content: [{ type: 'tool_use', name: 'Agent', input: { subagent_type: 'pr-review-toolkit:code-reviewer', prompt: 'x' } }] } });
+  pasada('2026-11-16T10:00:00.000Z');
+  const e = cargarEstado(raiz, 'R-1');
+  e.skills = [...e.skills, { skill: 'pr-review-toolkit:code-reviewer', etapa: 3, fecha: '2026-11-16T10:00:00.000Z' }];
+  e.revision = { ok: false, fecha: '2026-11-16T11:00:00.000Z', nota: 'bloqueante' };
+  guardarEstado(raiz, e);
+  pasada('2026-11-16T12:00:00.000Z');
+  const correrS = (args) => main(args, { cwd: raiz, home: s.home, env: { ...process.env, ...s.env, BACG_LINEAMIENTOS_DIR: DIR_LIN, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '1', BACG_DEV_SIN_PREVIA: '1' }, stdout: { write() {} }, stderr: { write() {} } });
+  assert.equal(await correrS(['skills', 'importar']), 0);
+  const fechas = cargarEstado(raiz, 'R-1').skills.filter((x) => x.skill === 'pr-review-toolkit:code-reviewer').map((x) => x.fecha);
+  assert.ok(fechas.includes('2026-11-16T12:00:00.000Z'), fechas.join(', '));
+});
