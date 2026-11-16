@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: arquitectonico
 clasificacion_pendiente: false
 tarea: Plugin — compuertas de cumplimiento (no de carga), OK flexibles y autonomía total, Superpowers como eje, revisión de calidad multi-pasada, journey UX y mockups obligatorios en UI (retrabajo R-MOD-V2)
-etapa: 0
+etapa: 6
 autonomia:
   hasta: 4
   frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
@@ -38,7 +38,7 @@ saltos:
     fecha: '2026-11-16T00:22:01.105Z'
 base: 6a9224397823d770621d1ad0a730e7cef63e1990
 version_ciclo: 4
-actualizado: '2026-11-16T00:33:19.451Z'
+actualizado: '2026-11-16T00:33:59.221Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -119,3 +119,5 @@ e2e:
   head: 3d9832deb4ef5856fddc1cdeb4877dc7accd60b4
   completo: true
 revisiones_bloqueantes: 1
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
