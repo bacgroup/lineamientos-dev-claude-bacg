@@ -151,3 +151,10 @@ test('revisionVigente: head mal formado vence; una revisión de la 4.3 sin head 
   assert.equal(revisionVigente(raiz, { revision: { ok: true, head: 'xyz' } }, {}), false);
   assert.equal(revisionVigente(raiz, { revision: { ok: true } }, {}), true);
 });
+
+test('pasadasSinRepetir respeta el salto de skills del usuario', async () => {
+  const { pasadasSinRepetir } = await import('../plugin/scripts/lib/requisitos.mjs');
+  const base = { reglas: 44, revision: { ok: false, fecha: '2026-11-16T00:00:00.000Z' }, skills: [] };
+  assert.equal(pasadasSinRepetir(base).length, 3);
+  assert.deepEqual(pasadasSinRepetir({ ...base, saltos: [{ compuerta: 'skills', frase: 'salteá las pasadas', motivo: 'm' }] }), []);
+});

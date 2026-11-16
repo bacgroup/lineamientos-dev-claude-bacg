@@ -190,7 +190,7 @@ export function revisionVigente(raiz, estado, proyecto) {
  */
 export function pasadasSinRepetir(estado) {
   const desde = estado?.revision?.fecha;
-  if (!reglas44(estado) || typeof desde !== 'string') return [];
+  if (!reglas44(estado) || typeof desde !== 'string' || saltoValido(estado, 'skills')) return [];
   return PASADAS_REVISION.filter((p) => !lista(estado?.skills).some((s) => {
     const n = nombreSkill(s);
     return n.split(':').pop().toLowerCase() === p.split(':').pop() && typeof s?.fecha === 'string' && s.fecha > desde;

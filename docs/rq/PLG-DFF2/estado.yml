@@ -15,8 +15,8 @@ aprobaciones:
     fecha: '2026-11-15T23:33:48.484Z'
 tests:
   ok: true
-  arbol: da9c66fd00af4222deec89fd4558be98c7d50aa4
-  fecha: '2026-11-16T00:13:51.691Z'
+  arbol: 0934d18f06bd1492a8fdbad0768f80c807a5c9be
+  fecha: '2026-11-16T00:23:04.318Z'
   comandos:
     - npm test
   rojos_conocidos:
@@ -28,10 +28,14 @@ revision:
   nota: 'code-reviewer: tramo flexible activo para PROD y saltos y en RQ 4.3; ok/autonomía total cambiaban RQ 4.3; revisión vencida fallaba abierta; devoluciones rechazables sin el usuario. pr-test-analyzer: traza salteable sin criterios; falsos OK (si condicional, acuses, precondiciones). revisor-rq: ok gastaba la frase antes del diseño; pasadas no se repetían; skills y spec contradecían el código; duplicados.'
   head: c838d9ac209178914bb02460a4ab0611cb5b1e7a
 circuito: []
-saltos: []
+saltos:
+  - compuerta: skills
+    frase: Salteá la pasada formal de revisor-rq, ya corrió como subagente general
+    motivo: revisor-rq corrió dos veces como general-purpose con su prompt (veredicto ok en la re-pasada); el agente no existe en la 4.3.1 instalada, sí en la 4.4.0 de esta rama
+    fecha: '2026-11-16T00:22:01.105Z'
 base: 6a9224397823d770621d1ad0a730e7cef63e1990
 version_ciclo: 4
-actualizado: '2026-11-16T00:14:36.379Z'
+actualizado: '2026-11-16T00:23:04.320Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
