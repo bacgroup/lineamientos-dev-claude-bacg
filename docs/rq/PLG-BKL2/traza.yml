@@ -1,0 +1,18 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: en un backlog con grupos de filas separados por líneas en blanco, `parsearBacklog` devuelve las filas de todos los grupos y `upsertEnArchivo` / `fusionarEnArchivo` actualizan la fila existente en lugar de duplicarla. → `tests/backlog-fuente.test.mjs`
+    archivos: [plugin/scripts/lib/backlog.mjs]
+    test: 'tests/backlog-fuente.test.mjs > PLG-BKL2: grupos de filas separados por líneas en blanco son un solo backlog · PLG-BKL2: una fila nueva va al final del primer grupo'
+    estado: hecho
+  - id: S-2
+    texto: una segunda tabla con su propio encabezado y separador sigue sin tomarse como backlog. → `tests/backlog-fuente.test.mjs`
+    archivos: [plugin/scripts/lib/backlog.mjs]
+    test: 'tests/backlog-fuente.test.mjs > una segunda tabla después del backlog · PLG-BKL2: una fila nueva va al final del primer grupo (tabla pegada)'
+    estado: hecho
+  - id: S-3
+    texto: '`npm test` y E2E sin rojos.'
+    archivos: [package.json]
+    test: npm test (718 ok) y npm run test:e2e (80 ok)
+    estado: hecho
