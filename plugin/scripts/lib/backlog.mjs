@@ -10,10 +10,79 @@ export const COLUMNAS = ['Código', 'Tarea', 'Prioridad', 'Estado', 'Impacto', '
 const ENCABEZADO = `| ${COLUMNAS.join(' | ')} |`;
 const SEPARADOR = `|${COLUMNAS.map(() => '---').join('|')}|`;
 
-export const rutaBacklog = (dirLin, proyectoId, raiz) =>
-  configEnRepo(raiz) ? path.join(raiz, 'docs', 'backlog.md') : path.join(dirLin, 'proyectos', proyectoId, 'backlog.md');
+/**
+ * PLG-BACKLOG: de dónde es la fuente del backlog. `repo` (docs/backlog.md del repo) si la configuración está en el repo
+ * o si el proyecto declara `backlog: repo`; si no, `central` (proyectos/<id>/backlog.md de lineamientos, con una copia
+ * en el repo que se fusiona, nunca se pisa).
+ */
+export const fuenteBacklog = (raiz, proyecto) => (configEnRepo(raiz) || String(proyecto?.backlog ?? '').trim() === 'repo' ? 'repo' : 'central');
 
-const celda = (v) => String(v ?? '').replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
+export const rutaBacklog = (dirLin, proyectoId, raiz, proyecto) =>
+  fuenteBacklog(raiz, proyecto) === 'repo' ? path.join(raiz, 'docs', 'backlog.md') : path.join(dirLin, 'proyectos', proyectoId, 'backlog.md');
+
+/** Rango de un estado: Hecho y Descartado (cerrados) > En curso > el resto (Pendiente, Propuesta…). */
+export function rangoEstado(estado) {
+  const e = String(estado ?? '').trim().toLowerCase();
+  if (/^(?:hecho|descartado)/.test(e)) return 3;
+  if (/en curso/.test(e)) return 2;
+  return e ? 1 : 0;
+}
+
+/** Une dos listas de filas por código: gana la de estado más avanzado; los vacíos se completan con la otra. */
+export function fusionarFilas(a, b) {
+  const orden = [];
+  const por = new Map();
+  for (const f of [...(a ?? []), ...(b ?? [])]) {
+    const c = String(f?.['Código'] ?? '').trim();
+    if (!c) continue;
+    const ya = por.get(c);
+    if (!ya) {
+      orden.push(c);
+      por.set(c, { ...f });
+      continue;
+    }
+    const [gana, pierde] = rangoEstado(f.Estado) > rangoEstado(ya.Estado) ? [f, ya] : [ya, f];
+    const out = { ...gana };
+    for (const k of COLUMNAS) if (!String(out[k] ?? '').trim() && String(pierde[k] ?? '').trim()) out[k] = pierde[k];
+    por.set(c, out);
+  }
+  return orden.map((c) => por.get(c));
+}
+
+/** Códigos que están en una sola copia o con distinto estado. */
+export function diferencias(a, b) {
+  const ma = new Map((a ?? []).map((f) => [String(f['Código']).trim(), String(f.Estado ?? '').trim()]));
+  const mb = new Map((b ?? []).map((f) => [String(f['Código']).trim(), String(f.Estado ?? '').trim()]));
+  return [...new Set([...ma.keys(), ...mb.keys()])].filter((c) => c && ma.get(c) !== mb.get(c));
+}
+
+/** Escribe las filas como tabla, conservando el texto anterior a la tabla (o un encabezado si el archivo no existe). */
+export function escribirFilas(archivo, filas) {
+  let antes = '# Backlog\n';
+  try {
+    const lineas = fs.readFileSync(archivo, 'utf8').replace(/\r\n/g, '\n').split('\n');
+    const i = lineas.findIndex((l) => /^\|/.test(l.trim()));
+    antes = (i === -1 ? lineas : lineas.slice(0, i)).join('\n').replace(/\n*$/, '\n');
+  } catch {
+    // archivo nuevo
+  }
+  const tabla = filas.map((f) => `| ${COLUMNAS.map((c) => celda(f[c])).join(' | ')} |`);
+  fs.mkdirSync(path.dirname(archivo), { recursive: true });
+  fs.writeFileSync(archivo, `${antes}\n${ENCABEZADO}\n${SEPARADOR}\n${tabla.join('\n')}\n`);
+}
+
+/** Filas de un archivo de backlog ([] si no existe). */
+export function filasDe(archivo) {
+  try {
+    return parsearBacklog(fs.readFileSync(archivo, 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
+function celda(v) {
+  return String(v ?? '').replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
+}
 const esFila = (l) => /^\|/.test(l.trim()) && !/^\|\s*-/.test(l.trim());
 
 function partir(linea) {
@@ -27,10 +96,10 @@ export function parsearBacklog(texto) {
 }
 
 /** Filas del backlog como objetos { Código, Tarea, ... }. */
-export function leerBacklog(dirLin, proyectoId, raiz) {
+export function leerBacklog(dirLin, proyectoId, raiz, proyecto) {
   let texto;
   try {
-    texto = fs.readFileSync(rutaBacklog(dirLin, proyectoId, raiz), 'utf8');
+    texto = fs.readFileSync(rutaBacklog(dirLin, proyectoId, raiz, proyecto), 'utf8');
   } catch {
     return [];
   }
@@ -41,8 +110,8 @@ export function leerBacklog(dirLin, proyectoId, raiz) {
  * Agrega o actualiza la fila de `codigo`. `campos` pisa sólo lo que trae (una Tarea vacía no borra la vigente).
  * Si el archivo no existe, lo crea con el encabezado. Devuelve 'agregada' | 'actualizada'.
  */
-export function upsertFila(dirLin, proyectoId, codigo, campos, raiz) {
-  const archivo = rutaBacklog(dirLin, proyectoId, raiz);
+export function upsertFila(dirLin, proyectoId, codigo, campos, raiz, proyecto) {
+  const archivo = rutaBacklog(dirLin, proyectoId, raiz, proyecto);
   let texto;
   try {
     texto = fs.readFileSync(archivo, 'utf8');

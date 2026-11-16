@@ -14,14 +14,19 @@ aprobaciones:
     frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
     fecha: '2026-11-16T18:22:49.664Z'
     via: sesion-total
-tests: null
+tests:
+  ok: true
+  arbol: 19ce6e14be8686aad7c0bd31d22be36aec959126
+  fecha: '2026-11-16T18:25:49.386Z'
+  comandos:
+    - npm test
 revision: null
 circuito: []
 saltos: []
 base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T18:22:49.666Z'
+actualizado: '2026-11-16T18:25:49.388Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0

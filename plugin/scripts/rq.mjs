@@ -14,7 +14,7 @@ import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, f
 import { faltaParaEtapa, pasadasSinRepetir, PASADAS_REVISION, nombreSkill as nombreSkillDe, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
-import { upsertFila, rutaBacklog, leerBacklog } from './lib/backlog.mjs';
+import { upsertFila, rutaBacklog, leerBacklog, filasDe, escribirFilas, fusionarFilas, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
 import { tipoArchivo } from './lib/rutas.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { seccionAgents, escribirAgents } from './lib/agents.mjs';
@@ -66,6 +66,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   ok "<frase>" [--ejecucion inline|subagentes]   (una respuesta del usuario registra todo lo pendiente del RQ hasta DEV: clasificación, diseño y plan escritos, ejecución y autonomía; nunca PROD)
   reglas actualizar                  (pasa el RQ a las reglas de cumplimiento de la 4.4)
   devolucion [agregar "<punto>" [--elemento <x>] | <n> hecho|consultado|rechazado "<evidencia>"]   (lista cerrada de devoluciones del usuario; corta la iteración al segundo punto sobre el mismo elemento)
+  backlog migrar                     (fusiona el backlog central en docs/backlog.md del repo y lo deja como única fuente: declarar backlog: repo)
   trazar                             (arma o completa docs/rq/<código>/traza.yml desde el criterio de aceptación del spec)
   lote aprobar "<frase>" <código>…   (una frase del usuario que nombra los RQ o dice "todos": confirma la clasificación y aprueba el diseño de cada uno; PROD sigue siendo por RQ)
   skills importar                    (anota en el RQ las skills ya cargadas en esta sesión de Claude Code)
@@ -323,17 +324,21 @@ function anotarBacklog(repo, env, codigo, campos, io) {
   }
   try {
     const dirLin = dirLineamientos({ env });
-    const r = upsertFila(dirLin, repo.proyectoId, codigo, campos, repo.raiz);
-    const fuente = rutaBacklog(dirLin, repo.proyectoId, repo.raiz);
+    const proyecto = proyectoDe(repo, env);
+    const fuente = rutaBacklog(dirLin, repo.proyectoId, repo.raiz, proyecto);
     const copia = path.join(repo.raiz, 'docs', 'backlog.md');
     if (path.resolve(fuente) === path.resolve(copia)) {
+      const r = upsertFila(dirLin, repo.proyectoId, codigo, campos, repo.raiz, proyecto);
       io.stdout.write(`Backlog: fila ${codigo} ${r} (docs/backlog.md).\n`);
       return;
     }
-    // Copia en el repo (docs/backlog.md): la fuente es la de lineamientos y la copia se pisa entera.
-    fs.mkdirSync(path.dirname(copia), { recursive: true });
-    fs.copyFileSync(fuente, copia);
-    io.stdout.write(`Backlog: fila ${codigo} ${r} (lineamientos y docs/backlog.md).\n`);
+    // PLG-BACKLOG: con la fuente central, la copia del repo se fusiona antes (gana el estado más avanzado y no se pierden
+    // filas agregadas en el repo); después se escriben las dos. Antes la copia del repo se pisaba entera.
+    const dif = diferenciasBacklog(filasDe(fuente), filasDe(copia));
+    if (dif.length) escribirFilas(fuente, fusionarFilas(filasDe(fuente), filasDe(copia)));
+    const r = upsertFila(dirLin, repo.proyectoId, codigo, campos, repo.raiz, proyecto);
+    escribirFilas(copia, fusionarFilas(filasDe(fuente), filasDe(copia)));
+    io.stdout.write(`Backlog: fila ${codigo} ${r} (lineamientos y docs/backlog.md${dif.length ? `; fusioné ${dif.length} fila(s) que diferían: ${dif.join(', ')}` : ''}). Para dejar una sola fuente: $RQ backlog migrar.\n`);
   } catch (e) {
     io.stderr.write(`Aviso: no pude actualizar el backlog (${e.message}).\n`);
   }
@@ -1793,7 +1798,7 @@ function cerrar(repo, elegido, args, env, io) {
 /** Fila del RQ en el backlog del proyecto ({} si no está o no se puede leer). */
 function filaDelBacklog(repo, env, codigo) {
   try {
-    return leerBacklog(dirLineamientos({ env }), repo.proyectoId, repo.raiz).find((f) => f['Código'] === codigo) ?? {};
+    return leerBacklog(dirLineamientos({ env }), repo.proyectoId, repo.raiz, proyectoDe(repo, env)).find((f) => f['Código'] === codigo) ?? {};
   } catch {
     return {};
   }
@@ -1869,7 +1874,7 @@ export async function main(
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar', 'backlog'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
@@ -1885,6 +1890,7 @@ export async function main(
     else if (sub === 'reglas') uso(args[0] === 'actualizar' && n === 1);
     else if (sub === 'devolucion') uso(n === 0 || (args[0] === 'agregar' && (n === 2 || n === 4)) || (args[0] !== 'agregar' && n === 3));
     else if (sub === 'trazar') uso(n === 0);
+    else if (sub === 'backlog') uso(args[0] === 'migrar' && n === 1);
     else if (sub === 'lote') uso(args[0] === 'aprobar' && n >= 3);
     else if (sub === 'skills') uso(args[0] === 'importar' && n === 1);
     else if (sub === 'activo') uso(args[0] === 'reparar' && n === 1);
@@ -2017,6 +2023,22 @@ export async function main(
           if (error) throw new ErrorCli(error);
           return `Devolución ${n}: ${nuevo}.`;
         });
+        break;
+      }
+      case 'backlog': {
+        // PLG-BACKLOG: deja docs/backlog.md del repo como la fuente, con todo lo de la copia central fusionado.
+        const dirLin = dirLineamientos({ env });
+        const central = path.join(dirLin, 'proyectos', repo.proyectoId, 'backlog.md');
+        const copia = path.join(raiz, 'docs', 'backlog.md');
+        if (!fs.existsSync(central)) {
+          io.stdout.write(`No hay backlog central de ${repo.proyectoId} (${central}): la fuente ya es docs/backlog.md del repo.\n`);
+          break;
+        }
+        const filas = fusionarFilas(filasDe(central), filasDe(copia));
+        escribirFilas(copia, filas);
+        const t = fs.readFileSync(central, 'utf8');
+        if (!/^> OBSOLETO/m.test(t)) fs.writeFileSync(central, `> OBSOLETO desde ${hoy()}: la fuente del backlog es docs/backlog.md del repo ${nombreRepo(raiz)}. No lo edites.\n\n${t}`);
+        io.stdout.write(`Backlog migrado: ${filas.length} fila(s) en docs/backlog.md. La copia central quedó marcada como obsoleta. Falta declarar \`backlog: repo\` en proyecto.yml de ${repo.proyectoId} y commitear las dos cosas (docs/backlog.md acá; la copia central en lineamientos).\n`);
         break;
       }
       case 'trazar': {
