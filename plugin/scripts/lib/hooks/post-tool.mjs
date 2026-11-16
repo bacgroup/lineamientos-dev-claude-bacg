@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { dirLineamientos, buscarRepo, nombreRepo } from '../config.mjs';
 import { guardarEstado, rqActivo, cargarEstado, etapaDerivada } from '../estado.mjs';
-import { tieneSkill } from '../requisitos.mjs';
+import { tieneSkill, PASADAS_REVISION } from '../requisitos.mjs';
 import { rqParaRegistrar } from '../rq-rama.mjs';
 import { operacionesGit, publicaEnProd } from '../compuerta-bash.mjs';
 import { entradaSoloLectura } from '../compuerta-mcp.mjs';
@@ -60,7 +60,9 @@ function anotarSkill(raiz, skill, sesion) {
   const codigo = rqParaRegistrar(raiz);
   if (!codigo) return;
   const estado = cargarEstado(raiz, codigo);
-  if (tieneSkill(estado, skill)) return;
+  // Las pasadas de revisión se anotan cada vez que corren: una revisión vencida pide pasadas nuevas (pasadasSinRepetir).
+  const pasada = PASADAS_REVISION.some((p) => p.split(':').pop() === skill.split(':').pop().toLowerCase());
+  if (!pasada && tieneSkill(estado, skill)) return;
   const entrada = { skill, etapa: etapaDerivada(estado, raiz), fecha: new Date().toISOString() };
   if (typeof sesion === 'string' && sesion) entrada.sesion = sesion;
   estado.skills = [...lista(estado.skills), entrada];
@@ -75,7 +77,7 @@ function anotarSkill(raiz, skill, sesion) {
     // proyecto.yml ilegible: igual se replica por carpetas vecinas
   }
   espejar(raiz, repo.proyectoId, proyecto, codigo, (s) => {
-    if (tieneSkill(s, skill)) return false;
+    if (!pasada && tieneSkill(s, skill)) return false;
     s.skills = [...lista(s.skills), { ...entrada }];
   });
 }

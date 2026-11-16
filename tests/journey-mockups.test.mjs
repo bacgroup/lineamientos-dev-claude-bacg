@@ -64,6 +64,11 @@ test('faltasDisenoUi: journey de 3 pasos, mockup (archivo o Figma), referencias 
   assert.match(faltasDisenoUi(sinParidad, 'R-1').join(' '), /Paridad/);
 });
 
+test('faltasDisenoUi: las subsecciones cuentan sólo dentro de ## Diseño', () => {
+  const fuera = `# R-1\n\n## Notas\n${DISENO_COMPLETO.replace('# R-1\n\n## Diseño\n', '')}\n## Diseño\nalgo\n`;
+  assert.ok(faltasDisenoUi(repo(fuera), 'R-1').length >= 3);
+});
+
 test('4.4: editar UI sin journey o sin mockup se niega con lo que falta; completo, pasa', () => {
   const ctx = { textosUsuario: [], skills: SKILLS_UI, skillsContexto: SKILLS_UI };
   const r = editar(repo('# R-1\n\n## Diseño\nalgo\n', { mockup: false }), ctx);

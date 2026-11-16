@@ -33,22 +33,22 @@ El plugin pasa de controlar que las skills **se cargaron** a controlar que **se 
 ## Criterio de aceptación → flujo E2E que lo prueba
 - S-1: con `autonomia total`, un Arquitectónico pasa de la etapa 0 a DEV con una sola frase del usuario. PROD sigue pidiendo `aprobar 5`. → `tests/ok-flexible.test.mjs`
 - S-2: `ok "<frase>"` registra de una vez todas las decisiones pendientes hasta DEV, y la frase cuenta como un solo uso. → `tests/ok-flexible.test.mjs`
-- S-3: una frase de aprobación vale como tramo entre comas si trae un verbo de aprobación y ninguna negación. → `tests/ok-flexible.test.mjs`
+- S-3: sólo en `ok` con reglas 4.4, una frase de aprobación vale como tramo inicial de una oración cortado en una coma, si trae un verbo de aprobación explícito y nada que lo niegue, frene, condicione o postergue. `aprobar 5`, `saltar` y los RQ de la 4.3 siguen pidiendo la oración entera. → `tests/ok-flexible.test.mjs`
 - S-4: un RQ de ciclo 4.4 exige `writing-plans` (también en Acotado), TDD y la skill de ejecución antes del primer commit de código, y `requesting-code-review` y `verification-before-completion` en la etapa 3. → `tests/superpowers-eje.test.mjs`
 - S-5: `revision ok` exige las pasadas `pr-review-toolkit:code-reviewer`, `pr-review-toolkit:pr-test-analyzer` y `revisor-rq` (el hook registra los subagentes). La revisión vence si hay commits de código posteriores. → `tests/revision-calidad.test.mjs`
 - S-6: editar UI (salvo cambio menor) exige en `## Diseño`: `### Journey` (3 pasos o más), `### Mockups` (archivo en `docs/rq/<código>/mockups/` o URL de Figma), `### Referencias leídas` y `### Paridad`. → `tests/journey-mockups.test.mjs`
 - S-7: las skills de UI valen por contexto: después de una compactación, la compuerta de UI las vuelve a pedir. → `tests/journey-mockups.test.mjs`
 - S-8: con UI, `verificar --local` exige capturas a 390, 768 y 1280, y `ref-*.png` si hay referencia. → `tests/journey-mockups.test.mjs`
-- S-9: `devolucion` lleva la lista cerrada de puntos. Al segundo punto sobre el mismo elemento corta la iteración, y la revisión ok exige que no queden puntos pendientes. → `tests/devoluciones.test.mjs`
-- S-10: `trazar` arma `traza.yml` desde el spec, y la revisión ok exige un estado por ítem y un test en los "hecho". → `tests/traza.test.mjs`
-- S-11: el diseño de un Arquitectónico de ciclo 4.4 exige `### Criterios centrales`. → `tests/traza.test.mjs`
+- S-9: `devolucion` lleva la lista cerrada de puntos. Al segundo punto sobre el mismo elemento corta la iteración, y la revisión ok exige que no queden puntos pendientes. → `tests/devoluciones-traza.test.mjs`
+- S-10: `trazar` arma `traza.yml` desde el spec, y la revisión ok exige un estado por ítem y un test en los "hecho". → `tests/devoluciones-traza.test.mjs`
+- S-11: el diseño de un Arquitectónico de ciclo 4.4 exige `### Criterios centrales`. → `tests/devoluciones-traza.test.mjs`
 - E2E del plugin: `npm run test:e2e` (ciclo completo de la CLI en repos temporales) y `npm test` sin rojos nuevos.
 
 ## Diseño
 
 ### Enfoques considerados
 1. **Sólo texto en las skills.** Barato, pero es lo que falló en R-MOD-V2: las reglas existían y nadie las cumplía. Descartado.
-2. **Compuertas de cumplimiento con evidencia en disco, versionadas por RQ (elegido).** La CLI y los hooks verifican artefactos concretos: secciones del spec, archivos en `mockups/`, capturas, `traza.yml`, subagentes en la transcripción y el estado de las devoluciones. Las reglas nuevas aplican a los RQ abiertos con la 4.4 o más (`ciclo: 4.4` en `estado.yml`): los RQ en curso no se rompen y los tests viejos siguen valiendo.
+2. **Compuertas de cumplimiento con evidencia en disco, versionadas por RQ (elegido).** La CLI y los hooks verifican artefactos concretos: secciones del spec, archivos en `mockups/`, capturas, `traza.yml`, subagentes en la transcripción y el estado de las devoluciones. Las reglas nuevas aplican a los RQ abiertos con la 4.4 o más (`reglas: 44` en `estado.yml`; un proyecto que todavía no las adopta declara `reglas: 43`): los RQ en curso no se rompen y los tests viejos siguen valiendo.
 3. **Un agente orquestador propio que reemplace a Superpowers.** Duplica Superpowers, contradice la premisa 2 y es caro de mantener. Descartado.
 
 ### Criterios centrales
@@ -66,7 +66,7 @@ El plugin pasa de controlar que las skills **se cargaron** a controlar que **se 
   - Nunca cubre PROD ni los saltos de compuertas.
   - Se registra con `via: sesion-total`. `autonomia aplicar` la vuelve a aplicar cuando el diseño o el plan se escriben después.
 - **`$RQ ok "<frase>"`:** una respuesta del usuario cubre todas las decisiones pendientes del RQ hasta DEV (las mismas de arriba), cada una con `via: ok` y un `grupo` común. `usosDeFrase` cuenta un grupo como un solo uso.
-- **Tramos naturales:** además del mensaje entero o la oración, vale un tramo separado por comas que traiga un verbo de aprobación (ok, dale, apruebo, aprobado, adelante, avanzá, seguí, confirmo, de acuerdo, sí, listo, perfecto) y no traiga negación (no, ni, nunca, todavía, esperá, frená, pará, stop). Con eso, "Sí, dale, pero mañana revisamos" registra "Sí, dale".
+- **Tramos naturales (sólo `ok`, reglas 4.4; decidido en la revisión):** además del mensaje entero o la oración, vale el tramo inicial de una oración cortado en una coma, si trae un verbo de aprobación explícito (dale, apruebo, adelante, avanzá, seguí, confirmo, de acuerdo, hacelo) y nada que lo niegue (no, ni, nunca, todavía, esperá, frená, pará, stop), lo condicione o lo postergue (pero, antes, primero, "si" condicional, mañana, después). "Sí, dale, el diseño está bien" registra "Sí, dale"; "Sí, dale, pero mañana revisamos", "Listo, ya corrí el script" o "Si funciona, avisame" no. `aprobar 5`, `saltar` y la frase de la autonomía de sesión nunca usan el tramo.
 - **La skill deja de explicar el parser:** se hace una sola pregunta con opciones numeradas y se registra la respuesta con `ok`.
 
 ### 2. Superpowers como eje (premisa 2)

@@ -15,19 +15,23 @@ aprobaciones:
     fecha: '2026-11-15T23:33:48.484Z'
 tests:
   ok: true
-  arbol: 81beb263cfe92e07662a5dd3ee93da0b6840e609
-  fecha: '2026-11-15T23:57:43.906Z'
+  arbol: ed8ba7eb37c23bace519c88da6053597c6182bf6
+  fecha: '2026-11-16T00:08:25.833Z'
   comandos:
     - npm test
   rojos_conocidos:
     - hooks.test.mjs > session-start avisa si la cuenta activa de gh no es la del proyecto
     - 'previa.test.mjs > previa: PR abiertos contra DEV con sus módulos; bloquea si el PR nombra el código'
-revision: null
+revision:
+  ok: false
+  fecha: '2026-11-16T00:07:52.519Z'
+  nota: 'code-reviewer: tramo flexible activo para PROD y saltos y en RQ 4.3; ok/autonomía total cambiaban RQ 4.3; revisión vencida fallaba abierta; devoluciones rechazables sin el usuario. pr-test-analyzer: traza salteable sin criterios; falsos OK (si condicional, acuses, precondiciones). revisor-rq: ok gastaba la frase antes del diseño; pasadas no se repetían; skills y spec contradecían el código; duplicados.'
+  head: c838d9ac209178914bb02460a4ab0611cb5b1e7a
 circuito: []
 saltos: []
 base: 6a9224397823d770621d1ad0a730e7cef63e1990
 version_ciclo: 4
-actualizado: '2026-11-15T23:58:14.628Z'
+actualizado: '2026-11-16T00:08:25.835Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -63,6 +67,10 @@ skills:
     etapa: 2
     fecha: '2026-11-15T23:58:14.626Z'
     sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:receiving-code-review
+    etapa: 2
+    fecha: '2026-11-16T00:07:52.804Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
 clasificacion_confirmada:
   frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
   fecha: '2026-11-15T17:33:57.038Z'
@@ -79,3 +87,4 @@ e2e:
   comando: npm run test:e2e
   head: 7df5bcee1296c20ca4fcde69cf6f345b3ce383b8
   completo: true
+revisiones_bloqueantes: 1

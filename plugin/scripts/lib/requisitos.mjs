@@ -167,19 +167,34 @@ export const PASADAS_REVISION = ['pr-review-toolkit:code-reviewer', 'pr-review-t
 
 /**
  * ¿La revisión registrada sigue valiendo? Con reglas 4.4 guarda el commit revisado (`head`): si después entraron
- * commits con archivos de producto (no docs ni tests), venció. Sin `head` (revisiones de antes) o sin poder leer git,
- * vale como antes.
+ * commits con archivos de producto (no docs ni tests), venció. Sin `head` (revisiones de antes de la 4.4) vale como
+ * antes. Falla cerrada: si el commit revisado ya no existe (rebase, otro clon) o git no responde, venció.
  */
 export function revisionVigente(raiz, estado, proyecto) {
   const head = estado?.revision?.head;
-  if (!raiz || typeof head !== 'string' || !/^[0-9a-f]{7,40}$/.test(head)) return true;
+  if (!raiz || head === undefined) return true;
+  if (typeof head !== 'string' || !/^[0-9a-f]{7,40}$/.test(head)) return false;
   try {
     const rutas = execFileSync('git', ['diff', '--name-only', '--no-renames', `${head}..HEAD`], { cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
       .split('\n').filter(Boolean);
     return !rutas.some((r) => tipoArchivo(r, proyecto) !== 'libre' && !esPropioDeLaCli(r));
   } catch {
-    return true;
+    return false;
   }
+}
+
+/**
+ * Pasadas de revisión que faltan correr de nuevo: si ya hubo una revisión (`revision.fecha`), cada pasada tiene que
+ * estar anotada después de ella (el hook la anota cada vez que se corre). Así una revisión vencida no se vuelve a dar
+ * por ok sin volver a revisar.
+ */
+export function pasadasSinRepetir(estado) {
+  const desde = estado?.revision?.fecha;
+  if (!reglas44(estado) || typeof desde !== 'string') return [];
+  return PASADAS_REVISION.filter((p) => !lista(estado?.skills).some((s) => {
+    const n = nombreSkill(s);
+    return n.split(':').pop().toLowerCase() === p.split(':').pop() && typeof s?.fecha === 'string' && s.fecha > desde;
+  }));
 }
 
 /**

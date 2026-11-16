@@ -5,8 +5,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import yaml from '../vendor/js-yaml.mjs';
+import { RE_ITEM, leerSpec } from './spec.mjs';
 
-const RE_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+(.*\S)\s*$/;
 const RE_ID = /^(S-\d+)\s*[:.)-]\s*/i;
 export const ESTADOS_TRAZA = ['hecho', 'parcial', 'fuera'];
 
@@ -35,14 +35,6 @@ export function itemsDelSpec(texto) {
 }
 
 const archivoTraza = (raiz, codigo) => path.join(raiz, 'docs', 'rq', codigo, 'traza.yml');
-const leerSpec = (raiz, codigo) => {
-  try {
-    return fs.readFileSync(path.join(raiz, 'docs', 'rq', codigo, 'spec.md'), 'utf8');
-  } catch {
-    return '';
-  }
-};
-
 function leerTraza(raiz, codigo) {
   try {
     const t = yaml.load(fs.readFileSync(archivoTraza(raiz, codigo), 'utf8'));
@@ -70,10 +62,19 @@ export function trazar(raiz, codigo) {
   return { total: filas.length, nuevos, ruta: path.relative(raiz, ruta).split(path.sep).join('/') };
 }
 
-/** Lo que le falta a la traza para la revisión ([] si está completa o si el spec no trae criterios). */
+/** El archivo que cita el test de una fila ("tests/x.test.mjs > caso"), si parece una ruta; si no, null. */
+function rutaDelTest(test) {
+  const m = String(test).trim().match(/^([^\s>]+\.[A-Za-z0-9]+)(?:\s|$)/);
+  return m && m[1].includes('/') ? m[1] : null;
+}
+
+/**
+ * Lo que le falta a la traza para la revisión ([] si está completa). Falla cerrada: un spec sin ítems en el criterio
+ * de aceptación no saltea la traza, pide escribirlos.
+ */
 export function faltasTraza(raiz, codigo) {
   const items = itemsDelSpec(leerSpec(raiz, codigo));
-  if (!items.length) return [];
+  if (!items.length) return [`los ítems de "## Criterio de aceptación" en docs/rq/${codigo}/spec.md (cada uno con el flujo o test que lo prueba), y después $RQ trazar`];
   const t = leerTraza(raiz, codigo);
   if (!t) return [`la traza del spec en docs/rq/${codigo}/traza.yml ($RQ trazar y completala)`];
   const porId = new Map(t.items.filter((x) => x?.id).map((x) => [String(x.id).toUpperCase(), x]));
@@ -83,6 +84,8 @@ export function faltasTraza(raiz, codigo) {
     if (!f) falta.push(`${id} sin fila en traza.yml ($RQ trazar)`);
     else if (!ESTADOS_TRAZA.includes(f.estado)) falta.push(`${id} sin estado en traza.yml (hecho | parcial | fuera)`);
     else if (f.estado === 'hecho' && !(typeof f.test === 'string' && f.test.trim())) falta.push(`${id} "hecho" sin el test que lo prueba en traza.yml`);
+    else if (f.estado === 'hecho' && rutaDelTest(f.test) && !fs.existsSync(path.join(raiz, rutaDelTest(f.test)))) falta.push(`${id}: el test ${rutaDelTest(f.test)} no existe`);
+    else if (f.estado === 'fuera' && !(typeof f.motivo === 'string' && f.motivo.trim())) falta.push(`${id} "fuera" sin motivo (la frase del usuario) en traza.yml`);
   }
   return falta;
 }

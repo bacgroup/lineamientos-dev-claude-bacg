@@ -58,11 +58,11 @@ export function mismaFrase(a, b) {
  * coma no separa: en "Dale, pero mañana" "Dale" no es una oración). Más estricto que fraseDelUsuario: un tramo
  * suelto de una oración no cuenta.
  */
-export function vecesQueLoDijo(frase, textosUsuario) {
+export function vecesQueLoDijo(frase, textosUsuario, { flexible = false } = {}) {
   if (paraComparar(frase ?? '') === '') return 0;
-  // 4.4 (PLG-DFF2): además, una oración cuenta si la frase es su tramo inicial de aprobación ("Sí, dale" en "Sí, dale,
-  // pero mañana revisamos"); ver ok.mjs.
-  const cuenta = (o) => mismaFrase(o, frase) || tramosDeAprobacion(o, paraComparar).some((t) => mismaFrase(t, frase));
+  // Sólo `rq.mjs ok` con reglas 4.4 (flexible): además, una oración cuenta si la frase es su tramo inicial de aprobación
+  // ("Sí, dale" en "Sí, dale, el diseño está bien"); ver ok.mjs. Todo lo demás, oración entera.
+  const cuenta = (o) => mismaFrase(o, frase) || (flexible && tramosDeAprobacion(o, paraComparar).some((t) => mismaFrase(t, frase)));
   return textosUsuario.reduce(
     (n, t) => n + (mismaFrase(t, frase) ? 1 : String(t).split(/[.!?¡¿;\n]+|\s\+\s/).filter(cuenta).length),
     0,

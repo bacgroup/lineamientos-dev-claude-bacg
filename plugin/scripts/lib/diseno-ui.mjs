@@ -3,33 +3,17 @@
 // La compuerta de edición de UI lo exige antes del primer cambio, y `verificar --local` pide las capturas que lo prueban.
 import fs from 'node:fs';
 import path from 'node:path';
+import { RE_ITEM, leerSpec, seccion } from './spec.mjs';
 
-const RE_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+\S/;
 const RE_FIGMA = /https?:\/\/(?:www\.)?figma\.com\/\S+/i;
 const EXT_MOCKUP = /\.(?:html?|png|jpe?g|svg|webp|pdf)$/i;
 
 export const ANCHOS_CAPTURA = [390, 768, 1280];
 
-function leerSpec(raiz, codigo) {
-  try {
-    return fs.readFileSync(path.join(raiz, 'docs', 'rq', codigo, 'spec.md'), 'utf8');
-  } catch {
-    return '';
-  }
-}
-
-/** Líneas de la subsección `### <titulo>` (hasta el próximo encabezado de nivel 1 a 3), o null si no está. */
+/** Subsección `### <titulo>` dentro de `## Diseño` (la evidencia vale sólo ahí), o null. */
 function subseccion(texto, titulo) {
-  const lineas = texto.split(/\r?\n/);
-  const re = new RegExp(`^\\s*###\\s*${titulo}\\b`, 'i');
-  const i = lineas.findIndex((l) => re.test(l));
-  if (i === -1) return null;
-  const out = [];
-  for (const l of lineas.slice(i + 1)) {
-    if (/^\s*#{1,3}\s/.test(l)) break;
-    out.push(l);
-  }
-  return out;
+  const diseno = seccion(texto, 2, 'Dise[ñn]o\\b');
+  return diseno ? seccion(diseno, 3, `${titulo}\\b`) : null;
 }
 
 const conTexto = (ls) => ls.some((l) => l.trim() !== '');

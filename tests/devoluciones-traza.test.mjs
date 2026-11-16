@@ -43,7 +43,7 @@ x
 const TODAS = ['superpowers:brainstorming', 'superpowers:writing-plans', 'superpowers:test-driven-development', 'superpowers:executing-plans', 'superpowers:requesting-code-review', 'superpowers:verification-before-completion', ...PASADAS_REVISION];
 
 async function rq() {
-  const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'docs/rq/R-1/spec.md': SPEC } });
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'docs/rq/R-1/spec.md': SPEC, 'e2e/vigencia.spec.ts': '// e2e\n' } });
   await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
   const e = cargarEstado(raiz, 'R-1');
   e.skills = TODAS.map((skill) => ({ skill, etapa: 2 }));
@@ -75,6 +75,38 @@ test('devolucion: marcar exige evidencia; con pendientes, la revisión no se da 
   assert.equal((await correr(raiz, ['devolucion', '1', 'hecho', 'qa/grilla-1280.png'])).code, 0);
   assert.equal(cargarEstado(raiz, 'R-1').devoluciones[0].evidencia, 'qa/grilla-1280.png');
   assert.ok(!faltaParaEtapa(cargarEstado(raiz, 'R-1'), 3, raiz).some((x) => /devoluci/.test(x)));
+});
+
+test('devolucion: rechazar o consultar un punto pide la frase del usuario; el corte no distingue mayúsculas ni espacios', async () => {
+  const raiz = await rq();
+  await correr(raiz, ['devolucion', 'agregar', 'otro color', '--elemento', 'Grilla']);
+  const b = await correr(raiz, ['devolucion', 'agregar', 'más chico', '--elemento', 'grilla ']);
+  assert.match(b.out, /Corte por vueltas/);
+  const sinFrase = await correr(raiz, ['devolucion', '1', 'rechazado', 'no aplica, lo decidí yo']);
+  assert.notEqual(sinFrase.code, 0);
+  assert.match(sinFrase.err, /usuario/);
+  SESION.dijo('Dejá el color como está');
+  assert.equal((await correr(raiz, ['devolucion', '1', 'rechazado', 'Dejá el color como está'])).code, 0);
+  assert.notEqual((await correr(raiz, ['devolucion', '9', 'hecho', 'qa/x.png'])).code, 0);
+  assert.notEqual((await correr(raiz, ['devolucion', '2', 'listo', 'qa/x.png'])).code, 0);
+});
+
+test('4.4 Acotado sin ítems en el criterio de aceptación: la revisión pide escribirlos (no se saltea la traza)', async () => {
+  const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'docs/rq/R-2/spec.md': '# R-2\n\n## Diseño\nx\n\n## Tareas\n- una\n' } });
+  await correr(raiz, ['abrir', 'R-2', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.ok(faltaParaEtapa(cargarEstado(raiz, 'R-2'), 3, raiz).some((x) => /Criterio de aceptación/.test(x)));
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-2', 'traza.yml'), 'items: [roto');
+  assert.ok(faltaParaEtapa(cargarEstado(raiz, 'R-2'), 3, raiz).some((x) => /Criterio de aceptación/.test(x)));
+});
+
+test('traza: un "hecho" cuyo test es una ruta que no existe no alcanza', async () => {
+  const raiz = await rq();
+  await correr(raiz, ['trazar']);
+  const archivo = path.join(raiz, 'docs', 'rq', 'R-1', 'traza.yml');
+  const t = yaml.load(fs.readFileSync(archivo, 'utf8'));
+  t.items = t.items.map((i) => ({ ...i, estado: 'hecho', test: 'tests/no-existe.test.mjs > algo' }));
+  fs.writeFileSync(archivo, yaml.dump(t));
+  assert.ok(faltaParaEtapa(cargarEstado(raiz, 'R-1'), 3, raiz).some((x) => /no existe/.test(x)));
 });
 
 test('itemsDelSpec: respeta S-n y numera los que no lo traen', () => {

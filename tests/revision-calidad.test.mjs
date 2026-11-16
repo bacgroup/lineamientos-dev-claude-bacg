@@ -32,7 +32,15 @@ async function correr(cwd, args) {
 const PROCESO = ['superpowers:brainstorming', 'superpowers:writing-plans', 'superpowers:test-driven-development', 'superpowers:executing-plans', 'superpowers:requesting-code-review', 'superpowers:verification-before-completion'];
 
 async function rqListoParaRevisar() {
-  const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos: { 'docs/rq/R-1/spec.md': '# R-1\n\n## Diseño\nx\n\n## Tareas\n- una\n', 'src/a.ts': 'a\n' } });
+  const raiz = crearRepoTemporal({
+    proyectoId: 'demo',
+    archivos: {
+      'docs/rq/R-1/spec.md': '# R-1\n\n## Criterio de aceptación\n- S-1: algo\n\n## Diseño\nx\n\n## Tareas\n- una\n',
+      'docs/rq/R-1/traza.yml': 'items:\n  - { id: S-1, texto: algo, archivos: [src/a.ts], test: tests/a.test.mjs, estado: hecho }\n',
+      'tests/a.test.mjs': '// test\n',
+      'src/a.ts': 'a\n',
+    },
+  });
   await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
   const e = cargarEstado(raiz, 'R-1');
   e.skills = PROCESO.map((skill) => ({ skill, etapa: 2 }));
@@ -50,6 +58,30 @@ test('el hook anota el subagent_type de un plugin como pasada del RQ; un subagen
   assert.ok(nombres.includes('pr-review-toolkit:code-reviewer'));
   assert.ok(nombres.includes('lineamientos-dev-claude-bacg:revisor-rq'));
   assert.ok(!nombres.includes('Explore'));
+});
+
+test('4.4: después de una revisión, la siguiente pide correr las pasadas de nuevo', async () => {
+  const raiz = await rqListoParaRevisar();
+  const conPasadas = (fecha) => {
+    const e = cargarEstado(raiz, 'R-1');
+    e.skills = [...e.skills, ...PASADAS_REVISION.map((skill) => ({ skill, etapa: 3, fecha }))];
+    guardarEstado(raiz, e);
+  };
+  conPasadas('2026-01-01T00:00:00.000Z');
+  assert.equal((await correr(raiz, ['revision', 'ok', 'primera'])).code, 0);
+  const otra = await correr(raiz, ['revision', 'ok', 'segunda sin pasadas']);
+  assert.notEqual(otra.code, 0);
+  assert.match(otra.err, /otra vez/);
+  conPasadas(new Date(Date.now() + 1000).toISOString());
+  assert.equal((await correr(raiz, ['revision', 'ok', 'segunda con pasadas'])).code, 0);
+});
+
+test('4.4: una revisión cuyo commit ya no existe (rebase, otro clon) se da por vencida', async () => {
+  const raiz = await rqListoParaRevisar();
+  const e = cargarEstado(raiz, 'R-1');
+  e.revision = { ok: true, fecha: '2026-11-15T00:00:00Z', nota: 'x', head: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' };
+  guardarEstado(raiz, e);
+  assert.ok(faltaParaEtapa(cargarEstado(raiz, 'R-1'), 5, raiz).some((x) => /venció/.test(x)));
 });
 
 test('la transcripción cuenta los subagentes de un plugin como skills (skills importar los anota aunque el hook no haya corrido)', async () => {
