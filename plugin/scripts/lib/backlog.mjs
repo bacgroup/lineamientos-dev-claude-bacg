@@ -21,14 +21,14 @@ export const rutaBacklog = (dirLin, proyectoId, raiz, proyecto) =>
   fuenteBacklog(raiz, proyecto) === 'repo' ? path.join(raiz, 'docs', 'backlog.md') : rutaCentral(dirLin, proyectoId);
 
 /**
- * Rango de un estado: 3 cerrado (Hecho, Descartado, Cerrado, sin "falta"), 2 en curso o hecho parcial ("Hecho … Falta:
+ * Rango de un estado: 3 cerrado (Hecho, Descartado, Cerrado, sin "falta"), 2 en curso (o en revisión, en QA, desplegado) o hecho parcial ("Hecho … Falta:
  * …"), 1 el resto (Pendiente, Propuesta…), 0 vacío.
  */
 export function rangoEstado(estado) {
   const e = String(estado ?? '').trim().toLowerCase();
   if (!e) return 0;
   if (/^(?:hecho|descartado|cerrado)/.test(e)) return /falta/.test(e) ? 2 : 3;
-  if (/en curso/.test(e)) return 2;
+  if (/en curso|en revisi[oó]n|en qa|en pruebas|desplegad/.test(e)) return 2;
   return 1;
 }
 
@@ -43,8 +43,14 @@ function partir(linea) {
 
 /** Filas de un texto de backlog como objetos { Código, Tarea, ... } (sin el encabezado). */
 export function parsearBacklog(texto) {
-  const filas = String(texto ?? '').split(/\r?\n/).filter(esFila);
-  const cols = filas.length ? partir(filas[0]) : COLUMNAS;
+  // Sólo la primera tabla del archivo: una tabla posterior (notas, glosario) no son filas del backlog.
+  const lineas = String(texto ?? '').split(/\r?\n/);
+  const ini = lineas.findIndex(esFila);
+  if (ini === -1) return [];
+  let fin = ini;
+  while (fin + 1 < lineas.length && /^\|/.test(lineas[fin + 1].trim())) fin++;
+  const filas = lineas.slice(ini, fin + 1).filter(esFila);
+  const cols = partir(filas[0]);
   return filas.slice(1).map((l) => Object.fromEntries(partir(l).map((v, i) => [cols[i] ?? COLUMNAS[i] ?? `c${i}`, v])));
 }
 

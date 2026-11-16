@@ -336,7 +336,8 @@ function anotarBacklog(repo, env, codigo, campos, io) {
     // filas agregadas en el repo); después se escriben las dos. Antes la copia del repo se pisaba entera.
     // La fusión es quirúrgica (sólo agrega filas o sube la celda Estado); la fila de este RQ la escribe la CLI en las dos
     // copias, así que un RQ reabierto queda En curso aunque una copia lo tuviera Hecho.
-    const dif = diferenciasBacklog(filasDe(fuente), filasDe(copia));
+    // Si una de las dos copias no existe todavía, no hay diferencias que reportar: se crea con las filas de la otra.
+    const dif = fs.existsSync(fuente) && fs.existsSync(copia) ? diferenciasBacklog(filasDe(fuente), filasDe(copia)) : [];
     if (fs.existsSync(copia)) fusionarEnArchivo(fuente, filasDe(copia));
     const r = upsertEnArchivo(fuente, codigo, campos);
     fusionarEnArchivo(copia, filasDe(fuente));
@@ -2037,25 +2038,29 @@ export async function main(
           io.stdout.write(`No hay backlog central de ${repo.proyectoId} (${central}): la fuente ya es docs/backlog.md del repo.\n`);
           break;
         }
-        const t = fs.readFileSync(central, 'utf8');
-        if (/^> OBSOLETO/m.test(t)) {
-          io.stdout.write(`El backlog de ${repo.proyectoId} ya está migrado: la copia central está marcada como obsoleta y la fuente es docs/backlog.md del repo.\n`);
-          break;
-        }
-        const { agregadas, actualizadas } = fusionarEnArchivo(copia, filasDe(central));
-        fs.writeFileSync(central, `> OBSOLETO desde ${hoy()}: la fuente del backlog es docs/backlog.md del repo ${nombreRepo(raiz)}. No lo edites.\n\n${t}`);
-        // Declarar la fuente en el proyecto.yml central, para que abrir y cerrar ya no escriban la copia obsoleta.
+        // Primero se declara la fuente en el proyecto.yml central (así una migración a medias se completa corriéndola
+        // de nuevo), después se fusiona y recién al final se marca la central como obsoleta.
         const yml = path.join(dirLin, 'proyectos', repo.proyectoId, 'proyecto.yml');
         let declarado = false;
         if (fs.existsSync(yml)) {
           const y = fs.readFileSync(yml, 'utf8');
           if (!/^backlog:\s*repo\s*$/m.test(y)) {
-            if (/^backlog:/m.test(y)) fs.writeFileSync(yml, y.replace(/^backlog:.*$/m, 'backlog: repo'));
-            else fs.writeFileSync(yml, `${y.replace(/\n*$/, '\n')}backlog: repo\n`);
+            fs.writeFileSync(yml, /^backlog:/m.test(y) ? y.replace(/^backlog:.*$/m, 'backlog: repo') : `${y.replace(/\n*$/, '\n')}backlog: repo\n`);
           }
           declarado = true;
         }
-        io.stdout.write(`Backlog migrado: ${filasDe(copia).length} fila(s) en docs/backlog.md (${agregadas.length} agregada(s), ${actualizadas.length} con estado actualizado). La copia central quedó marcada como obsoleta${declarado ? ' y proyecto.yml declara `backlog: repo`' : `; no encontré ${yml}: declará \`backlog: repo\` en el proyecto.yml de ${repo.proyectoId}`}. Commiteá docs/backlog.md acá y los cambios de proyectos/${repo.proyectoId}/ en lineamientos.\n`);
+        const falta = declarado ? '' : `; no encontré ${yml}: declará \`backlog: repo\` en el proyecto.yml de ${repo.proyectoId}`;
+        const t = fs.readFileSync(central, 'utf8');
+        if (/^> OBSOLETO/m.test(t)) {
+          io.stdout.write(`El backlog de ${repo.proyectoId} ya está migrado: la copia central está marcada como obsoleta y la fuente es docs/backlog.md del repo${falta}.\n`);
+          break;
+        }
+        // Columnas que tiene la central y no la copia del repo: sus valores no pasan; se avisa para no perderlos sin saberlo.
+        const colsDe = (archivo) => Object.keys(filasDe(archivo)[0] ?? {});
+        const sinColumna = fs.existsSync(copia) ? colsDe(central).filter((c) => !colsDe(copia).includes(c)) : [];
+        const { agregadas, actualizadas } = fusionarEnArchivo(copia, filasDe(central));
+        fs.writeFileSync(central, `> OBSOLETO desde ${hoy()}: la fuente del backlog es docs/backlog.md del repo ${nombreRepo(raiz)}. No lo edites.\n\n${t}`);
+        io.stdout.write(`Backlog migrado: ${filasDe(copia).length} fila(s) en docs/backlog.md (${agregadas.length} agregada(s), ${actualizadas.length} con estado actualizado). La copia central quedó marcada como obsoleta${declarado ? ' y proyecto.yml declara `backlog: repo`' : falta}.${sinColumna.length ? ` Ojo: la central tiene columnas que docs/backlog.md no tiene (${sinColumna.join(', ')}); sus valores quedaron sólo en la copia obsoleta: agregalas a mano si las querés.` : ''} Commiteá docs/backlog.md acá y los cambios de proyectos/${repo.proyectoId}/ en lineamientos.\n`);
         break;
       }
       case 'trazar': {

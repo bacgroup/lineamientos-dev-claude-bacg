@@ -137,3 +137,101 @@ test('fusionarEnArchivo crea el archivo con encabezado si no existe', () => {
   assert.deepEqual(fusionarEnArchivo(f, parsearBacklog(ENC + fila('A', 'Pendiente'))), { agregadas: ['A'], actualizadas: [] });
   assert.equal(estados(f).A, 'Pendiente');
 });
+
+test('después de migrar, abrir escribe sólo docs/backlog.md y no toca la central obsoleta', async () => {
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  assert.equal((await correr(raiz, lin, ['backlog', 'migrar'])).code, 0);
+  const central = path.join(lin, 'proyectos', 'pf', 'backlog.md');
+  const antes = fs.readFileSync(central, 'utf8');
+  const r = await correr(raiz, lin, ['abrir', 'D-3', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /Backlog: fila D-3 agregada \(docs\/backlog\.md\)/);
+  assert.equal(fs.readFileSync(central, 'utf8'), antes);
+  assert.equal(estados(path.join(raiz, 'docs', 'backlog.md'))['D-3'], 'En curso');
+});
+
+test('fuente central sin backlog central todavía: abrir lo arma con las filas del repo', async () => {
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  fs.rmSync(path.join(lin, 'proyectos', 'pf', 'backlog.md'));
+  const r = await correr(raiz, lin, ['abrir', 'D-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal(r.code, 0, r.err);
+  for (const e of [estados(path.join(raiz, 'docs', 'backlog.md')), estados(path.join(lin, 'proyectos', 'pf', 'backlog.md'))]) {
+    assert.equal(e.A, 'Hecho 10/11/2026');
+    assert.equal(e.C, 'Pendiente');
+    assert.equal(e['D-1'], 'En curso');
+  }
+  assert.match(fs.readFileSync(path.join(raiz, 'docs', 'backlog.md'), 'utf8'), /Texto del equipo/);
+});
+
+test('con backlog: repo la previa no avisa divergencia y el backlog remoto sale del repo', async () => {
+  const { validacionPrevia, backlogRemoto } = await import('../plugin/scripts/lib/previa.mjs');
+  const { lin, raiz } = proyectoCentral('reglas: 43\nbacklog: repo\n');
+  const proyecto = { id: 'pf', backlog: 'repo' };
+  const t = validacionPrevia({ repo: { raiz, proyectoId: 'pf' }, proyecto, codigo: 'Z-1', env: { ...process.env, BACG_DEV_SIN_GH: '1' }, dirLin: lin }).lineas.join('\n');
+  assert.doesNotMatch(t, /difieren/);
+  const b = backlogRemoto({ raiz, proyectoId: 'pf', dirLin: lin, proyecto });
+  // El repo temporal no tiene origin: el error nombra el repo, no la copia de lineamientos.
+  assert.ok(b.error ? /repo|docs\/backlog\.md/.test(b.error) && !/lineamientos/.test(b.error) : /docs\/backlog\.md/.test(b.fuente), JSON.stringify(b));
+});
+
+test('fuente central: cerrar pasa la fila a Hecho en las dos copias sin perder las del repo', async () => {
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  assert.equal((await correr(raiz, lin, ['abrir', 'D-4', '--tipo', 'rq', '--clasificacion', 'bounded'])).code, 0);
+  // Mientras tanto alguien agrega E en el repo.
+  fs.appendFileSync(path.join(raiz, 'docs', 'backlog.md'), fila('E', 'Pendiente'));
+  await correr(raiz, lin, ['etapa', '5']);
+  const r = await correr(raiz, lin, ['cerrar']);
+  assert.equal(r.code, 0, r.err);
+  for (const e of [estados(path.join(raiz, 'docs', 'backlog.md')), estados(path.join(lin, 'proyectos', 'pf', 'backlog.md'))]) {
+    assert.match(e['D-4'], /^Hecho/);
+    assert.equal(e.A, 'Hecho 10/11/2026');
+    assert.equal(e.C, 'Pendiente');
+    assert.equal(e.E, 'Pendiente');
+  }
+});
+
+test('la previa no avisa divergencia si el repo no tiene copia o si las dos copias son iguales', async () => {
+  const { validacionPrevia } = await import('../plugin/scripts/lib/previa.mjs');
+  const env = { ...process.env, BACG_DEV_SIN_GH: '1' };
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  const previa = () => validacionPrevia({ repo: { raiz, proyectoId: 'pf' }, proyecto: { id: 'pf' }, codigo: 'Z-1', env, dirLin: lin }).lineas.join('\n');
+  fs.copyFileSync(path.join(lin, 'proyectos', 'pf', 'backlog.md'), path.join(raiz, 'docs', 'backlog.md'));
+  assert.doesNotMatch(previa(), /difieren/);
+  fs.rmSync(path.join(raiz, 'docs', 'backlog.md'));
+  assert.doesNotMatch(previa(), /difieren/);
+});
+
+test('una segunda tabla después del backlog no se toma como filas ni se copia a la otra copia', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fus2-'));
+  const a = path.join(dir, 'a.md');
+  const b = path.join(dir, 'b.md');
+  fs.writeFileSync(a, `# Backlog\n\n${ENC}${fila('A', 'Pendiente')}\n## Notas\n\n| Fecha | Nota |\n|---|---|\n| 2026 | algo |\n`);
+  fs.writeFileSync(b, `# Backlog\n\n${ENC}${fila('A', 'Pendiente')}`);
+  assert.deepEqual(parsearBacklog(fs.readFileSync(a, 'utf8')).map((f) => f['Código']), ['A']);
+  const antes = fs.readFileSync(b, 'utf8');
+  assert.deepEqual(fusionarEnArchivo(b, parsearBacklog(fs.readFileSync(a, 'utf8'))), { agregadas: [], actualizadas: [] });
+  assert.equal(fs.readFileSync(b, 'utf8'), antes);
+});
+
+test('migrar a medias (central obsoleta sin backlog: repo) se completa corriéndolo de nuevo', async () => {
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  const central = path.join(lin, 'proyectos', 'pf', 'backlog.md');
+  fs.writeFileSync(central, `> OBSOLETO desde ayer\n\n${fs.readFileSync(central, 'utf8')}`);
+  const r = await correr(raiz, lin, ['backlog', 'migrar']);
+  assert.match(r.out, /ya está migrado/);
+  assert.match(fs.readFileSync(path.join(lin, 'proyectos', 'pf', 'proyecto.yml'), 'utf8'), /^backlog: repo$/m);
+});
+
+test('migrar avisa las columnas de la central que el repo no tiene', async () => {
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  const central = path.join(lin, 'proyectos', 'pf', 'backlog.md');
+  fs.writeFileSync(central, '# Backlog\n\n| Código | Tarea | Prioridad | Estado | Impacto | Link | Responsable |\n|---|---|---|---|---|---|---|\n| B | B | Alta | En curso | x | | Ana |\n');
+  const r = await correr(raiz, lin, ['backlog', 'migrar']);
+  assert.match(r.out, /columnas que docs\/backlog\.md no tiene \(Responsable\)/);
+});
+
+test('rango: En revisión o En QA cuentan como en curso', async () => {
+  const { rangoEstado } = await import('../plugin/scripts/lib/backlog.mjs');
+  assert.equal(rangoEstado('En revisión'), rangoEstado('En curso'));
+  assert.equal(rangoEstado('En QA'), rangoEstado('En curso'));
+});
