@@ -30,7 +30,7 @@ saltos: []
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T17:22:39.804Z'
+actualizado: '2026-11-16T17:22:40.048Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -101,6 +101,16 @@ skills:
     etapa: 0
     sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
     fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-16T17:14:33.626Z'
+    etapa: 2
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    fecha: '2026-11-16T17:14:36.775Z'
+    etapa: 2
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
     via: sesion
 clasificacion_confirmada:
   frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
