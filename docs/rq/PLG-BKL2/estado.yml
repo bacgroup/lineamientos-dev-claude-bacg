@@ -20,13 +20,21 @@ tests:
   fecha: '2026-11-16T19:48:53.173Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: true
+  fecha: '2026-11-16T20:08:29.532Z'
+  nota: code-reviewer, pr-test-analyzer y revisor-rq (subagente general) sin bloqueantes; hallazgos corregidos con tests. 718 tests y E2E 80 en verde.
+  head: c8c48561201c05867f9fdf1fc61a29b59abcbdfb
 circuito: []
-saltos: []
+saltos:
+  - compuerta: skills
+    frase: Saltea lo necesita y tenes mi OK explicito para cerrar lo pendiente
+    motivo: revisor-rq corrió como subagente general; el plugin instalado (4.3.1) no registra la pasada
+    fecha: '2026-11-16T20:08:25.784Z'
 base: 59a2830febb396065e540af766540cb0121d0fdb
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T19:48:53.176Z'
+actualizado: '2026-11-16T20:08:29.534Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
