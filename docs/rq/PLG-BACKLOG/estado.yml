@@ -22,15 +22,15 @@ tests:
     - npm test
 revision:
   ok: false
-  fecha: '2026-11-16T18:38:57.444Z'
-  nota: 'Ronda 2: code-reviewer: segunda tabla del archivo tomada como filas del backlog; migrar marcaba obsoleta antes de declarar backlog repo (no recuperable); columnas extra de la central se perdían sin aviso; rango de En revisión. pr-test-analyzer y revisor-rq: faltaban tests de cerrar, de migrar seguido de abrir, de central inexistente y de previa sin aviso; docs desalineados. Corregido en 97e6d7b y el commit de docs. Límite conocido documentado: reabrir con copias en otras ramas (salida: migrar).'
-  head: 5a0d09881c84fc4275c50804fbffd6d81d3b1338
+  fecha: '2026-11-16T18:43:55.143Z'
+  nota: 'Ronda 3 revisor-rq: spec.md desalineado (nombraba fusionarFilas/escribirFilas, S-2 sin fusión quirúrgica ni fila de la CLI, orden de migrar viejo); traza con nombres de test inexactos. Corregido: spec, traza y ciclo-rq alineados; rutaCentral en previa y migrar. Code-reviewer y pr-test-analyzer de ronda 3 sin bloqueantes (sus menores, corregidos con tests).'
+  head: 294964e3a5bab711dbea37b7074d2db1524cacaf
 circuito: []
 saltos: []
 base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T18:43:54.968Z'
+actualizado: '2026-11-16T18:43:55.145Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -122,4 +122,4 @@ e2e:
   comando: npm run test:e2e
   head: f21ddc53b743c37ff01562b60b3c94123cc1286e
   completo: true
-revisiones_bloqueantes: 2
+revisiones_bloqueantes: 3
