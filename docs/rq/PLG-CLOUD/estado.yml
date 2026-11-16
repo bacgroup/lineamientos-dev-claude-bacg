@@ -17,6 +17,9 @@ aprobaciones:
   - etapa: 5
     frase: OK
     fecha: '2026-11-16T18:16:39.805Z'
+  - etapa: 5
+    frase: Mergeá PLG-CLOUD a PROD
+    fecha: '2026-11-16T18:20:44.394Z'
 tests:
   ok: true
   arbol: aaf65db89ea46116fdfcd5deea68352c6d55d47e
@@ -37,7 +40,7 @@ saltos:
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T18:16:39.807Z'
+actualizado: '2026-11-16T18:20:44.396Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
