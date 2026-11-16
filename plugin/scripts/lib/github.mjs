@@ -23,10 +23,13 @@ export function ghJson(args, { env = process.env, timeout = 30000 } = {}) {
 }
 
 /** GET de la API REST: `ruta` sin la barra inicial (repos/o/r/pulls?…). */
-export function api(ruta, { correr, env } = {}) {
+export function api(ruta, { correr, env, timeout } = {}) {
   const args = ['api', ruta];
-  return (correr ?? ((a) => ghJson(a, { env })))(args);
+  return (correr ?? ((a) => ghJson(a, { env, ...(timeout ? { timeout } : {}) })))(args);
 }
+
+/** Tope para las consultas que corren dentro de un hook (el hook entero tiene 30 s): mejor un error que un corte. */
+export const EN_HOOK = { timeout: 8000 };
 
 const enc = (s) => encodeURIComponent(String(s));
 const owner = (repo) => String(repo).split('/')[0];
@@ -77,6 +80,8 @@ export function checksDe(repo, sha, opts = {}) {
   const runs = api(`repos/${repo}/commits/${enc(sha)}/check-runs?per_page=${PAGINA}`, opts);
   if (runs.error) return runs;
   const st = api(`repos/${repo}/commits/${enc(sha)}/status`, opts);
+  // Sin los statuses no se sabe si hay una verificación externa en rojo: error, no "sin checks".
+  if (st.error) return { error: `statuses: ${st.error}` };
   const out = lista(runs.datos?.check_runs).map((c) => ({
     nombre: c.name,
     estado: c.status !== 'completed' ? 'en-curso' : ['success', 'neutral', 'skipped'].includes(c.conclusion) ? 'ok' : 'fallo',
@@ -118,6 +123,6 @@ export function resolverPr({ pr: ref, repoGh, raiz, ramaActual }, opts = {}) {
 /** Comandos REST equivalentes a los de `gh pr` que la skill sugiere (GraphQL no anda en la nube). */
 export const REST = {
   crearPr: (repo, base, head) => `gh api repos/${repo}/pulls -f base=${base} -f head=${head} -f title="<título>" -F body=@<archivo.md>`,
-  checks: (repo, rama) => `gh api "repos/${repo}/commits/${rama}/check-runs" --jq '.check_runs[] | [.name,.status,.conclusion] | @tsv'`,
+  checks: (repo, sha) => `gh api "repos/${repo}/commits/${sha}/check-runs" --jq '.check_runs[] | [.name,.status,.conclusion] | @tsv'`,
   mergear: (repo, n) => `gh api -X PUT repos/${repo}/pulls/${n}/merge -f merge_method=squash`,
 };

@@ -25,9 +25,12 @@ export function compiladosCompartidos(raiz, estado, proyecto, ramaPropia) {
   const esCompilado = (r) => res.some((re) => re.test(r));
   const mios = (rutasDelRq(raiz, estado) ?? []).filter(esCompilado);
   if (!mios.length) return [];
-  const ramas = (git(raiz, ['for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/rq/']) ?? '').split('\n').filter(Boolean)
-    .filter((r) => r !== `origin/${ramaPropia}`);
+  // Las ramas rq/* de origin, traídas ahora (en la nube el clon trae sólo la rama por defecto).
+  const traidas = git(raiz, ['fetch', '--quiet', 'origin', '+refs/heads/rq/*:refs/remotes/origin/rq/*']) !== null;
+  const lista = git(raiz, ['for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/rq/']);
   const avisos = [];
+  if (!traidas || lista === null) avisos.push(`Compilados: no verifiqué si otra rama rq/* toca ${mios.join(', ')} (no pude traer o leer las ramas de origin).`);
+  const ramas = (lista ?? '').split('\n').filter(Boolean).filter((r) => r !== `origin/${ramaPropia}`);
   for (const ref of ramas) {
     const base = git(raiz, ['merge-base', 'HEAD', ref]);
     if (!base) continue;

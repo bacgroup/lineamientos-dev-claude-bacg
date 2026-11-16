@@ -14,7 +14,7 @@ Lo que mintió son los peores casos: ocultan riesgos en lugar de frenar.
 
 ## Alcance
 **Dentro** (los números son los hallazgos del handoff):
-1, 2, 3, 4, 5, 6, 7, 12, 13 (mensaje), 15, 16, 17, 18 (aviso en `entregar`) y la documentación de 9, 10, 11, 14 y 19.
+1, 2, 3, 4, 5, 6, 7, 12, 13 (mensaje), 15, 16, 18 (aviso en `entregar`) y la documentación de 9, 10, 11, 14 y 19. El 17 se intentó reproducir y no se pudo: un script común que reescribe `docs/backlog.md`, seguido de `git add` + `git commit`, pasa en los tres armados probados. Queda en PLG-BASH con el caso exacto pendiente.
 
 **Fuera:**
 - 8, la fuente única del backlog: es una decisión de proceso. Va como propuesta.

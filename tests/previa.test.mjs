@@ -261,3 +261,11 @@ test('repo declarado en dos proyectos: buscarRepo lo marca ambiguo y abrir pide 
     assert.match(r.err, /figura en varios proyectos \(dos, uno\)/);
   }
 });
+
+test('previa: si no puede traer origin, las ramas quedan como no verificadas (nunca "ninguna rama")', () => {
+  const { raiz } = montar();
+  git(raiz, 'remote', 'set-url', 'origin', path.join(os.tmpdir(), 'no-existe-origen.git'));
+  const t = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto: PROYECTO, codigo: 'R-12', env: ENV, dirLin: tmp('lin-vacio-') }).lineas.join('\n');
+  assert.match(t, /ramas no verificadas/);
+  assert.doesNotMatch(t, /ninguna rama ni PR/);
+});

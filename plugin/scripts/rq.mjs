@@ -1310,7 +1310,7 @@ function entregar(repo, elegido, env, io) {
         const de = (e) => c.datos.filter((x) => x.estado === e).length;
         l.push(c.datos.length === 0
           ? 'CI: sin checks.'
-          : `CI: ${de('ok')} ok, ${de('fallo')} fallados, ${de('en-curso')} en curso${de('en-curso') ? ` (seguila en segundo plano: ${REST.checks(repoGh, ramaPr)})` : ''}.`);
+          : `CI: ${de('ok')} ok, ${de('fallo')} fallados, ${de('en-curso')} en curso${de('en-curso') ? ` (seguila en segundo plano: ${REST.checks(repoGh, pr.sha)})` : ''}.`);
       }
     }
     // PLG-CLOUD (hallazgo 18): artefactos compilados que otra rama rq/* también toca.
@@ -1641,7 +1641,7 @@ function desplegar(repo, elegido, args, env, io) {
     } else if (/^merge-prs-sync:/i.test(p)) {
       const sede = p.slice('merge-prs-sync:'.length);
       como = cuenta
-        ? `gh pr list -R ${cuenta}/${sede} --head ${rama}; gh pr merge <n> --merge -R ${cuenta}/${sede}`
+        ? `gh pr list -R ${cuenta}/${sede} --head ${rama}; gh pr merge <n> --merge -R ${cuenta}/${sede} (en la nube, REST: gh api "repos/${cuenta}/${sede}/pulls?state=open&head=${cuenta}:${rama}" y gh api -X PUT repos/${cuenta}/${sede}/pulls/<n>/merge -f merge_method=merge)`
         : `mergear el PR ${rama} de ${sede}`;
     } else if (esManual(p)) como = 'manual: lo hace el usuario; no bloquea el cierre';
     else if (/^dev:/i.test(p)) como = `en DEV, antes de PROD (los que siguen lo esperan): con el cambio desplegado y probado en DEV, $RQ paso hecho ${p} "<qué se probó y dónde>"`;

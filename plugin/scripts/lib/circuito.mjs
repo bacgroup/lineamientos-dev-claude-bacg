@@ -84,7 +84,7 @@ export function hechoEnRealidad(paso, { raiz, proyecto }) {
       const repo = paso.trim().slice('merge-prs-sync:'.length);
       const rama = proyecto?.sync?.rama || RAMA_SYNC;
       const r = prsAbiertos(`${cuenta}/${repo}`, { head: rama });
-      return !r.error && r.datos.length === 0;
+      return !r.error && !r.cortado && r.datos.length === 0;
     }
   } catch {
     return false;
@@ -119,7 +119,7 @@ export function migracionesEnSync(proyecto, soloSede = null) {
       let leido = true;
       out[ref] = prs.datos.some((p) => {
         const a = archivosPr(repoGh, p.number);
-        if (a.error) leido = false;
+        if (a.error || a.cortado) leido = false;
         return lista(a.datos).some((ruta) => esMigracion(ruta, proyecto));
       });
       if (!leido && !out[ref]) out[ref] = null;

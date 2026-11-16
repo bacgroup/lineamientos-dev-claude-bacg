@@ -65,3 +65,28 @@ test('sin reglas 4.4: Bash sigue como en la 4.4.0 (sólo protege estado y transc
   assert.equal(evaluar(raiz, 'echo x > src/a.ts').decision, 'allow');
   assert.equal(evaluar(raiz, 'echo x > docs/rq/R-1/estado.yml').decision, 'deny');
 });
+
+test('redirecciones a descriptores o a /dev/null no son escrituras (2>&1, >&2, >/dev/null)', () => {
+  const raiz = repo();
+  for (const c of ['npm test 2>&1 | tail -5', 'ls >/dev/null 2>&1', 'ls >&2', 'git log 2>/dev/null', 'echo x 1>&2', 'cmd &>/dev/null']) {
+    assert.equal(evaluar(raiz, c).decision, 'allow', c);
+  }
+});
+
+test('sin RQ activo: escribir código por Bash se niega salvo que el proyecto siga en la 4.3; fuera del repo, nada', () => {
+  const raiz = repo();
+  fs.rmSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'));
+  const r = evaluar(raiz, 'echo x > src/a.ts');
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /No hay RQ activo/);
+  assert.equal(evaluar(raiz, 'npm test 2>&1 | tail').decision, 'allow');
+  fs.writeFileSync(path.join(raiz, '.bacg-dev', 'proyecto.yml'), 'id: demo\nnombre: Demo\nreglas: 43\nrepos:\n  - { nombre: demo-app }\n');
+  assert.equal(evaluar(raiz, 'echo x > src/a.ts').decision, 'allow');
+  assert.equal(evaluar(raiz, 'echo x > /tmp/fuera.ts').decision, 'allow');
+});
+
+test('heredoc a tests/ pasa; cp -r a src/ antes del diseño, no', () => {
+  const raiz = repo();
+  assert.equal(evaluar(raiz, "cat > tests/a.test.mjs <<'EOF'\nx\nEOF").decision, 'allow');
+  assert.equal(evaluar(raiz, 'cp -r /tmp/x src/').decision, 'deny');
+});

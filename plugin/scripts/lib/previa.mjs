@@ -161,6 +161,7 @@ export function validacionPrevia({ repo, proyecto, codigo = null, nuevo = true, 
       const atras = cuenta(r, `HEAD..${base}`);
       lineas.push(`- ${n} (${rama}): ${atras ? `${atras} commit(s) detrás de ${base}: actualizá antes de empezar` : `al día con ${base}`}${aviso}.`);
     }
+    if (!f.ok) sinConsultar.push(`${n}: ramas no verificadas (no pude traer origin: ${f.err.split('\n')[0] || 'sin red'})`);
     const excluir = [dev, ...(ramasProd(proyecto, entrada) ?? []), refPrincipal(r)?.replace(/^origin\//, ''), rama];
     for (const p of ramasEnParalelo(r, base && existeRef(r, base) ? base : null, excluir, { ahora })) {
       paralelo.push(`- ${n}: rama ${p.rama} · ${p.autor} · ${p.fecha} · ${p.adelante} commit(s) que ${dev ?? 'DEV'} no tiene`);

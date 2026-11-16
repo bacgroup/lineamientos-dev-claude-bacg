@@ -13,6 +13,7 @@ import { dirConfigClaude } from './sesiones.mjs';
 import { spawnSync } from 'node:child_process';
 import { globARegExp } from './rutas.mjs';
 import { ETAPA } from './etapas.mjs';
+import { ghJson } from './github.mjs';
 
 const { DESARROLLO, VERIFICACION } = ETAPA;
 
@@ -80,9 +81,9 @@ export function estadoSkillsOdoo(home = os.homedir()) {
 }
 
 function ghApi(ruta) {
-  const r = spawnSync('gh', ['api', ruta], { encoding: 'utf8', timeout: 30000, maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
-  if (r.status !== 0) throw new Error(`gh api ${ruta}: ${(r.stderr ?? '').trim().split('\n')[0] || `salió ${r.status}`}`);
-  return JSON.parse(r.stdout);
+  const r = ghJson(['api', ruta]);
+  if (r.error) throw new Error(`gh api ${ruta}: ${r.error}`);
+  return r.datos;
 }
 
 /**

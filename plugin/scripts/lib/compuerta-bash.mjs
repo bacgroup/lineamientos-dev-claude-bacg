@@ -1,7 +1,8 @@
 // Compuerta de Bash: decide si corren `git commit`, `git push` y `gh pr merge`, y bloquea las escrituras
 // directas a docs/rq/<código>/estado.yml, docs/rq/ACTIVO y el transcript (~/.claude/projects/*.jsonl) por
-// redirección de salida, `sed -i`, `tee`, `cp` o `mv` (best effort: `dd of=`, `install`, intérpretes y
-// editores no se ven). Un commit que trae en stage un estado.yml con aprobaciones, autonomía o saltos nuevos
+// redirección de salida, `sed -i`, `tee`, `cp` o `mv`. Con reglas 4.4 (PLG-CLOUD), además, lo que esos comandos y
+// `python -c` / `node -e` escriben en un repo pasa por la compuerta de edición (best effort: `dd of=`, `install`,
+// `perl -pi`, `python -` con heredoc, rutas armadas en tiempo de ejecución y editores no se ven). Un commit que trae en stage un estado.yml con aprobaciones, autonomía o saltos nuevos
 // exige que cada frase esté en un mensaje del usuario de esta sesión.
 //
 // El parser de shell es aproximado y tiende a fallar cerrado: además del análisis por segmentos, una red de
@@ -10,8 +11,8 @@
 //
 // Límites conocidos (no se detectan):
 // - aliases de git (`git -c alias.p=push p`, `alias.*` en la config del repo o global, aliases de shell);
-// - merges por la API de GitHub (`gh api .../pulls/<n>/merge`, curl a la API) y la variable GH_REPO definida
-//   fuera del comando;
+// - merges por curl a la API y la variable GH_REPO definida fuera del comando (`gh api` para crear y mergear PR sí
+//   se reconoce desde PLG-CLOUD);
 // - pushes desde scripts o programas (`./deploy.sh`, `npm run publicar`, Makefiles, python/node), `GIT_DIR`
 //   exportado antes, y comandos armados con variables que no mencionan literalmente git y push;
 // - archivos de script ejecutados por un shell (`sh x.sh`) y comandos armados en tiempo de ejecución
@@ -45,7 +46,7 @@ import { ramasProd, ramasSoloPr } from './stack.mjs';
 import { testsValenParaStage } from './arbol.mjs';
 import { enRamaProtegida, ramaDelRq } from './ramas.mjs';
 import { ordenDeRamas, faltaPasarPorDev, prAProdSinDev } from './promocion.mjs';
-import { resolverPr, pr as prRest, archivosPr as archivosPrRest } from './github.mjs';
+import { resolverPr, pr as prRest, archivosPr as archivosPrRest, EN_HOOK } from './github.mjs';
 
 // Opciones de `git push` que consumen el siguiente argumento.
 const CON_VALOR_PUSH = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
@@ -532,6 +533,42 @@ function analizarGh(args, dir, ghRepoEnv, info) {
     }
   }
   if (SUBCOMANDOS_GH.has(posicionales[0])) info.resuelto = true;
+  // PLG-CLOUD: crear y mergear un PR por la API REST (la vía de la nube) son las mismas operaciones que gh pr create y
+  // gh pr merge, con su base, cabeza, número y repo: la compuerta no se esquiva cambiando de herramienta.
+  if (posicionales[0] === 'api') {
+    const ruta = posicionales.slice(1).find((p) => /^\/?repos\//.test(p)) ?? '';
+    const metodo = (() => {
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === '-X' || args[i] === '--method') return String(args[i + 1] ?? '').toUpperCase();
+        if (args[i].startsWith('--method=')) return args[i].slice(9).toUpperCase();
+        if (args[i].startsWith('-X') && args[i].length > 2) return args[i].slice(2).toUpperCase();
+      }
+      return args.some((a) => /^(?:-f|-F|--field|--raw-field)$/.test(a) || /^--(?:raw-)?field=/.test(a)) ? 'POST' : 'GET';
+    })();
+    const campo = (nombre) => {
+      for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        const v = /^(?:-f|-F|--field|--raw-field)$/.test(a) ? args[i + 1] : /^--(?:raw-)?field=/.test(a) ? a.slice(a.indexOf('=') + 1) : null;
+        if (typeof v === 'string' && v.startsWith(`${nombre}=`)) return v.slice(nombre.length + 1);
+      }
+      return undefined;
+    };
+    const m = ruta.match(/^\/?repos\/([^/]+\/[^/?]+)\/pulls(?:\/(\d+)\/merge)?(?:\?|$)/);
+    if (m && !m[2] && metodo === 'POST') {
+      info.resuelto = true;
+      const op = { op: 'pr-create', dir, repoGh: m[1] };
+      const base = campo('base');
+      const head = campo('head');
+      if (base) op.base = base;
+      if (head) op.head = head.includes(':') ? head.split(':').pop() : head;
+      return [op];
+    }
+    if (m && m[2] && metodo === 'PUT') {
+      info.resuelto = true;
+      return [{ op: 'merge-pr', dir, repoGh: m[1], pr: m[2] }];
+    }
+    return [];
+  }
   if (posicionales[0] === 'pr' && posicionales[1] === 'create') {
     // PLG-RAMAS: base y cabeza del PR, para no abrir PR de una rama de RQ directo a PROD.
     const op = { op: 'pr-create', dir };
@@ -633,11 +670,14 @@ function escriturasProhibidas(rutas, dir) {
     const abs = resolverDir(dir, r);
     const motivo = escrituraProhibida(abs);
     if (motivo) ops.push({ op: 'escritura', dir, ruta: abs, motivo });
-    // PLG-CLOUD: además, lo que se escribe en un repo pasa por la compuerta de edición (reglas 4.4).
-    else ops.push({ op: 'edicion', dir, ruta: abs });
+    // PLG-CLOUD: además, lo que se escribe en un repo pasa por la compuerta de edición (reglas 4.4). No cuentan los
+    // descriptores (2>&1, >&2), /dev/* ni las salidas tipo log (build.log, salida.out): no son archivos del producto.
+    else if (!NO_ES_ARCHIVO.test(String(r)) && !/^\/dev\//.test(abs)) ops.push({ op: 'edicion', dir, ruta: abs });
   }
   return ops;
 }
+
+const NO_ES_ARCHIVO = /^(?:\d+|-)$|\.(?:log|out|tmp|pid)$/i;
 
 // python -c / node -e: archivos que el código abre para escribir (best effort, literales entre comillas).
 const RE_ESCRIBE_PY = [
@@ -1075,9 +1115,9 @@ export function ramasDestino(op, raiz, ctx) {
   if (op.op === 'merge-pr') {
     if (typeof ctx?.basePr === 'function') return [ctx.basePr(op)].filter(Boolean);
     try {
-      const ref = resolverPr({ pr: op.pr, repoGh: op.repoGh, raiz, ramaActual: gitTexto(raiz, ['symbolic-ref', '-q', '--short', 'HEAD']) });
+      const ref = resolverPr({ pr: op.pr, repoGh: op.repoGh, raiz, ramaActual: gitTexto(raiz, ['symbolic-ref', '-q', '--short', 'HEAD']) }, EN_HOOK);
       if (ref.error) return null;
-      const p = prRest(ref.datos.repo, ref.datos.numero);
+      const p = prRest(ref.datos.repo, ref.datos.numero, EN_HOOK);
       return !p.error && p.datos.base ? [p.datos.base] : null;
     } catch {
       return null;
@@ -1206,9 +1246,9 @@ function mergeSoloLibres(op, dest, ctx) {
   if (typeof ctx?.archivosPr === 'function') archivos = ctx.archivosPr(op);
   else {
     try {
-      const ref = resolverPr({ pr: op.pr, repoGh: op.repoGh, raiz: dest.raiz, ramaActual: gitTexto(dest.raiz, ['symbolic-ref', '-q', '--short', 'HEAD']) });
+      const ref = resolverPr({ pr: op.pr, repoGh: op.repoGh, raiz: dest.raiz, ramaActual: gitTexto(dest.raiz, ['symbolic-ref', '-q', '--short', 'HEAD']) }, EN_HOOK);
       if (ref.error) return false;
-      const a = archivosPrRest(ref.datos.repo, ref.datos.numero);
+      const a = archivosPrRest(ref.datos.repo, ref.datos.numero, EN_HOOK);
       if (a.error || a.cortado) return false;
       archivos = a.datos;
     } catch {

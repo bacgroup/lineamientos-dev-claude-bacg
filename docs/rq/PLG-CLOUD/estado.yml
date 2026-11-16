@@ -16,17 +16,21 @@ aprobaciones:
     via: sesion-total
 tests:
   ok: true
-  arbol: 9d4b37bb1318bb59d2b41cf3d69b138caf89e0e5
-  fecha: '2026-11-16T17:07:30.877Z'
+  arbol: c897e800f1280661350e9c3eee54813e37011409
+  fecha: '2026-11-16T17:14:18.737Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: false
+  fecha: '2026-11-16T17:13:50.590Z'
+  nota: 'code-reviewer y pr-test-analyzer: 2>&1 y >&2 leídos como escrituras; checksDe ignoraba el error de statuses; previa sin aviso si el fetch falla. revisor-rq: crear/mergear PR por REST esquivaba la compuerta (C-3); compilados sin fetch; mensajes con gh pr; 17 sin decir fuera. plugin-validator: consultas a gh de 30 s dentro de hooks de 30 s (corte = sin control).'
+  head: 09e0205d4a5150ca311c2e882091b633cefa5788
 circuito: []
 saltos: []
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T17:07:59.908Z'
+actualizado: '2026-11-16T17:14:18.740Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -113,3 +117,4 @@ e2e:
   comando: npm run test:e2e
   head: 57f70236ba909595a863072c9fb6895be186b85a
   completo: true
+revisiones_bloqueantes: 1

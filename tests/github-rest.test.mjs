@@ -129,3 +129,41 @@ test('prsDeRama: incluye estado y mergeado', () => {
     gh.restaurar();
   }
 });
+
+test('la compuerta reconoce crear y mergear un PR por REST, con base, cabeza, número y repo', async () => {
+  const { operacionesGit } = await import('../plugin/scripts/lib/compuerta-bash.mjs');
+  const raiz = crearRepoTemporal({});
+  const crear = operacionesGit('gh api repos/o/r/pulls -f base=main -f head=rq/X -f title="t" -F body=@b.md', raiz);
+  assert.deepEqual(crear.map((o) => [o.op, o.base, o.head, o.repoGh]), [['pr-create', 'main', 'rq/X', 'o/r']]);
+  const crearPost = operacionesGit('gh api -X POST repos/o/r/pulls --field base=dev --field head=o:rq/Y', raiz);
+  assert.deepEqual(crearPost.map((o) => [o.op, o.base, o.head]), [['pr-create', 'dev', 'rq/Y']]);
+  const merge = operacionesGit('gh api -X PUT repos/o/r/pulls/7/merge -f merge_method=squash', raiz);
+  assert.deepEqual(merge.map((o) => [o.op, o.pr, o.repoGh, Boolean(o.red)]), [['merge-pr', '7', 'o/r', false]]);
+  // Leer un PR por la API no es una operación.
+  assert.deepEqual(operacionesGit('gh api repos/o/r/pulls/7/files', raiz), []);
+});
+
+test('checksDe: si /status falla, la CI no se da por "sin checks"', () => {
+  const gh = instalarGhFalso({
+    'repos/o/r/commits/abc/check-runs': { check_runs: [] },
+    'repos/o/r/commits/abc/status': { __error: 'HTTP 502' },
+  });
+  try {
+    assert.match(checksDe('o/r', 'abc').error, /502/);
+  } finally {
+    gh.restaurar();
+  }
+});
+
+test('merge por REST con gh en 403: la compuerta lo trata como PROD y lo niega sin RQ en etapa 5 (falla cerrada)', async () => {
+  const { evaluarBash } = await import('../plugin/scripts/lib/compuerta-bash.mjs');
+  const raiz = crearRepoTemporal({ archivos: { '.bacg-dev/proyecto.yml': 'id: demo\nnombre: Demo\ncuenta_github: o\nramas_prod: ["main"]\nrepos:\n  - { nombre: r }\n' } });
+  git(raiz, 'remote', 'add', 'origin', 'https://github.com/o/r.git');
+  const gh = instalarGhFalso({ 'repos/o/r/pulls': { __error: 'HTTP 403' } });
+  try {
+    const r = evaluarBash({ comando: 'gh api -X PUT repos/o/r/pulls/5/merge -f merge_method=squash', cwd: raiz, ctx: { textosUsuario: [] } });
+    assert.equal(r.decision, 'deny');
+  } finally {
+    gh.restaurar();
+  }
+});

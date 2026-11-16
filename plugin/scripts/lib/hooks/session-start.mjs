@@ -53,7 +53,7 @@ export function avisoCuentaGh(proyecto, env = process.env) {
   // directo y, si no hay, la cuenta con la que responde `gh api user` (la credencial del proxy).
   let activa = usuarioDeHosts(env);
   if (!activa) {
-    const r = cuentaActual({ env });
+    const r = cuentaActual({ env, timeout: 5000 });
     activa = r.error ? '' : String(r.datos ?? '');
   }
   if (!activa || activa.toLowerCase() === esperada.toLowerCase()) return null;
