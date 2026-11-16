@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: arquitectonico
 clasificacion_pendiente: false
 tarea: 'Plugin — fuente única del backlog (hallazgo 8 de PLG-CLOUD): una sola fuente por proyecto, aviso si hay dos que difieren y migración de la copia central al repo.'
-etapa: 4
+etapa: 6
 autonomia:
   hasta: 4
   frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
@@ -14,6 +14,9 @@ aprobaciones:
     frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
     fecha: '2026-11-16T18:22:49.664Z'
     via: sesion-total
+  - etapa: 5
+    frase: OK para PROD y terminemos con dev-fullflow
+    fecha: '2026-11-16T19:41:00.678Z'
 tests:
   ok: true
   arbol: 723e8277b0e3b44b1b8d8d6f8c1971d870c0755e
@@ -34,7 +37,7 @@ saltos:
 base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T19:00:25.606Z'
+actualizado: '2026-11-16T19:41:33.007Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -127,3 +130,5 @@ e2e:
   head: f21ddc53b743c37ff01562b60b3c94123cc1286e
   completo: true
 revisiones_bloqueantes: 3
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
