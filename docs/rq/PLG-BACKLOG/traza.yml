@@ -1,0 +1,27 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+items:
+  - id: S-1
+    texto: con backlog repo (o la configuración en el repo), abrir y cerrar escriben sólo docs/backlog.md del repo.
+    archivos: [plugin/scripts/lib/backlog.mjs, plugin/scripts/rq.mjs]
+    test: tests/backlog-fuente.test.mjs > backlog repo deja como fuente sólo docs/backlog.md del repo
+    estado: hecho
+  - id: S-2
+    texto: con la fuente central, abrir y cerrar fusionan las dos copias sin pisar nada.
+    archivos: [plugin/scripts/lib/backlog.mjs, plugin/scripts/rq.mjs]
+    test: tests/backlog-fuente.test.mjs > fuente central abrir fusiona en lugar de pisar · fusionarFilas
+    estado: hecho
+  - id: S-3
+    texto: la previa avisa si las dos copias difieren y lista los códigos.
+    archivos: [plugin/scripts/lib/previa.mjs]
+    test: tests/backlog-fuente.test.mjs > la previa avisa si el backlog central y el del repo difieren
+    estado: hecho
+  - id: S-4
+    texto: backlog migrar fusiona al repo, marca la central como obsoleta y dice qué declarar.
+    archivos: [plugin/scripts/rq.mjs]
+    test: tests/backlog-fuente.test.mjs > backlog migrar
+    estado: hecho
+  - id: S-5
+    texto: npm test y E2E sin rojos.
+    archivos: [package.json]
+    test: npm test (700 ok) y npm run test:e2e (rq verificar)
+    estado: hecho
