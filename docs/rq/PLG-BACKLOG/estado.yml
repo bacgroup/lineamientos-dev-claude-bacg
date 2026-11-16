@@ -30,7 +30,7 @@ saltos: []
 base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T18:41:09.729Z'
+actualizado: '2026-11-16T18:41:35.582Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -101,6 +101,11 @@ skills:
     etapa: 0
     sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
     fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-16T18:39:02.543Z'
+    etapa: 2
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
     via: sesion
 clasificacion_confirmada:
   frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
