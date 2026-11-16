@@ -4,6 +4,8 @@
 import { spawnSync } from 'node:child_process';
 import { rqsActivos, cargarEstado } from './estado.mjs';
 import { ramaActual, ramaDelRq } from './ramas.mjs';
+import { prsDeRama } from './github.mjs';
+import { remotoGh } from './config.mjs';
 
 function git(raiz, args) {
   const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
@@ -67,12 +69,11 @@ export function rqParaRegistrar(raiz) {
 export function prMergeadoGh(raiz, codigo, env = process.env) {
   if (env.BACG_DEV_SIN_GH === '1') return null;
   try {
-    const r = spawnSync('gh', ['pr', 'list', '--head', ramaDelRq(codigo), '--state', 'merged', '--json', 'number,baseRefName,mergedAt', '-L', '1'], {
-      cwd: raiz, encoding: 'utf8', timeout: 20000, env, stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    if (r.status !== 0) return null;
-    const [pr] = JSON.parse(r.stdout || '[]');
-    return pr ? { numero: pr.number, base: pr.baseRefName, fecha: pr.mergedAt } : null;
+    const repo = remotoGh(raiz);
+    if (!repo) return null;
+    const r = prsDeRama(repo, ramaDelRq(codigo), { estado: 'closed' }, { env });
+    const pr = r.error ? null : r.datos.find((p) => p.mergeado);
+    return pr ? { numero: pr.number, base: pr.base, fecha: pr.mergedAt } : null;
   } catch {
     return null;
   }

@@ -45,6 +45,7 @@ import { ramasProd, ramasSoloPr } from './stack.mjs';
 import { testsValenParaStage } from './arbol.mjs';
 import { enRamaProtegida, ramaDelRq } from './ramas.mjs';
 import { ordenDeRamas, faltaPasarPorDev, prAProdSinDev } from './promocion.mjs';
+import { resolverPr, pr as prRest, archivosPr as archivosPrRest } from './github.mjs';
 
 // Opciones de `git push` que consumen el siguiente argumento.
 const CON_VALOR_PUSH = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
@@ -1048,9 +1049,10 @@ export function ramasDestino(op, raiz, ctx) {
   if (op.op === 'merge-pr') {
     if (typeof ctx?.basePr === 'function') return [ctx.basePr(op)].filter(Boolean);
     try {
-      const args = ['pr', 'view', ...(op.pr ? [op.pr] : []), ...(op.repoGh ? ['-R', op.repoGh] : []), '--json', 'baseRefName', '-q', '.baseRefName'];
-      const b = execFileSync('gh', args, { cwd: raiz, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-      return b ? [b] : null;
+      const ref = resolverPr({ pr: op.pr, repoGh: op.repoGh, raiz, ramaActual: gitTexto(raiz, ['symbolic-ref', '-q', '--short', 'HEAD']) });
+      if (ref.error) return null;
+      const p = prRest(ref.datos.repo, ref.datos.numero);
+      return !p.error && p.datos.base ? [p.datos.base] : null;
     } catch {
       return null;
     }
@@ -1178,8 +1180,11 @@ function mergeSoloLibres(op, dest, ctx) {
   if (typeof ctx?.archivosPr === 'function') archivos = ctx.archivosPr(op);
   else {
     try {
-      const args = ['pr', 'view', ...(op.pr ? [op.pr] : []), ...(op.repoGh ? ['-R', op.repoGh] : []), '--json', 'files', '-q', '.files[].path'];
-      archivos = execFileSync('gh', args, { cwd: dest.raiz, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/);
+      const ref = resolverPr({ pr: op.pr, repoGh: op.repoGh, raiz: dest.raiz, ramaActual: gitTexto(dest.raiz, ['symbolic-ref', '-q', '--short', 'HEAD']) });
+      if (ref.error) return false;
+      const a = archivosPrRest(ref.datos.repo, ref.datos.numero);
+      if (a.error || a.cortado) return false;
+      archivos = a.datos;
     } catch {
       return false;
     }

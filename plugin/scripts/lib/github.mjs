@@ -5,6 +5,7 @@
 //
 // `correr` (para tests) recibe los argumentos de `gh` y devuelve { datos } | { error }, como `ghJson`.
 import { spawnSync } from 'node:child_process';
+import { remotoGh } from './config.mjs';
 
 const PAGINA = 100;
 
@@ -96,6 +97,22 @@ export function ramaPorDefecto(repo, opts = {}) {
 export function cuentaActual(opts = {}) {
   const r = api('user', opts);
   return r.error ? r : { datos: r.datos?.login ?? null };
+}
+
+/**
+ * El PR al que se refiere un comando (`gh pr merge [<n>|<rama>] [-R owner/repo]`): número y repo. Sin número, el PR
+ * abierto de la rama (la del comando o la actual). { datos: { repo, numero } } | { error }.
+ */
+export function resolverPr({ pr: ref, repoGh, raiz, ramaActual }, opts = {}) {
+  const repo = repoGh || (raiz ? remotoGh(raiz) : null);
+  if (!repo) return { error: 'no sé el repo del PR' };
+  if (ref !== undefined && ref !== null && /^\d+$/.test(String(ref).replace(/^#/, ''))) return { datos: { repo, numero: Number(String(ref).replace(/^#/, '')) } };
+  const rama = ref || ramaActual;
+  if (!rama) return { error: 'no sé la rama del PR' };
+  const r = prsDeRama(repo, rama, { estado: 'open' }, opts);
+  if (r.error) return r;
+  if (r.datos.length !== 1) return { error: r.datos.length ? `hay ${r.datos.length} PR abiertos de ${rama}` : `no hay PR abierto de ${rama}` };
+  return { datos: { repo, numero: r.datos[0].number } };
 }
 
 /** Comandos REST equivalentes a los de `gh pr` que la skill sugiere (GraphQL no anda en la nube). */

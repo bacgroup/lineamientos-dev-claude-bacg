@@ -10,6 +10,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { ramasProd } from './stack.mjs';
 import { ramaDev } from './previa.mjs';
 import { cli } from './cli.mjs';
+import { resolverPr, pr as prRest, ramaPorDefecto as ramaPorDefectoRest } from './github.mjs';
+import { remotoGh } from './config.mjs';
 
 const sinHeads = (r) => String(r ?? '').replace(/^refs\/heads\//, '');
 
@@ -39,8 +41,10 @@ function ramaActual(raiz) {
 function cabezaDelPr(op, raiz, ctx) {
   if (typeof ctx?.headPr === 'function') return ctx.headPr(op) ?? null;
   try {
-    const args = ['pr', 'view', ...(op.pr ? [op.pr] : []), ...(op.repoGh ? ['-R', op.repoGh] : []), '--json', 'headRefName', '-q', '.headRefName'];
-    return execFileSync('gh', args, { cwd: raiz, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+    const ref = resolverPr({ pr: op.pr, repoGh: op.repoGh, raiz, ramaActual: ramaActual(raiz) });
+    if (ref.error) return null;
+    const p = prRest(ref.datos.repo, ref.datos.numero);
+    return p.error ? null : p.datos.head;
   } catch {
     return null;
   }
@@ -49,8 +53,10 @@ function cabezaDelPr(op, raiz, ctx) {
 function ramaPorDefecto(op, raiz, ctx) {
   if (typeof ctx?.ramaPorDefecto === 'function') return ctx.ramaPorDefecto(op) ?? null;
   try {
-    const args = ['repo', 'view', ...(op.repoGh ? [op.repoGh] : []), '--json', 'defaultBranchRef', '-q', '.defaultBranchRef.name'];
-    return execFileSync('gh', args, { cwd: raiz, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+    const repo = op.repoGh || remotoGh(raiz);
+    if (!repo) return null;
+    const r = ramaPorDefectoRest(repo);
+    return r.error ? null : r.datos;
   } catch {
     return null;
   }

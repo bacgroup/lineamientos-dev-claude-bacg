@@ -35,6 +35,9 @@ import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
 import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 import { avisoMergeado } from './lib/rq-rama.mjs';
 import { REGLAS_ACTUALES, reglas44 } from './lib/reglas.mjs';
+import { prsDeRama, checksDe, REST } from './lib/github.mjs';
+import { compiladosCompartidos } from './lib/compilados.mjs';
+import { remotoGh } from './lib/config.mjs';
 import { faltasCapturas, refExigida } from './lib/diseno-ui.mjs';
 import { agregar as agregarDevolucion, marcar as marcarDevolucion, listado as listadoDevoluciones, PROTOCOLO_CORTE } from './lib/devoluciones.mjs';
 import { trazar as trazarSpec } from './lib/traza.mjs';
@@ -1272,32 +1275,30 @@ function entregar(repo, elegido, env, io) {
   if (principal && gitOk(raiz, ['merge-base', '--is-ancestor', 'HEAD', principal])) {
     l.push(`Rama integrada: HEAD ya está en ${principal} (merge-base --is-ancestor); no hace falta PR.`);
   } else if (env.BACG_DEV_SIN_GH === '1') {
-    l.push('PR y CI: sin consultar (BACG_DEV_SIN_GH).');
+    l.push('PR y CI: no consultados (BACG_DEV_SIN_GH=1).');
   } else {
-    const r = spawnSync('gh', ['pr', 'view', ...(otraRamaDeRq ? [ramaPropia] : []), '--json', 'number,state,url,statusCheckRollup'], { cwd: raiz, encoding: 'utf8' });
-    if (r.status !== 0) {
-      // PLG-RAMAS: con rama de DEV, el PR del RQ va a DEV (sin --base, gh usa la rama por defecto, que puede ser PROD).
-      const proy = proyectoDe(repo, env);
-      const orden = ordenDeRamas(proy, lista(proy?.repos).find((x) => String(x?.nombre ?? '').toLowerCase() === nombreRepo(raiz).toLowerCase()));
-      l.push(`PR: no hay PR de esta rama (gh pr create --fill${orden ? ` --base ${orden.dev}` : ''}).`);
-    }
+    // PLG-CLOUD: PR y CI por REST (GraphQL da 403 en la nube).
+    const repoGh = remotoGh(raiz);
+    const ramaPr = otraRamaDeRq ? ramaPropia : rama;
+    const prs = repoGh && ramaPr ? prsDeRama(repoGh, ramaPr, { estado: 'all' }, { env }) : { error: 'no sé el repo o la rama' };
+    const proy = proyectoDe(repo, env);
+    const orden = ordenDeRamas(proy, lista(proy?.repos).find((x) => String(x?.nombre ?? '').toLowerCase() === nombreRepo(raiz).toLowerCase()));
+    const pr = prs.error ? null : prs.datos.find((p) => p.estado === 'open') ?? prs.datos[0];
+    if (prs.error) l.push(`PR y CI: no consultados (${prs.error}).`);
+    else if (!pr) l.push(`PR: no hay PR de esta rama. Crealo por REST: ${REST.crearPr(repoGh, orden?.dev ?? '<base>', ramaPr)}`);
     else {
-      try {
-        const pr = JSON.parse(r.stdout);
-        const checks = lista(pr.statusCheckRollup);
-        const de = (f) => checks.filter(f).length;
-        const fallados = de((c) => ['FAILURE', 'ERROR', 'TIMED_OUT', 'CANCELLED'].includes(c.conclusion ?? c.state));
-        const pendientesCi = de((c) => (c.status && c.status !== 'COMPLETED') || c.state === 'PENDING');
-        l.push(`PR #${pr.number} (${pr.state}): ${pr.url}`);
-        l.push(
-          checks.length === 0
-            ? 'CI: sin checks.'
-            : `CI: ${checks.length - fallados - pendientesCi} ok, ${fallados} fallados, ${pendientesCi} en curso${pendientesCi ? ' (gh pr checks --watch en segundo plano)' : ''}.`,
-        );
-      } catch {
-        l.push('PR: no pude leer la respuesta de gh.');
+      l.push(`PR #${pr.number} (${pr.mergeado ? 'mergeado' : pr.estado}): ${pr.url}`);
+      const c = pr.sha ? checksDe(repoGh, pr.sha, { env }) : { error: 'sin commit' };
+      if (c.error) l.push(`CI: no consultada (${c.error}).`);
+      else {
+        const de = (e) => c.datos.filter((x) => x.estado === e).length;
+        l.push(c.datos.length === 0
+          ? 'CI: sin checks.'
+          : `CI: ${de('ok')} ok, ${de('fallo')} fallados, ${de('en-curso')} en curso${de('en-curso') ? ` (seguila en segundo plano: ${REST.checks(repoGh, ramaPr)})` : ''}.`);
       }
     }
+    // PLG-CLOUD (hallazgo 18): artefactos compilados que otra rama rq/* también toca.
+    for (const aviso of compiladosCompartidos(raiz, estado, proy, ramaPropia)) l.push(aviso);
   }
   io.stdout.write(`${l.join('\n')}\n\n`);
   desplegar(repo, elegido, [], env, io);

@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { buscarRepo, nombreRepo } from './config.mjs';
 import { baseDeUpstream, rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { baseDelRepo, esMigracion } from './stack.mjs';
+import { prsAbiertos, archivosPr } from './github.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x : []);
 const norm = (x) => (typeof x === 'string' ? x.trim().toLowerCase() : '');
@@ -82,12 +83,8 @@ export function hechoEnRealidad(paso, { raiz, proyecto }) {
       if (!cuenta) return false;
       const repo = paso.trim().slice('merge-prs-sync:'.length);
       const rama = proyecto?.sync?.rama || RAMA_SYNC;
-      const r = spawnSync('gh', ['pr', 'list', '-R', `${cuenta}/${repo}`, '--head', rama, '--state', 'open', '--json', 'number'], {
-        encoding: 'utf8',
-        timeout: 15000,
-      });
-      if (r.status !== 0) return false;
-      return Array.isArray(JSON.parse(r.stdout || 'null')) && JSON.parse(r.stdout).length === 0;
+      const r = prsAbiertos(`${cuenta}/${repo}`, { head: rama });
+      return !r.error && r.datos.length === 0;
     }
   } catch {
     return false;
@@ -113,16 +110,19 @@ export function migracionesEnSync(proyecto, soloSede = null) {
       continue;
     }
     try {
-      const x = spawnSync('gh', ['pr', 'list', '-R', `${cuenta}/${r.nombre}`, '--head', rama, '--state', 'open', '--json', 'files'], {
-        encoding: 'utf8',
-        timeout: 15000,
-      });
-      if (x.status !== 0) {
+      const repoGh = `${cuenta}/${r.nombre}`;
+      const prs = prsAbiertos(repoGh, { head: rama });
+      if (prs.error) {
         out[ref] = null;
         continue;
       }
-      const prs = JSON.parse(x.stdout || '[]');
-      out[ref] = prs.some((pr) => lista(pr?.files).some((a) => esMigracion(a?.path, proyecto)));
+      let leido = true;
+      out[ref] = prs.datos.some((p) => {
+        const a = archivosPr(repoGh, p.number);
+        if (a.error) leido = false;
+        return lista(a.datos).some((ruta) => esMigracion(ruta, proyecto));
+      });
+      if (!leido && !out[ref]) out[ref] = null;
     } catch {
       out[ref] = null;
     }
