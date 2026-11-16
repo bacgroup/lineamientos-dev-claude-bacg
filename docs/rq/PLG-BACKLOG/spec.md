@@ -29,7 +29,7 @@ En los proyectos con la configuración en el repo central (como PowerFy), la fue
 
   → `tests/backlog-fuente.test.mjs`
 - S-3: la validación previa avisa si las dos copias difieren y lista los códigos. → `tests/backlog-fuente.test.mjs`
-- S-4: `backlog migrar` fusiona la copia central en `docs/backlog.md` del repo, marca la central como obsoleta y dice qué declarar (`backlog: repo`). → `tests/backlog-fuente.test.mjs`
+- S-4: `backlog migrar` fusiona la copia central en `docs/backlog.md` del repo, marca la central como obsoleta y declara `backlog: repo` en el `proyecto.yml` central; la segunda vez responde "ya está migrado". → `tests/backlog-fuente.test.mjs`
 - S-5: `npm test` y E2E sin rojos.
 
 ## Diseño
@@ -52,7 +52,7 @@ En los proyectos con la configuración en el repo central (como PowerFy), la fue
   1. fusiona;
   2. escribe `docs/backlog.md`;
   3. agrega al principio de la copia central `> OBSOLETO: la fuente es docs/backlog.md de <repo>`;
-  4. pide declarar `backlog: repo`.
+  4. declara `backlog: repo` en el `proyecto.yml` central (si falta).
 
 ### Lo que queda al implementador
 Los textos de los mensajes.

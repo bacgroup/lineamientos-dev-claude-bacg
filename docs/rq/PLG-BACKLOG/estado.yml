@@ -30,7 +30,7 @@ saltos: []
 base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T18:38:37.702Z'
+actualizado: '2026-11-16T18:38:57.300Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0

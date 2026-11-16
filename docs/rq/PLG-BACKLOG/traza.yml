@@ -8,7 +8,7 @@ items:
   - id: S-2
     texto: con la fuente central, abrir y cerrar fusionan las dos copias sin pisar nada.
     archivos: [plugin/scripts/lib/backlog.mjs, plugin/scripts/rq.mjs]
-    test: tests/backlog-fuente.test.mjs > fuente central abrir fusiona en lugar de pisar · fusionarFilas
+    test: tests/backlog-fuente.test.mjs > fuente central abrir fusiona · cerrar pasa la fila a Hecho en las dos copias · fusionar en un archivo es quirúrgico
     estado: hecho
   - id: S-3
     texto: la previa avisa si las dos copias difieren y lista los códigos.
@@ -23,5 +23,5 @@ items:
   - id: S-5
     texto: npm test y E2E sin rojos.
     archivos: [package.json]
-    test: npm test (700 ok) y npm run test:e2e (rq verificar)
+    test: npm test (714 ok) y npm run test:e2e (rq verificar)
     estado: hecho
