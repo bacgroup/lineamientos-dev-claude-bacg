@@ -261,3 +261,20 @@ test('PLG-BKL2: grupos de filas separados por líneas en blanco son un solo back
   assert.match(despues, /Nota suelta\.\n\n\| C /);
   assert.match(despues, /\| 2026 \| algo \|\n$/);
 });
+
+test('PLG-BKL2: una fila nueva va al final del primer grupo, también con otra tabla pegada al backlog', async () => {
+  const { upsertEnArchivo } = await import('../plugin/scripts/lib/backlog.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grupos2-'));
+  const f = path.join(dir, 'backlog.md');
+  fs.writeFileSync(f, `# Backlog\n\n${ENC}${fila('A', 'Pendiente')}\n${fila('C', 'Pendiente')}`);
+  assert.equal(upsertEnArchivo(f, 'D', { Estado: 'En curso' }), 'agregada');
+  assert.deepEqual(parsearBacklog(fs.readFileSync(f, 'utf8')).map((x) => x['Código']), ['A', 'D', 'C']);
+  // Glosario pegado, sin línea en blanco: la fila nueva no cae en el glosario ni se duplica.
+  const g = path.join(dir, 'pegado.md');
+  fs.writeFileSync(g, `${ENC}${fila('A', 'Pendiente')}| Término | Def |\n|---|---|\n| g | d |\n`);
+  assert.equal(upsertEnArchivo(g, 'N', { Tarea: 't' }), 'agregada');
+  assert.equal(upsertEnArchivo(g, 'N', { Tarea: 't' }), 'actualizada');
+  const t = fs.readFileSync(g, 'utf8');
+  assert.deepEqual(parsearBacklog(t).map((x) => x['Código']), ['A', 'N']);
+  assert.match(t, /\| g \| d \|\n$/);
+});

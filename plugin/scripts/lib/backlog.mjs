@@ -111,7 +111,8 @@ abrirTabla.desde = (lineas, iEnc) => {
   const filas = new Map();
   // Las filas nuevas van al final del primer grupo contiguo; los códigos se buscan en todos los grupos de la tabla.
   let ultima = iEnc;
-  while (ultima + 1 < lineas.length && /^\|/.test(lineas[ultima + 1].trim())) ultima++;
+  // Mismo límite que indicesDeFilas: una fila seguida de un separador es el encabezado de otra tabla.
+  while (ultima + 1 < lineas.length && /^\|/.test(lineas[ultima + 1].trim()) && !(esFila(lineas[ultima + 1]) && esSeparador(lineas[ultima + 2]))) ultima++;
   for (const i of indicesDeFilas(lineas, iEnc)) {
     const c = partir(lineas[i])[0];
     if (c && !filas.has(c)) filas.set(c, i);
