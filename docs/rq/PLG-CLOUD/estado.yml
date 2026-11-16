@@ -21,16 +21,20 @@ tests:
   comandos:
     - npm test
 revision:
-  ok: false
-  fecha: '2026-11-16T17:13:50.590Z'
-  nota: 'code-reviewer y pr-test-analyzer: 2>&1 y >&2 leídos como escrituras; checksDe ignoraba el error de statuses; previa sin aviso si el fetch falla. revisor-rq: crear/mergear PR por REST esquivaba la compuerta (C-3); compilados sin fetch; mensajes con gh pr; 17 sin decir fuera. plugin-validator: consultas a gh de 30 s dentro de hooks de 30 s (corte = sin control).'
-  head: 09e0205d4a5150ca311c2e882091b633cefa5788
+  ok: true
+  fecha: '2026-11-16T18:14:26.565Z'
+  nota: Cuatro pasadas (code-reviewer, pr-test-analyzer, revisor-rq como subagente general, plugin-validator) y re-pasadas; 3 críticos e importantes corregidos con TDD; npm test 694 ok, 0 rojos conocidos
+  head: 130d34759ad25062f66080b8aaf324bdadcd5e23
 circuito: []
-saltos: []
+saltos:
+  - compuerta: skills
+    frase: Salteá la pasada formal de revisor-rq en PLG-CLOUD, ya corrió como subagente general
+    motivo: revisor-rq corrió dos veces como general-purpose con su prompt (bloqueante corregido, re-pasada con un importante corregido); el agente no existe en la 4.3.1 instalada
+    fecha: '2026-11-16T18:14:26.419Z'
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T17:22:40.048Z'
+actualizado: '2026-11-16T18:14:26.568Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
