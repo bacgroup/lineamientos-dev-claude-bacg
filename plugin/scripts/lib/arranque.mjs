@@ -89,7 +89,7 @@ export function estadoRepo(dir) {
 export function ultimoTrabajado(raiz, proyecto, dirLin) {
   let filas = [];
   try {
-    filas = leerBacklog(dirLin, proyecto?.id, raiz);
+    filas = leerBacklog(dirLin, proyecto?.id, raiz, proyecto);
   } catch {
     // sin backlog legible
   }

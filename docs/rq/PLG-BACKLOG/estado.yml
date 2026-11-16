@@ -1,0 +1,129 @@
+codigo: PLG-BACKLOG
+tipo: rq
+clasificacion: arquitectonico
+clasificacion_pendiente: false
+tarea: 'Plugin — fuente única del backlog (hallazgo 8 de PLG-CLOUD): una sola fuente por proyecto, aviso si hay dos que difieren y migración de la copia central al repo.'
+etapa: 4
+autonomia:
+  hasta: 4
+  frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+  fecha: '2026-11-16T18:22:05.946Z'
+  via: sesion-total
+aprobaciones:
+  - etapa: 1
+    frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+    fecha: '2026-11-16T18:22:49.664Z'
+    via: sesion-total
+tests:
+  ok: true
+  arbol: 723e8277b0e3b44b1b8d8d6f8c1971d870c0755e
+  fecha: '2026-11-16T18:43:54.779Z'
+  comandos:
+    - npm test
+revision:
+  ok: true
+  fecha: '2026-11-16T19:00:04.972Z'
+  nota: 'Rondas 1-3 cerradas: code-reviewer, pr-test-analyzer y revisor-rq (subagente general) sin bloqueantes pendientes; todo corregido con tests. 715 tests y E2E 80 en verde.'
+  head: f8370bec0f43275568bda74185540f445bb03512
+circuito: []
+saltos:
+  - compuerta: skills
+    frase: Salteá la pasada formal de revisor-rq en PLG-BACKLOG, ya corrió como subagente general. Terminar todo lo pendiente
+    motivo: revisor-rq corrió como subagente general; el plugin instalado (4.3.1) no registra la pasada
+    fecha: '2026-11-16T18:59:44.482Z'
+base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-16T19:00:25.606Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:bacg-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: plugin-dev:create-plugin
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: plugin-dev:plugin-validator
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: plugin-dev:skill-reviewer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T18:22:05.868Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-16T18:39:02.543Z'
+    etapa: 2
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    via: sesion
+clasificacion_confirmada:
+  frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+  fecha: '2026-11-16T18:22:05.946Z'
+  via: sesion-total
+ejecucion:
+  modo: inline
+  frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+  fecha: '2026-11-16T18:22:49.664Z'
+  via: sesion-total
+e2e:
+  ok: true
+  fecha: '2026-11-16T18:28:00.491Z'
+  comando: npm run test:e2e
+  head: f21ddc53b743c37ff01562b60b3c94123cc1286e
+  completo: true
+revisiones_bloqueantes: 3

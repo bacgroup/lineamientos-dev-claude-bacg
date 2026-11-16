@@ -178,3 +178,8 @@ test('devolucion: una misma frase del usuario no cierra varios puntos ni sirve l
   assert.notEqual(segunda.code, 0);
   assert.match(segunda.err, /ya está registrada/);
 });
+
+test('itemsDelSpec: las sub-viñetas indentadas de un criterio no son ítems nuevos', () => {
+  const t = '## Criterio de aceptación\n- S-1: uno\n- S-2: dos, con detalle:\n  - primero\n  - segundo\n\n  → tests/x.test.mjs\n- S-3: tres\n';
+  assert.deepEqual(itemsDelSpec(t).map((i) => i.id), ['S-1', 'S-2', 'S-3']);
+});

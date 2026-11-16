@@ -17,7 +17,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { configEnRepo, nombreRepo } from './config.mjs';
 import { reposHermanos, vinculados } from './multi-repo.mjs';
-import { parsearBacklog } from './backlog.mjs';
+import { parsearBacklog, fuenteBacklog, filasDe, diferencias, rutaCentral } from './backlog.mjs';
 import { refPrincipal, nombraCodigo } from './no-aplica.mjs';
 import { ramasProd } from './stack.mjs';
 import { ghJson, prsAbiertos, archivosPr } from './github.mjs';
@@ -97,8 +97,8 @@ export function modulosDe(archivos, max = 6) {
  * docs/backlog.md de la rama principal de origin; si no, proyectos/<id>/backlog.md del upstream de la copia de
  * lineamientos (después de un fetch). `atras` = commits que la copia local no tiene.
  */
-export function backlogRemoto({ raiz, proyectoId, dirLin }) {
-  if (configEnRepo(raiz)) {
+export function backlogRemoto({ raiz, proyectoId, dirLin, proyecto }) {
+  if (fuenteBacklog(raiz, proyecto) === 'repo') {
     const principal = refPrincipal(raiz);
     if (!principal) return { error: 'el repo no tiene rama principal en origin' };
     const r = git(raiz, ['show', `${principal}:docs/backlog.md`]);
@@ -195,7 +195,14 @@ export function validacionPrevia({ repo, proyecto, codigo = null, nuevo = true, 
   else lineas.push(`Trabajo en paralelo: ninguna rama ni PR abierto en los últimos ${DIAS_PARALELO} días.`);
   for (const x of sinConsultar) lineas.push(`- ${x}.`);
 
-  const b = backlogRemoto({ raiz, proyectoId: id, dirLin });
+  // PLG-BACKLOG: con la fuente central y una copia en el repo, avisar si difieren (una fila se perdería o mentiría).
+  if (fuenteBacklog(raiz, proyecto) === 'central' && dirLin) {
+    const central = filasDe(rutaCentral(dirLin, id));
+    const copia = filasDe(path.join(raiz, 'docs', 'backlog.md'));
+    const dif = central.length && copia.length ? diferencias(central, copia) : [];
+    if (dif.length) lineas.push(`Backlog: las dos copias del backlog difieren: ${dif.slice(0, 12).join(', ')}${dif.length > 12 ? ` y ${dif.length - 12} más` : ''}. abrir y cerrar las fusionan (gana el estado más avanzado); para una sola fuente: $RQ backlog migrar.`);
+  }
+  const b = backlogRemoto({ raiz, proyectoId: id, dirLin, proyecto });
   if (b.error) {
     lineas.push(`Backlog remoto: ${b.error}; no verifiqué el código contra el backlog.`);
   } else {
