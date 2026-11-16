@@ -21,16 +21,20 @@ tests:
   comandos:
     - npm test
 revision:
-  ok: false
-  fecha: '2026-11-16T18:43:55.143Z'
-  nota: 'Ronda 3 revisor-rq: spec.md desalineado (nombraba fusionarFilas/escribirFilas, S-2 sin fusión quirúrgica ni fila de la CLI, orden de migrar viejo); traza con nombres de test inexactos. Corregido: spec, traza y ciclo-rq alineados; rutaCentral en previa y migrar. Code-reviewer y pr-test-analyzer de ronda 3 sin bloqueantes (sus menores, corregidos con tests).'
-  head: 294964e3a5bab711dbea37b7074d2db1524cacaf
+  ok: true
+  fecha: '2026-11-16T19:00:04.972Z'
+  nota: 'Rondas 1-3 cerradas: code-reviewer, pr-test-analyzer y revisor-rq (subagente general) sin bloqueantes pendientes; todo corregido con tests. 715 tests y E2E 80 en verde.'
+  head: f8370bec0f43275568bda74185540f445bb03512
 circuito: []
-saltos: []
+saltos:
+  - compuerta: skills
+    frase: Salteá la pasada formal de revisor-rq en PLG-BACKLOG, ya corrió como subagente general. Terminar todo lo pendiente
+    motivo: revisor-rq corrió como subagente general; el plugin instalado (4.3.1) no registra la pasada
+    fecha: '2026-11-16T18:59:44.482Z'
 base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T18:43:55.145Z'
+actualizado: '2026-11-16T19:00:04.975Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0

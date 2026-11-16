@@ -1,27 +1,28 @@
 # Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
 items:
   - id: S-1
-    texto: con backlog repo (o la configuración en el repo), abrir y cerrar escriben sólo docs/backlog.md del repo.
+    texto: 'con `backlog: repo` (o con la configuración en el repo), `abrir` y `cerrar` escriben sólo `docs/backlog.md` del repo y no tocan la copia central. → `tests/backlog-fuente.test.mjs`'
     archivos: [plugin/scripts/lib/backlog.mjs, plugin/scripts/rq.mjs]
-    test: tests/backlog-fuente.test.mjs > backlog: repo deja como fuente sólo docs/backlog.md del repo · después de migrar, abrir escribe sólo docs/backlog.md
+    test: 'tests/backlog-fuente.test.mjs > backlog: repo deja como fuente sólo docs/backlog.md del repo · después de migrar, abrir escribe sólo docs/backlog.md'
     estado: hecho
   - id: S-2
-    texto: con la fuente central, abrir y cerrar fusionan las dos copias sin pisar nada.
+    texto: 'con la fuente central, `abrir` y `cerrar` fusionan antes las dos copias, sin pisar nada:'
     archivos: [plugin/scripts/lib/backlog.mjs, plugin/scripts/rq.mjs]
-    test: tests/backlog-fuente.test.mjs > fuente central: abrir fusiona en lugar de pisar · fuente central: cerrar pasa la fila a Hecho en las dos copias · fusionar en un archivo es quirúrgico · fuente central: reabrir un código · una segunda tabla después del backlog
+    test: 'tests/backlog-fuente.test.mjs > fuente central: abrir fusiona en lugar de pisar · fuente central: cerrar pasa la fila a Hecho en las dos copias · fusionar en un archivo es quirúrgico · fuente central: reabrir un código · una segunda tabla después del backlog · fuente central sin backlog central todavía'
     estado: hecho
   - id: S-3
-    texto: la previa avisa si las dos copias difieren y lista los códigos.
+    texto: la validación previa avisa si las dos copias difieren y lista los códigos. → `tests/backlog-fuente.test.mjs`
     archivos: [plugin/scripts/lib/previa.mjs]
-    test: tests/backlog-fuente.test.mjs > la previa avisa si el backlog central y el del repo difieren · la previa no avisa divergencia
+    test: 'tests/backlog-fuente.test.mjs > la previa avisa si el backlog central y el del repo difieren · la previa no avisa divergencia · con backlog: repo la previa no avisa divergencia'
     estado: hecho
   - id: S-4
-    texto: backlog migrar declara backlog repo, fusiona al repo y marca la central como obsoleta; a medias se completa corriéndolo de nuevo.
-    archivos: [plugin/scripts/rq.mjs]
-    test: tests/backlog-fuente.test.mjs > backlog migrar · migrar a medias · migrar avisa las columnas · migrar sin docs/backlog.md
+    texto: '`backlog migrar` fusiona la copia central en `docs/backlog.md` del repo, marca la central como obsoleta y declara `backlog: repo` en el `proyecto.yml` central; la segunda vez responde "ya está migrado". → `tests/backlog-fuente.test.mjs`'
+    archivos: [plugin/scripts/rq.mjs, plugin/scripts/lib/backlog.mjs]
+    test: 'tests/backlog-fuente.test.mjs > backlog migrar · backlog migrar declara backlog: repo · migrar a medias · migrar avisa las columnas · migrar sin docs/backlog.md'
     estado: hecho
   - id: S-5
-    texto: npm test y E2E sin rojos.
+    texto: '`npm test` y E2E sin rojos.'
     archivos: [package.json]
-    test: npm test (715 ok) y npm run test:e2e (rq verificar)
+    test: npm test (715 ok) y npm run test:e2e (80 ok)
     estado: hecho
