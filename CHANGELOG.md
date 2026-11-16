@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.6.0: fuente única del backlog (2026-11-16)
+
+**Origen:** hallazgo 8 del handoff de PowerFy en la nube. En los proyectos con la configuración en el repo central, `abrir` y `cerrar` copiaban entero el backlog central sobre `docs/backlog.md` del repo. Si la copia local estaba atrasada, o alguien agregó o actualizó filas en el repo, esas filas se perdían. En PowerFy aparecieron paneles hechos que figuraban como Pendiente y desapareció una fila agregada en un commit.
+
+**Cambios:**
+- `backlog: repo` en `proyecto.yml` hace que `docs/backlog.md` del repo sea la única fuente; la copia central ya no se toca. Con la configuración en el repo (`.bacg-dev/`) ya era así.
+- Con la fuente central, `abrir` y `cerrar` **fusionan** las dos copias en lugar de pisar la del repo:
+  - por código, gana el estado más avanzado (Hecho o Descartado, después En curso, después el resto);
+  - se conservan las filas que sólo están en una copia y el texto del archivo anterior a la tabla.
+- La validación previa avisa si las dos copias difieren y lista los códigos.
+- `rq.mjs backlog migrar` fusiona la copia central en `docs/backlog.md`, marca la central como obsoleta y dice qué declarar. Pasar un proyecto a la fuente única lo decide el usuario, en una sesión de ese proyecto.
+
 ## 4.5.0: el plugin en Claude Code en la nube (2026-11-16)
 
 **Origen.** La sesión cloud autónoma de PowerFy del 16/11: alta, 7 RQ de UI y el diseño de PF-MARCA. El handoff está en `docs/handoff/2026-11-16-powerfy-cloud.md`. El ciclo funcionó, pero el plugin dio "todo OK" falsos ("ningún PR abierto" con 7 abiertos, "lineamientos al día" con 5 commits de atraso), bloqueó por falsos negativos y dejó escribir código por Bash antes del diseño aprobado. Criterio: el plugin nunca afirma "nada" o "al día" sin haberlo verificado.
