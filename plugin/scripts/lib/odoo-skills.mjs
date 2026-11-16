@@ -86,14 +86,25 @@ function ghApi(ruta) {
 }
 
 /**
- * Baja skills/ de odoo/odoo (rama `rama`) y deja cada skill en ~/.claude/skills/<skill>, reemplazando sólo las de
- * SKILLS_ODOO. `api` (para tests) recibe la ruta de la API de GitHub y devuelve el JSON.
- * Devuelve { rama, commit, archivos }.
+ * Clon anónimo y liviano de odoo/odoo en `destino`, sólo skills/ (sparse-checkout, sin blobs del resto). Devuelve el
+ * commit. Es el camino cuando la API de GitHub no deja leer odoo/odoo (en la nube: "access not enabled for this
+ * session"); el repo es público y no necesita credenciales.
  */
-export function instalarSkillsOdoo({ home = os.homedir(), rama = RAMA_SKILLS_ODOO, api = ghApi } = {}) {
+export function clonarSkillsOdoo(rama, destino) {
+  const git = (args, cwd) => {
+    const r = spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    if (r.status !== 0) throw new Error(`git ${args[0]}: ${(r.stderr ?? '').trim().split('\n').pop() || `salió ${r.status}`}`);
+    return (r.stdout ?? '').trim();
+  };
+  git(['clone', '--depth', '1', '--filter=blob:none', '--sparse', '--branch', rama, `https://github.com/${REPO_ODOO}.git`, destino]);
+  git(['sparse-checkout', 'set', 'skills'], destino);
+  return git(['rev-parse', 'HEAD'], destino);
+}
+
+/** Baja skills/ por la API de GitHub a `tmp`: { commit, archivos }. */
+function bajarPorApi(api, rama, tmp) {
   const ref = encodeURIComponent(rama);
   const commit = api(`repos/${REPO_ODOO}/commits/${ref}`)?.sha ?? null;
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'odoo-skills-'));
   let archivos = 0;
   const bajar = (rel) => {
     for (const e of lista(api(`repos/${REPO_ODOO}/contents/${rel}?ref=${commit ?? ref}`))) {
@@ -107,21 +118,55 @@ export function instalarSkillsOdoo({ home = os.homedir(), rama = RAMA_SKILLS_ODO
       }
     }
   };
+  bajar('skills');
+  return { commit, archivos };
+}
+
+const contarArchivos = (dir) => {
+  let n = 0;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) n += e.isDirectory() ? contarArchivos(path.join(dir, e.name)) : 1;
+  return n;
+};
+
+/**
+ * Baja skills/ de odoo/odoo (rama `rama`) y deja cada skill en ~/.claude/skills/<skill>, reemplazando sólo las de
+ * SKILLS_ODOO. Primero por la API de GitHub; si falla (PLG-CLOUD: en la nube la API de odoo/odoo puede no estar
+ * habilitada para la sesión), por un clon anónimo con sparse-checkout. `api` y `clonar` se inyectan en los tests.
+ * Devuelve { rama, commit, archivos, via }.
+ */
+export function instalarSkillsOdoo({ home = os.homedir(), rama = RAMA_SKILLS_ODOO, api = ghApi, clonar = clonarSkillsOdoo } = {}) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'odoo-skills-'));
+  let commit = null;
+  let archivos = 0;
+  let via = 'api';
+  let origen = tmp;
   try {
-    bajar('skills');
-    const faltan = SKILLS_ODOO.filter((s) => !fs.existsSync(path.join(tmp, s, 'SKILL.md')));
+    try {
+      ({ commit, archivos } = bajarPorApi(api, rama, tmp));
+    } catch (eApi) {
+      via = 'git';
+      const clon = path.join(tmp, 'clon');
+      try {
+        commit = clonar(rama, clon);
+      } catch (eGit) {
+        throw new Error(`No pude bajar las skills de ${REPO_ODOO}@${rama}. Por la API: ${eApi.message}. Por git anónimo: ${eGit.message}.`);
+      }
+      origen = path.join(clon, 'skills');
+      archivos = fs.existsSync(origen) ? contarArchivos(origen) : 0;
+    }
+    const faltan = SKILLS_ODOO.filter((s) => !fs.existsSync(path.join(origen, s, 'SKILL.md')));
     if (faltan.length) throw new Error(`${REPO_ODOO}@${rama} no trae ${faltan.join(', ')} en skills/`);
     const dir = dirSkills(home);
     fs.mkdirSync(dir, { recursive: true });
     for (const s of SKILLS_ODOO) {
       fs.rmSync(path.join(dir, s), { recursive: true, force: true });
-      fs.cpSync(path.join(tmp, s), path.join(dir, s), { recursive: true });
+      fs.cpSync(path.join(origen, s), path.join(dir, s), { recursive: true });
     }
-    fs.writeFileSync(path.join(dir, ARCHIVO_ORIGEN), `${JSON.stringify({ repo: REPO_ODOO, rama, commit, fecha: new Date().toISOString(), skills: SKILLS_ODOO }, null, 2)}\n`);
+    fs.writeFileSync(path.join(dir, ARCHIVO_ORIGEN), `${JSON.stringify({ repo: REPO_ODOO, rama, commit, via, fecha: new Date().toISOString(), skills: SKILLS_ODOO }, null, 2)}\n`);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
-  return { rama, commit, archivos };
+  return { rama, commit, archivos, via };
 }
 
 /** ¿La ruta (relativa a raiz, POSIX) está dentro de un addon de Odoo? Devuelve la ruta dentro del addon o null. */

@@ -16,19 +16,17 @@ aprobaciones:
     via: sesion-total
 tests:
   ok: true
-  arbol: c2457ea607931b08e07964efc59b248984a45b11
-  fecha: '2026-11-16T16:54:16.732Z'
+  arbol: c8a937520ad21b2fbf1bc84cf1fee38279c7980f
+  fecha: '2026-11-16T16:59:20.797Z'
   comandos:
     - npm test
-  rojos_conocidos:
-    - hooks.test.mjs > session-start avisa si la cuenta activa de gh no es la del proyecto
 revision: null
 circuito: []
 saltos: []
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T16:54:16.736Z'
+actualizado: '2026-11-16T16:59:20.800Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0

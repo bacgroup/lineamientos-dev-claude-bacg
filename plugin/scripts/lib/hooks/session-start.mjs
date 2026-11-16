@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { dirConfigClaude } from '../sesiones.mjs';
+import { pluginsInstalados } from '../plugins-instalados.mjs';
+import { cuentaActual } from '../github.mjs';
 import { spawnSync } from 'node:child_process';
 import { dirLineamientos, buscarRepo, carpetaProyecto } from '../config.mjs';
 import { pasosAlta, lineaAlta } from '../alta.mjs';
@@ -30,13 +32,30 @@ const LINEAS_ENCUADRE = 30;
 const cuentaEsperada = (proyecto) =>
   [proyecto?.cuenta_gh, proyecto?.cuenta_github].find((c) => typeof c === 'string' && c.trim() !== '') ?? null;
 
+/** `user` de github.com en hosts.yml de gh (GH_CONFIG_DIR, XDG_CONFIG_HOME/gh o ~/.config/gh), o ''. */
+function usuarioDeHosts(env) {
+  const dirs = [env.GH_CONFIG_DIR, env.XDG_CONFIG_HOME && path.join(env.XDG_CONFIG_HOME, 'gh'), path.join(env.HOME || os.homedir(), '.config', 'gh')].filter(Boolean);
+  for (const d of dirs) {
+    const t = leer(path.join(d, 'hosts.yml'));
+    if (t === null) continue;
+    const m = t.match(/^github\.com:\s*\n(?:[ \t]+.*\n)*?[ \t]+user:\s*(\S+)/m);
+    return m ? m[1] : '';
+  }
+  return '';
+}
+
 /** Aviso si la cuenta activa de gh no es la del proyecto. Sin gh, sin cuenta declarada o con BACG_DEV_SIN_GH, nada. */
 export function avisoCuentaGh(proyecto, env = process.env) {
   if (env.BACG_DEV_SIN_GH === '1') return null;
   const esperada = cuentaEsperada(proyecto);
   if (!esperada) return null;
-  const r = spawnSync('gh', ['config', 'get', '-h', 'github.com', 'user'], { encoding: 'utf8', env, timeout: 5000 });
-  const activa = r.status === 0 ? r.stdout.trim() : '';
+  // PLG-CLOUD (PLG-GH): `gh config get` falla en la nube (migra la configuración y pide un keyring). Se lee hosts.yml
+  // directo y, si no hay, la cuenta con la que responde `gh api user` (la credencial del proxy).
+  let activa = usuarioDeHosts(env);
+  if (!activa) {
+    const r = cuentaActual({ env });
+    activa = r.error ? '' : String(r.datos ?? '');
+  }
   if (!activa || activa.toLowerCase() === esperada.toLowerCase()) return null;
   return `Aviso: la cuenta activa de gh es ${activa} y este proyecto usa ${esperada}. Antes de push, PR o merge: gh auth switch -u ${esperada}.`;
 }
@@ -93,18 +112,18 @@ function resumenes(dirLin, proyectoId, raiz, pluginRoot) {
 
 function pluginsFaltantes(home, env) {
   // Los plugins de la cuenta de Claude en uso: ~/.claude o, con otra cuenta, CLAUDE_CONFIG_DIR.
+  // PLG-CLOUD: también los sincronizados desde claude.ai (plugins/synced/), que no figuran en installed_plugins.json.
   const archivo = path.join(dirConfigClaude({ env, home }), 'plugins', 'installed_plugins.json');
-  let instalados = new Set();
   const texto = leer(archivo);
   if (texto !== null) {
     try {
-      const datos = JSON.parse(texto);
-      instalados = new Set(Object.keys(datos?.plugins ?? {}));
+      JSON.parse(texto);
     } catch {
       return `No pude leer ${archivo}: verificá a mano los plugins requeridos (${PLUGINS_REQUERIDOS.join(', ')}).`;
     }
   }
-  const faltan = PLUGINS_REQUERIDOS.filter((p) => !instalados.has(p));
+  const instalados = pluginsInstalados({ env, home });
+  const faltan = PLUGINS_REQUERIDOS.filter((p) => !instalados?.tiene(p));
   if (faltan.length === 0) return null;
   const lineas = faltan.map((p) => `/plugin install ${p}`);
   if (faltan.includes('superpowers@superpowers-marketplace')) {
