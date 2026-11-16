@@ -246,3 +246,18 @@ test('migrar sin docs/backlog.md crea la copia con las columnas de la central', 
   assert.doesNotMatch(r.out, /Ojo/);
   assert.equal(parsearBacklog(fs.readFileSync(path.join(raiz, 'docs', 'backlog.md'), 'utf8'))[0].Responsable, 'Ana');
 });
+
+test('PLG-BKL2: grupos de filas separados por líneas en blanco son un solo backlog (no se duplica la fila)', async () => {
+  const { upsertEnArchivo } = await import('../plugin/scripts/lib/backlog.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grupos-'));
+  const f = path.join(dir, 'backlog.md');
+  const texto = `# Backlog\n\n${ENC}${fila('A', 'Pendiente')}\n${fila('B', 'En curso')}\nNota suelta.\n\n${fila('C', 'Pendiente')}\n## Notas\n\n| Fecha | Nota |\n|---|---|\n| 2026 | algo |\n`;
+  fs.writeFileSync(f, texto);
+  assert.deepEqual(parsearBacklog(texto).map((x) => x['Código']), ['A', 'B', 'C']);
+  assert.equal(upsertEnArchivo(f, 'B', { Estado: 'Hecho 16/11/2026' }), 'actualizada');
+  assert.deepEqual(fusionarEnArchivo(f, parsearBacklog(ENC + fila('C', 'Hecho 1/1/2026'))), { agregadas: [], actualizadas: ['C'] });
+  const despues = fs.readFileSync(f, 'utf8');
+  assert.deepEqual(parsearBacklog(despues).map((x) => [x['Código'], x.Estado]), [['A', 'Pendiente'], ['B', 'Hecho 16/11/2026'], ['C', 'Hecho 1/1/2026']]);
+  assert.match(despues, /Nota suelta\.\n\n\| C /);
+  assert.match(despues, /\| 2026 \| algo \|\n$/);
+});

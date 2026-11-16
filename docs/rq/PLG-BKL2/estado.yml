@@ -1,0 +1,113 @@
+codigo: PLG-BKL2
+tipo: bug
+clasificacion: bounded
+clasificacion_pendiente: false
+tarea: 'Plugin — el backlog con filas separadas por líneas en blanco bajo un solo encabezado: abrir y cerrar duplican la fila (regresión de la 4.6.0)'
+etapa: 0
+autonomia:
+  hasta: 4
+  frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+  fecha: '2026-11-16T19:42:13.420Z'
+  via: sesion-total
+aprobaciones:
+  - etapa: 1
+    frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+    fecha: '2026-11-16T19:42:37.430Z'
+    via: sesion-total
+tests:
+  ok: true
+  arbol: f5b6dd726e64fdbef956dd5be6e9ee5c9167308c
+  fecha: '2026-11-16T19:44:05.578Z'
+  comandos:
+    - npm test
+revision: null
+circuito: []
+saltos: []
+base: 59a2830febb396065e540af766540cb0121d0fdb
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-16T19:44:05.581Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:bacg-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: plugin-dev:create-plugin
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: plugin-dev:plugin-validator
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: plugin-dev:skill-reviewer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T19:42:13.311Z'
+    via: sesion
+  - skill: superpowers:systematic-debugging
+    etapa: 1
+    fecha: '2026-11-16T19:43:30.255Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+clasificacion_confirmada:
+  frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+  fecha: '2026-11-16T19:42:13.420Z'
+  via: sesion-total
+ejecucion:
+  modo: inline
+  frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+  fecha: '2026-11-16T19:42:37.430Z'
+  via: sesion-total

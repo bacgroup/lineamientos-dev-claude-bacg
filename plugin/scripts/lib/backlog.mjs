@@ -41,17 +41,30 @@ function partir(linea) {
   return linea.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim());
 }
 
+const esSeparador = (l) => /^\|\s*:?-/.test(String(l ?? '').trim());
+
+/**
+ * Índices de las filas de datos del backlog a partir de su encabezado `iEnc`. La tabla sigue hasta el final del archivo
+ * o hasta que empieza OTRA tabla (una fila seguida de una línea separadora): líneas en blanco o texto entre grupos de
+ * filas no la cortan (PLG-BKL2), y una tabla posterior con su propio encabezado (notas, glosario) no es backlog.
+ */
+function indicesDeFilas(lineas, iEnc) {
+  const out = [];
+  for (let i = iEnc + 1; i < lineas.length; i++) {
+    if (!esFila(lineas[i])) continue;
+    if (esSeparador(lineas[i + 1])) break;
+    out.push(i);
+  }
+  return out;
+}
+
 /** Filas de un texto de backlog como objetos { Código, Tarea, ... } (sin el encabezado). */
 export function parsearBacklog(texto) {
-  // Sólo la primera tabla del archivo: una tabla posterior (notas, glosario) no son filas del backlog.
   const lineas = String(texto ?? '').split(/\r?\n/);
   const ini = lineas.findIndex(esFila);
   if (ini === -1) return [];
-  let fin = ini;
-  while (fin + 1 < lineas.length && /^\|/.test(lineas[fin + 1].trim())) fin++;
-  const filas = lineas.slice(ini, fin + 1).filter(esFila);
-  const cols = partir(filas[0]);
-  return filas.slice(1).map((l) => Object.fromEntries(partir(l).map((v, i) => [cols[i] ?? COLUMNAS[i] ?? `c${i}`, v])));
+  const cols = partir(lineas[ini]);
+  return indicesDeFilas(lineas, ini).map((k) => Object.fromEntries(partir(lineas[k]).map((v, i) => [cols[i] ?? COLUMNAS[i] ?? `c${i}`, v])));
 }
 
 /** Filas de un archivo de backlog ([] si no existe). */
@@ -96,10 +109,10 @@ function abrirTabla(archivo) {
 abrirTabla.desde = (lineas, iEnc) => {
   const cols = partir(lineas[iEnc]);
   const filas = new Map();
+  // Las filas nuevas van al final del primer grupo contiguo; los códigos se buscan en todos los grupos de la tabla.
   let ultima = iEnc;
-  for (let i = iEnc + 1; i < lineas.length && /^\|/.test(lineas[i].trim()); i++) {
-    ultima = i;
-    if (!esFila(lineas[i])) continue;
+  while (ultima + 1 < lineas.length && /^\|/.test(lineas[ultima + 1].trim())) ultima++;
+  for (const i of indicesDeFilas(lineas, iEnc)) {
     const c = partir(lineas[i])[0];
     if (c && !filas.has(c)) filas.set(c, i);
   }
