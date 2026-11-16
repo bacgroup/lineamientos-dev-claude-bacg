@@ -1,0 +1,104 @@
+codigo: PLG-CLOUD
+tipo: rq
+clasificacion: arquitectonico
+clasificacion_pendiente: false
+tarea: 'Plugin — la experiencia en Claude Code en la nube (handoff PowerFy 16/11): GitHub por REST sin gh auth, odoo-skills por git anónimo, compuertas que ven escrituras por Bash y --sin-previa con frase, fetch real en el alta, plugins sincronizados, rojos de Odoo, specs en qa/, bundles compartidos y documentación.'
+etapa: 0
+autonomia:
+  hasta: 4
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-16T16:46:13.227Z'
+  via: sesion-total
+aprobaciones:
+  - etapa: 1
+    frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+    fecha: '2026-11-16T16:48:04.808Z'
+    via: sesion-total
+tests: null
+revision: null
+circuito: []
+saltos: []
+base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-16T16:48:04.810Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:bacg-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: plugin-dev:create-plugin
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: plugin-dev:plugin-validator
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: plugin-dev:skill-reviewer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T16:46:13.157Z'
+    via: sesion
+clasificacion_confirmada:
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-16T16:46:13.227Z'
+  via: sesion-total
+ejecucion:
+  modo: inline
+  frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
+  fecha: '2026-11-16T16:48:04.808Z'
+  via: sesion-total
