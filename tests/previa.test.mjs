@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { main } from '../plugin/scripts/rq.mjs';
 import { validacionPrevia, ramaDev, modulosDe } from '../plugin/scripts/lib/previa.mjs';
 import { buscarRepo } from '../plugin/scripts/lib/config.mjs';
+import { sesionDePrueba } from './helpers.mjs';
 
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), p));
@@ -203,10 +204,10 @@ test('previa: backlog remoto (upstream de la copia de lineamientos), atraso de l
   assert.deepEqual(r.bloqueos, []);
 });
 
-async function correrCli(cwd, args, env) {
+async function correrCli(cwd, args, env, home) {
   let out = '';
   let err = '';
-  const code = await main(args, { cwd, env: { ...process.env, ...env }, stdout: { write: (s) => { out += s; } }, stderr: { write: (s) => { err += s; } } });
+  const code = await main(args, { cwd, ...(home ? { home } : {}), env: { ...process.env, ...env }, stdout: { write: (s) => { out += s; } }, stderr: { write: (s) => { err += s; } } });
   return { code, out, err };
 }
 
@@ -220,7 +221,9 @@ test('abrir: corre la previa, frena un código tomado y --sin-previa lo deja pas
   assert.match(r.out, /Validación previa:\nProyecto: demo/);
   assert.match(r.err, /No abro R-2: parece que ya se está trabajando\.\n- en demo-app ya existe la rama origin\/rq\/R-2/);
   assert.equal(fs.existsSync(path.join(raiz, 'docs', 'rq', 'R-2', 'estado.yml')), false);
-  r = await correrCli(raiz, ['abrir', 'R-2', '--tipo', 'rq', '--clasificacion', 'bounded', '--sin-previa'], env);
+  // PLG-CLOUD: saltear la previa pide la frase del usuario.
+  const sesion = sesionDePrueba('Abrí R-2 sin la validación previa');
+  r = await correrCli(raiz, ['abrir', 'R-2', '--tipo', 'rq', '--clasificacion', 'bounded', '--sin-previa', '--frase', 'Abrí R-2 sin la validación previa'], { ...env, ...sesion.env }, sesion.home);
   assert.equal(r.code, 0, r.err);
   assert.doesNotMatch(r.out, /Validación previa/);
   assert.match(r.out, /RQ R-2 abierto/);

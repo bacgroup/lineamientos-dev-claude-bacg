@@ -16,8 +16,8 @@ aprobaciones:
     via: sesion-total
 tests:
   ok: true
-  arbol: c8a937520ad21b2fbf1bc84cf1fee38279c7980f
-  fecha: '2026-11-16T16:59:20.797Z'
+  arbol: 64f984f40eca1fc772cbf21ea48c85d243d28305
+  fecha: '2026-11-16T17:03:50.198Z'
   comandos:
     - npm test
 revision: null
@@ -26,7 +26,7 @@ saltos: []
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T16:59:20.800Z'
+actualizado: '2026-11-16T17:03:50.201Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0

@@ -35,7 +35,7 @@ import { dirLineamientos, buscarRepo, cargarProyecto, nombreRepo } from './confi
 import { relativaAlRepo, tipoArchivo } from './rutas.mjs';
 import { rqsActivos, cargarEstado, etapaCumplida, saltoValido } from './estado.mjs';
 import { cli, comandosTests, comandoE2e, PISTA_SIN_TESTS } from './cli.mjs';
-import { norm, proyectosRegistrados } from './contexto.mjs';
+import { norm, proyectosRegistrados, proyectoRegistrado } from './contexto.mjs';
 import { proyectosLocales } from './proyectos-locales.mjs';
 import { rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { faltaAntes, rutasDelRq, hechoEnRealidad, migracionesEnSync } from './circuito.mjs';
@@ -66,7 +66,8 @@ function pushDeLaRamaActual(op, raiz) {
     return origen === 'HEAD' || (rama !== 'HEAD' && origen === rama);
   });
 }
-import { escrituraProhibida } from './compuerta-edicion.mjs';
+import { escrituraProhibida, evaluarEdicion } from './compuerta-edicion.mjs';
+import { reglas44 } from './reglas.mjs';
 import { fraseDelUsuario, vecesQueLoDijo } from './transcript.mjs';
 import { choqueE2e, msgE2eEnCurso } from './e2e-lock.mjs';
 
@@ -632,8 +633,27 @@ function escriturasProhibidas(rutas, dir) {
     const abs = resolverDir(dir, r);
     const motivo = escrituraProhibida(abs);
     if (motivo) ops.push({ op: 'escritura', dir, ruta: abs, motivo });
+    // PLG-CLOUD: además, lo que se escribe en un repo pasa por la compuerta de edición (reglas 4.4).
+    else ops.push({ op: 'edicion', dir, ruta: abs });
   }
   return ops;
+}
+
+// python -c / node -e: archivos que el código abre para escribir (best effort, literales entre comillas).
+const RE_ESCRIBE_PY = [
+  /\bopen\(\s*['"]([^'"]+)['"]\s*,\s*['"][^'"]*[wax+][^'"]*['"]/g,
+  /\bPath\(\s*['"]([^'"]+)['"]\s*\)\.write_(?:text|bytes)\(/g,
+];
+const RE_ESCRIBE_JS = [/\b(?:writeFileSync|appendFileSync|writeFile|appendFile|createWriteStream)\(\s*['"`]([^'"`]+)['"`]/g];
+
+function escriturasDeIntérprete(cmd, args) {
+  const flag = /^python/.test(cmd) ? '-c' : '-e';
+  const k = args.findIndex((a) => a === flag || (cmd === 'node' && (a === '--eval' || a === '-p')));
+  if (k === -1 || args[k + 1] === undefined) return null;
+  const codigo = args[k + 1];
+  const out = [];
+  for (const re of /^python/.test(cmd) ? RE_ESCRIBE_PY : RE_ESCRIBE_JS) for (const m of codigo.matchAll(re)) out.push(m[1]);
+  return out;
 }
 
 // `info.resuelto` queda en true si el segmento es `git <subcomando conocido>` o `gh <subcomando conocido>`.
@@ -688,6 +708,10 @@ function analizarSegmento(palabras, estado, compartido, entradas = [], info = {}
     return shellSinC(dir, entradas, compartido);
   }
   if (ESCRIBEN[cmd]) return escriturasProhibidas(ESCRIBEN[cmd](args, dir), dir);
+  if (cmd === 'python' || cmd === 'python3' || cmd === 'node') {
+    const rutas = escriturasDeIntérprete(cmd, args);
+    if (rutas) return escriturasProhibidas(rutas, dir);
+  }
   if (cmd === 'node') {
     const op = fraseDeRq(args, dir);
     if (op) return [op];
@@ -817,9 +841,11 @@ const RED_SHELL_MERGE = /\bgh\b[\s\S]*\bmerge\b/;
  * Operaciones git relevantes del comando: [{ op: 'commit'|'push'|'merge-pr', dir, todos?, rutas?, previo?, repoGh?, red? }].
  * `red: true` = la agregó la red de seguridad (no la vio el parser): bloquea, pero post-tool no la registra.
  */
-export function operacionesGit(comando, cwd) {
+/** Operaciones del comando, incluidas las escrituras a archivos de un repo (`edicion`, PLG-CLOUD). */
+export function operacionesGit(comando, cwd, { conEdiciones = false } = {}) {
   const compartido = { indice: false, shells: [] };
-  const ops = analizar(comando, cwd, compartido);
+  const todas = analizar(comando, cwd, compartido);
+  const ops = conEdiciones ? todas : todas.filter((o) => o.op !== 'edicion');
   // Un shell sin -c ejecuta texto que no siempre se puede reconstruir: si el comando completo (con comillas)
   // menciona git … push o gh … merge, se agrega la operación en la carpeta de cada shell que no la tenga.
   const texto = String(comando ?? '');
@@ -1367,6 +1393,7 @@ const RE_SUB_FRASE = /\b(?:aprobar|autonomia|saltar|clasificacion|ejecucion|lote
 const RE_OPCION_CLASIFICACION = /(^|\s)--clasificacion(?:=|\s+)(['"]?)(?:exploracion|acotado|arquitectonico|spike|bounded)\2(?=$|[\s;&|])/gi;
 
 // Asignación (`X=…`, `export X=…`, `env X=…`, `$env:X = …`, `set X=…`) o borrado (`unset`, `env -u`) de la variable.
+const RE_FIJA_SIN = /BACG_DEV_SIN_(?:PREVIA|ALTA|GH)\s*[+:]?=/;
 const RE_FIJA_SESION = /CLAUDE_CODE_SESSION_ID\s*[+:]?=|(?:unset|env\s+-u|Remove-Item\s+env:)\s*CLAUDE_CODE_SESSION_ID|\[Environment\]::SetEnvironmentVariable\(\s*['"]CLAUDE_CODE_SESSION_ID/i;
 
 function mencionesDeRq(texto) {
@@ -1400,8 +1427,32 @@ function redDeFrases(texto, ops) {
  * Decide si un comando Bash (o PowerShell) puede correr.
  * ctx = { textosUsuario, real?, sedes? } (real y sedes, inyectables en los tests). Devuelve { decision, motivo?, critica }.
  */
+/**
+ * PLG-CLOUD (hallazgo 16): una escritura por Bash a un archivo de un repo pasa por la misma compuerta que Edit/Write,
+ * si algún RQ activo sigue las reglas 4.4 (o no hay RQ y el proyecto no se quedó en la 4.3). Fuera de un repo, en
+ * docs/tests o con la compuerta de edición conforme, pasa. null = allow.
+ */
+function evaluarEdicionPorBash(op, ctx, dirLin) {
+  const repo = buscarRepo(path.dirname(op.ruta));
+  if (!repo) return null;
+  const proyecto = proyectoRegistrado(repo.proyectoId, dirLin, repo.raiz);
+  const activos = rqsActivos(repo.raiz);
+  const aplica = activos.length
+    ? activos.some((c) => {
+      try {
+        return reglas44(cargarEstado(repo.raiz, c));
+      } catch {
+        return false;
+      }
+    })
+    : Number(proyecto?.reglas) !== 43;
+  if (!aplica) return null;
+  const r = evaluarEdicion({ raiz: repo.raiz, proyecto, rutaArchivo: op.ruta, ctx: { ...(ctx ?? {}), skills: ctx?.skills ?? new Set() } });
+  return r?.decision === 'deny' ? deny(`Escritura por Bash a ${path.relative(repo.raiz, op.ruta).split(path.sep).join('/')}: ${r.motivo} Escribir el archivo con Bash no esquiva la compuerta de edición.`) : null;
+}
+
 export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
-  const ops = operacionesGit(comando, cwd);
+  const ops = operacionesGit(comando, cwd, { conEdiciones: true });
   const texto = String(comando ?? '');
   // Mientras rq.mjs verificar corre el E2E, el mismo script no se lanza a mano (en cualquier carpeta).
   const choque = choqueE2e(texto);
@@ -1410,6 +1461,12 @@ export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
   // otra sesión. Nunca se cambia a mano.
   if (RE_FIJA_SESION.test(texto) && buscarRepo(cwd)) {
     return { ...deny('El comando fija CLAUDE_CODE_SESSION_ID: rq.mjs usa la sesión en curso, la que pone Claude Code. Corrélo sin cambiar esa variable.'), critica: false };
+  }
+  // PLG-CLOUD: fijar BACG_DEV_SIN_PREVIA/ALTA/GH al correr rq.mjs es saltear la previa, el alta o GitHub sin la frase
+  // del usuario (`abrir --sin-previa --frase "<frase>"`). La variable del entorno (configuración de la PC o la nube) no
+  // está en el comando y no se toca.
+  if (/rq\.mjs/i.test(texto) && RE_FIJA_SIN.test(texto)) {
+    return { ...deny('El comando fija una variable BACG_DEV_SIN_* para correr rq.mjs: eso saltea un control sin la decisión del usuario. Para saltear la previa o el alta, pedíselo y usá abrir --sin-previa|--sin-alta --frase "<su frase>".'), critica: false };
   }
   if (redDeFrases(texto, ops) && buscarRepo(cwd)) {
     return { ...deny(`El comando nombra rq.mjs con aprobar, autonomia, saltar, clasificacion, ejecucion o lote en una forma que la compuerta no puede leer. Corrélo con la ruta literal, node "<ruta>/rq.mjs" <subcomando> "<frase>" (la de la línea CLI del RQ del arranque), o como ${cli()} <subcomando> "<frase>" con RQ asignado en el mismo comando (RQ="node <ruta>/rq.mjs"; ${cli()} …); sin node -e, eval ni otra variable en el medio.`), critica: false };
@@ -1430,6 +1487,7 @@ export function evaluarBash({ comando, cwd, ctx, dirLin = dirLineamientos() }) {
     try {
       if (destinos[i]?.inesperado) throw destinos[i].inesperado;
       if (op.op === 'escritura') r = deny(op.motivo);
+      else if (op.op === 'edicion') r = evaluarEdicionPorBash(op, ctx, dirLin);
       else if (op.op === 'frase') r = evaluarFrase(op, ctx);
       else if (op.op === 'push' && destinos[i]?.soloPr) {
         r = deny(`${destinos[i].nombre}: ${destinos[i].soloPr} sólo recibe cambios por PR. Pusheá tu rama (git push -u origin <rama>) y abrí un PR a ${destinos[i].soloPr} (gh pr create --base ${destinos[i].soloPr}).`);

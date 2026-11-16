@@ -53,7 +53,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
   odoo-skills [--rama <rama>]              (instala en ~/.claude/skills (o CLAUDE_CONFIG_DIR/skills) las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
   previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
-  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa] [--llevar-cambios]
+  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa] [--frase "<frase del usuario para saltear alta o previa>"] [--llevar-cambios]
   clasificacion confirmar "<frase>"   (el usuario confirma la clasificación propuesta; hasta entonces no se edita código)
   clasificacion cambiar <exploracion|acotado|arquitectonico> "<frase>"   (cambia y confirma; la frase es texto literal del usuario)
   ejecucion inline|subagentes "<frase>"   (cómo se ejecuta el plan, antes del primer commit de código; acepta executing-plans y subagent-driven-development)
@@ -353,9 +353,18 @@ function previa(repo, env, codigo, nuevo) {
 
 async function abrir(repo, args, env, io, verificacion) {
   const raiz = repo.raiz;
-  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
+  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto', 'frase'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
   if (posicionales.length !== 1 || !res.tipo || !res.clasificacion) throw new ErrorUso();
   exigirProyectoUnico(repo);
+  // PLG-CLOUD (hallazgo 15): saltear el alta o la previa lo decide el usuario, con su frase.
+  for (const flag of ['sin-alta', 'sin-previa']) {
+    const env43 = flag === 'sin-alta' ? env.BACG_DEV_SIN_ALTA : env.BACG_DEV_SIN_PREVIA;
+    if (res[flag] !== true || env43 === '1') continue;
+    if (typeof res.frase !== 'string' || !res.frase.trim()) {
+      throw new ErrorCli(`--${flag} saltea un control y lo decide el usuario: pedíselo y pasá su respuesta literal con --frase "<su frase>".`);
+    }
+    await verificarFrase(res.frase, verificacion, null);
+  }
   // Alta de la PC: sin los pasos obligatorios (tests, lineamientos…) no se abre un RQ. --sin-alta sólo si el usuario
   // lo pide con sus palabras (p. ej. un RQ de sólo documentación).
   if (res['sin-alta'] !== true && env.BACG_DEV_SIN_ALTA !== '1') {
