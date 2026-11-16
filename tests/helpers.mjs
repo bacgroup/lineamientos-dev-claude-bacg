@@ -65,6 +65,18 @@ export function sesionDePrueba(...frases) {
   return { id, home, ruta, env: { CLAUDE_CODE_SESSION_ID: id, HOME: home, USERPROFILE: home }, dijo, entrada };
 }
 
+/**
+ * Copia temporal del fixture de lineamientos para los tests de la 4.4: sin `reglas: 43`, los RQ que se abren toman las
+ * reglas de cumplimiento nuevas.
+ */
+export function lineamientos44() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lin44-'));
+  fs.cpSync(path.join(RAIZ, 'tests', 'fixtures', 'lineamientos'), dir, { recursive: true });
+  const py = path.join(dir, 'proyectos', 'demo', 'proyecto.yml');
+  fs.writeFileSync(py, fs.readFileSync(py, 'utf8').replace(/^reglas: 43\n/m, ''));
+  return dir;
+}
+
 /** La frase del usuario que registra un comando de rq.mjs (aprobar, autonomia, saltar, clasificacion, ejecucion), o null. */
 export function fraseDe(args) {
   const a = args.filter((x, i) => x !== '--rq' && args[i - 1] !== '--rq');

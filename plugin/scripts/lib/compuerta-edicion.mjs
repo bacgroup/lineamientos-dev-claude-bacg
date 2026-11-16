@@ -10,6 +10,8 @@ import { dentroDeAddon, usaOdoo } from './odoo-skills.mjs';
 import { ETAPA } from './etapas.mjs';
 import { nombreDe } from './clasificacion.mjs';
 import { dirConfigClaude, dirSesiones } from './sesiones.mjs';
+import { reglas44 } from './reglas.mjs';
+import { faltasDisenoUi } from './diseno-ui.mjs';
 
 const allow = () => ({ decision: 'allow' });
 const deny = (motivo) => ({ decision: 'deny', motivo });
@@ -139,15 +141,30 @@ export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
       continue;
     }
     if (tipo === 'ui') {
-      const skills = new Set([...skillsSesion, ...skillsDe(estado)]);
+      const r44 = reglas44(estado);
+      // P-4 (4.4): las skills de UI valen por contexto. Una compactación las saca del contexto aunque sigan anotadas en
+      // el RQ; sin el transcript (primera pasada del hook) no se sabe qué hay en el contexto y se niega para leerlo.
+      const skills = r44 ? new Set(ctx?.skillsContexto ?? []) : new Set([...skillsSesion, ...skillsDe(estado)]);
       const existe = fs.existsSync(path.resolve(raiz, rel));
       const menor = saltoValido(estado, 'ui');
       const faltan = skillsRefuerzoUi(rel, proyecto, existe, menor).filter((s) => !skillCargada(skills, s));
       if (faltan.length > 0) {
+        const porContexto = r44 && faltan.some((s) => skillCargada(new Set([...skillsSesion, ...skillsDe(estado)]), s))
+          ? ' Ya se cargó antes, pero una compactación la sacó del contexto: volvé a cargarla (el canon vale por contexto).'
+          : '';
         ultimo = ultimo ?? deny(
-          `Cambio de UI${existe ? ' en una pantalla existente' : ''}: cargá antes la skill ${faltan.join(', ')} (refuerzo de UI y canon del proyecto).${menor ? '' : PISTA_MENOR}`,
+          `Cambio de UI${existe ? ' en una pantalla existente' : ''}: cargá antes la skill ${faltan.join(', ')} (refuerzo de UI y canon del proyecto).${porContexto}${menor ? '' : PISTA_MENOR}`,
         );
         continue;
+      }
+      if (r44 && !menor) {
+        const faltaDiseno = faltasDisenoUi(raiz, codigo);
+        if (faltaDiseno.length) {
+          ultimo = ultimo ?? deny(
+            `Cambio de UI: antes de editar, ## Diseño de docs/rq/${codigo}/spec.md necesita la evidencia del diseño (diseno-frontend): ${faltaDiseno.join('; ')}.${PISTA_MENOR}`,
+          );
+          continue;
+        }
       }
       if (!menor && !seccionDiseno(raiz, codigo)) {
         ultimo = ultimo ?? deny(

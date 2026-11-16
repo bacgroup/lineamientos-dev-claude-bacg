@@ -1,0 +1,63 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: con `autonomia total`, un Arquitectónico pasa de la etapa 0 a DEV con una sola frase del usuario. PROD sigue pidiendo `aprobar 5`.
+    archivos: [plugin/scripts/rq.mjs]
+    test: tests/ok-flexible.test.mjs > autonomia total (etapaCumplida 4 true, 5 false)
+    estado: hecho
+  - id: S-2
+    texto: '`ok "<frase>"` registra de una vez todas las decisiones pendientes hasta DEV, y la frase cuenta como un solo uso.'
+    archivos: [plugin/scripts/rq.mjs]
+    test: tests/ok-flexible.test.mjs > ok (grupos únicos y segundo uso rechazado)
+    estado: hecho
+  - id: S-3
+    texto: sólo en ok con reglas 4.4, la frase vale como tramo inicial de una oración si aprueba con un verbo explícito sin negar, frenar, condicionar ni postergar; aprobar 5, saltar y la 4.3 piden la oración entera.
+    archivos: [plugin/scripts/lib/ok.mjs, plugin/scripts/lib/transcript.mjs]
+    test: tests/ok-flexible.test.mjs > tramo de aprobación (incluye negación, freno y postergación)
+    estado: hecho
+  - id: S-4
+    texto: un RQ de ciclo 4.4 exige writing-plans, TDD y la skill de ejecución antes del primer commit de código, y requesting-code-review y verification-before-completion en la etapa 3.
+    archivos: [plugin/scripts/lib/requisitos.mjs]
+    test: tests/superpowers-eje.test.mjs
+    estado: hecho
+  - id: S-5
+    texto: revision ok exige las pasadas code-reviewer, pr-test-analyzer y revisor-rq (registradas por el hook o la transcripción); la revisión vence con commits de código posteriores.
+    archivos: [plugin/scripts/lib/requisitos.mjs, plugin/scripts/lib/hooks/post-tool.mjs, plugin/scripts/lib/transcript.mjs, plugin/hooks/hooks.json, plugin/agents/revisor-rq.md, plugin/scripts/rq.mjs]
+    test: tests/revision-calidad.test.mjs
+    estado: hecho
+  - id: S-6
+    texto: editar UI (salvo cambio menor) exige en ## Diseño Journey, Mockups, Referencias leídas y Paridad.
+    archivos: [plugin/scripts/lib/diseno-ui.mjs, plugin/scripts/lib/compuerta-edicion.mjs]
+    test: tests/journey-mockups.test.mjs > 4.4 editar UI sin journey o sin mockup se niega
+    estado: hecho
+  - id: S-7
+    texto: las skills de UI valen por contexto; después de una compactación, la compuerta de UI las vuelve a pedir.
+    archivos: [plugin/scripts/lib/transcript.mjs, plugin/scripts/lib/compuerta-edicion.mjs, plugin/scripts/lib/hooks/pre-tool.mjs]
+    test: tests/journey-mockups.test.mjs > P-4 y skillsContexto
+    estado: hecho
+  - id: S-8
+    texto: con UI, verificar --local exige capturas a 390, 768 y 1280 y ref-*.png si hay referencia.
+    archivos: [plugin/scripts/lib/diseno-ui.mjs, plugin/scripts/rq.mjs]
+    test: tests/journey-mockups.test.mjs > verificar --local de un RQ con UI
+    estado: hecho
+  - id: S-9
+    texto: devolucion lleva la lista cerrada; al segundo punto del mismo elemento corta la iteración; la revisión ok exige que no queden pendientes.
+    archivos: [plugin/scripts/lib/devoluciones.mjs, plugin/scripts/lib/requisitos.mjs, plugin/scripts/rq.mjs]
+    test: tests/devoluciones-traza.test.mjs > devolucion
+    estado: hecho
+  - id: S-10
+    texto: trazar arma traza.yml desde el spec y la revisión ok exige estado por ítem y test en los hechos.
+    archivos: [plugin/scripts/lib/traza.mjs, plugin/scripts/lib/requisitos.mjs, plugin/scripts/rq.mjs]
+    test: tests/devoluciones-traza.test.mjs > trazar
+    estado: hecho
+  - id: S-11
+    texto: el diseño de un Arquitectónico de ciclo 4.4 exige ### Criterios centrales.
+    archivos: [plugin/scripts/rq.mjs]
+    test: tests/devoluciones-traza.test.mjs > 4.4 Arquitectónico aprobar 1 sin Criterios centrales
+    estado: hecho
+  - id: S-12
+    texto: E2E del plugin (npm run test:e2e) y npm test sin rojos nuevos.
+    archivos: [package.json, tests/reporter-fallos.mjs, .bacg-dev/proyecto.yml]
+    test: npm run test:e2e (rq verificar ok) y npm test (646 pass; 2 rojos conocidos de gh)
+    estado: hecho

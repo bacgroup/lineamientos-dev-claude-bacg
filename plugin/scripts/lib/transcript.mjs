@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import readline from 'node:readline';
 import path from 'node:path';
+import { tramosDeAprobacion } from './ok.mjs';
 
 // Envoltorios que inyecta el sistema o la app dentro de mensajes "user" (avisos, eventos de CI y de otras sesiones,
 // mensajes de agentes, elementos de una página); una etiqueta sin cerrar se come hasta el final.
@@ -57,10 +58,13 @@ export function mismaFrase(a, b) {
  * coma no separa: en "Dale, pero mañana" "Dale" no es una oración). Más estricto que fraseDelUsuario: un tramo
  * suelto de una oración no cuenta.
  */
-export function vecesQueLoDijo(frase, textosUsuario) {
+export function vecesQueLoDijo(frase, textosUsuario, { flexible = false } = {}) {
   if (paraComparar(frase ?? '') === '') return 0;
+  // Sólo `rq.mjs ok` con reglas 4.4 (flexible): además, una oración cuenta si la frase es su tramo inicial de aprobación
+  // ("Sí, dale" en "Sí, dale, el diseño está bien"); ver ok.mjs. Todo lo demás, oración entera.
+  const cuenta = (o) => mismaFrase(o, frase) || (flexible && tramosDeAprobacion(o, paraComparar).some((t) => mismaFrase(t, frase)));
   return textosUsuario.reduce(
-    (n, t) => n + (mismaFrase(t, frase) ? 1 : String(t).split(/[.!?¡¿;\n]+|\s\+\s/).filter((o) => mismaFrase(o, frase)).length),
+    (n, t) => n + (mismaFrase(t, frase) ? 1 : String(t).split(/[.!?¡¿;\n]+|\s\+\s/).filter(cuenta).length),
     0,
   );
 }
@@ -105,6 +109,10 @@ function skillsDe(entry) {
   if (entry?.type !== 'assistant' || !Array.isArray(entry.message?.content)) return out;
   for (const b of entry.message.content) {
     if (b?.type === 'tool_use' && b.name === 'Skill' && typeof b.input?.skill === 'string') out.push(b.input.skill);
+    // Subagentes de un plugin (pasadas de revisión): cuentan como skills, igual que los anota el hook PostToolUse.
+    else if (b?.type === 'tool_use' && (b.name === 'Agent' || b.name === 'Task') && typeof b.input?.subagent_type === 'string' && b.input.subagent_type.includes(':')) {
+      out.push(b.input.subagent_type);
+    }
   }
   return out;
 }
@@ -121,6 +129,8 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
   const textosUsuario = [];
   const skills = new Set();
+  // Skills cargadas desde la última compactación: las que siguen en el contexto del modelo (P-4).
+  let skillsContexto = new Set();
   let primera = true;
   try {
     for await (const linea of rl) {
@@ -135,9 +145,13 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
       } catch {
         continue;
       }
+      if ((entry?.type === 'system' && entry.subtype === 'compact_boundary') || entry?.isCompactSummary === true) skillsContexto = new Set();
       const t = textoHumano(entry);
       if (t !== null) textosUsuario.push(t);
-      for (const s of skillsDe(entry)) skills.add(s);
+      for (const s of skillsDe(entry)) {
+        skills.add(s);
+        skillsContexto.add(s);
+      }
     }
   } catch {
     throw new Error('TRANSCRIPT_NO_DISPONIBLE');
@@ -145,7 +159,7 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
     rl.close();
     stream.destroy();
   }
-  return { textosUsuario, skills };
+  return { textosUsuario, skills, skillsContexto };
 }
 
 // Herramientas cuya entrada nombra un archivo que la sesión leyó o cambió.

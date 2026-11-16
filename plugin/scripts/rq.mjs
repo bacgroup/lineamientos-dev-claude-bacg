@@ -11,7 +11,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
 import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
-import { faltaParaEtapa, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
+import { faltaParaEtapa, pasadasSinRepetir, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, rutaBacklog, leerBacklog } from './lib/backlog.mjs';
@@ -34,6 +34,10 @@ import { RE_SESION, dirSesiones, homeReal, transcripcionRegistrada } from './lib
 import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
 import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 import { avisoMergeado } from './lib/rq-rama.mjs';
+import { REGLAS_ACTUALES, reglas44 } from './lib/reglas.mjs';
+import { faltasCapturas, refExigida } from './lib/diseno-ui.mjs';
+import { agregar as agregarDevolucion, marcar as marcarDevolucion, listado as listadoDevoluciones, PROTOCOLO_CORTE } from './lib/devoluciones.mjs';
+import { trazar as trazarSpec } from './lib/traza.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -54,7 +58,12 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   aprobar <etapa> "<frase>"          (etapa 0-6: 1 diseño y plan, 4 DEV en arquitectónico, 5 PROD; la frase es texto literal del usuario)
   autonomia <hasta> "<frase>"        (hasta 1-4: cubre desarrollo (2) y DEV (4), nunca el diseño ni PROD)
   autonomia sesion "<frase>"         (autonomía de la sesión: en los RQ que se trabajen en esta sesión confirma la clasificación propuesta, aprueba el diseño con ## Diseño y ## Tareas (salvo Arquitectónico) y cubre desarrollo y DEV; nunca PROD)
+  autonomia total "<frase>" [--ejecucion inline|subagentes]   (autonomía total de la sesión: además, en toda clasificación aprueba diseño y plan escritos y registra la ejecución; nunca PROD ni saltos)
   autonomia aplicar                  (aplica la autonomía de la sesión al RQ, p. ej. después de escribir ## Diseño y ## Tareas)
+  ok "<frase>" [--ejecucion inline|subagentes]   (una respuesta del usuario registra todo lo pendiente del RQ hasta DEV: clasificación, diseño y plan escritos, ejecución y autonomía; nunca PROD)
+  reglas actualizar                  (pasa el RQ a las reglas de cumplimiento de la 4.4)
+  devolucion [agregar "<punto>" [--elemento <x>] | <n> hecho|consultado|rechazado "<evidencia>"]   (lista cerrada de devoluciones del usuario; corta la iteración al segundo punto sobre el mismo elemento)
+  trazar                             (arma o completa docs/rq/<código>/traza.yml desde el criterio de aceptación del spec)
   lote aprobar "<frase>" <código>…   (una frase del usuario que nombra los RQ o dice "todos": confirma la clasificación y aprueba el diseño de cada uno; PROD sigue siendo por RQ)
   skills importar                    (anota en el RQ las skills ya cargadas en esta sesión de Claude Code)
   activo reparar                     (rehace docs/rq/ACTIVO con los RQ abiertos que hay en el árbol; resuelve un conflicto de merge)
@@ -137,12 +146,23 @@ function leerLineaDeTerminal(pregunta, stderr) {
 /** Cuántas veces quedó registrada ya una frase en el RQ (aprobaciones, saltos, autonomía, ejecución, clasificación). */
 function usosDeFrase(estado, frase, { sinSesion = false } = {}) {
   let n = 0;
+  // Los registros de un mismo `ok` (via: ok, mismo grupo) son una sola respuesta del usuario: cuentan una vez.
+  const grupos = new Set();
   const visitar = (v, clave) => {
     if (clave === 'frase' && typeof v === 'string' && mismaFrase(v, frase)) n += 1;
     else if (Array.isArray(v)) v.forEach((x) => visitar(x));
     else if (v && typeof v === 'object') {
+      // Un punto de devolución rechazado o consultado lleva como evidencia una frase del usuario: también es un uso.
+      if ((v.estado === 'rechazado' || v.estado === 'consultado') && typeof v.evidencia === 'string' && mismaFrase(v.evidencia, frase)) n += 1;
+      if (v.via === 'ok' && typeof v.grupo === 'string') {
+        if (!grupos.has(v.grupo) && typeof v.frase === 'string' && mismaFrase(v.frase, frase)) {
+          grupos.add(v.grupo);
+          n += 1;
+        }
+        return;
+      }
       // sinSesion: no cuentan los registros de la autonomía de sesión (una frase que vale para varios registros).
-      if (sinSesion && v.via === 'sesion') return;
+      if (sinSesion && (v.via === 'sesion' || v.via === 'sesion-total')) return;
       for (const [k, x] of Object.entries(v)) visitar(x, k);
     }
   };
@@ -183,7 +203,7 @@ async function transcriptDeLaSesion({ env, home }, para) {
  * resúmenes de compactación). Cada vez que el usuario la dijo vale para un solo registro en el RQ. Sin sesión sólo
  * vale desde una terminal interactiva y volviendo a tipear la frase (una persona). Falla cerrada.
  */
-async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, estado) {
+async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, estado, { flexible = false } = {}) {
   const id = env?.CLAUDE_CODE_SESSION_ID;
   if (id === undefined) {
     // Dentro de Claude Code la variable siempre está: si falta, alguien la borró.
@@ -203,7 +223,7 @@ async function verificarFrase(frase, { env, home, tty, leerLinea, stderr }, esta
     return;
   }
   const { textosUsuario: textos } = await transcriptDeLaSesion({ env, home }, 'verificar la frase');
-  const dichas = vecesQueLoDijo(frase, textos);
+  const dichas = vecesQueLoDijo(frase, textos, { flexible });
   if (dichas === 0) {
     throw new ErrorCli(`La frase "${frase}" no aparece en lo que escribió el usuario en esta sesión (tiene que ser un mensaje o una oración enteros). Registrá sólo palabras literales del usuario.`);
   }
@@ -388,6 +408,8 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
       circuito: [],
       saltos: [],
       base: commitHead(raiz),
+      // Reglas de cumplimiento 4.4 por defecto; un proyecto que todavía no las adopta declara `reglas: 43`.
+      ...(Number(proyectoDe(repo, env)?.reglas) === 43 ? {} : { reglas: REGLAS_ACTUALES }),
     };
     // RQ multi-repo: si el mismo código está activo en otro repo del proyecto, hereda lo compartido.
     vinculo = heredar(raiz, repo.proyectoId, proyectoDe(repo, env), nuevo);
@@ -430,41 +452,126 @@ function autonomiaDeSesion({ env, home }) {
 }
 
 /**
- * Aplica la autonomía de sesión al RQ: autonomía hasta DEV, la clasificación propuesta confirmada y, salvo en
- * Arquitectónico, el diseño aprobado si spec.md ya trae ## Diseño y ## Tareas. Nunca PROD. Todo con `via: sesion`.
+ * Qué le falta al diseño escrito para que una autonomía total o un `ok` lo aprueben, o null si está listo:
+ * Exploración y Acotado, ## Diseño y ## Tareas; Arquitectónico, ## Diseño y plan.md (y, con reglas 4.4, ### Criterios
+ * centrales).
+ */
+function faltaDisenoEscrito(raiz, s) {
+  const dir = path.join('docs', 'rq', s.codigo);
+  if (s.clasificacion !== 'arquitectonico') {
+    return disenoEscrito(raiz, s.codigo) ? null : `## Diseño y ## Tareas en ${dir}/spec.md`;
+  }
+  let spec = '';
+  try { spec = fs.readFileSync(path.join(raiz, dir, 'spec.md'), 'utf8'); } catch { /* sin spec */ }
+  const falta = [];
+  if (!/^## Diseño\b/m.test(spec)) falta.push(`## Diseño en ${dir}/spec.md`);
+  if (!fs.existsSync(path.join(raiz, dir, 'plan.md'))) falta.push(`${dir}/plan.md`);
+  if (reglas44(s) && !/^#{2,3}\s*Criterios centrales\b/im.test(spec)) falta.push(`### Criterios centrales en ${dir}/spec.md`);
+  return falta.length ? falta.join(', ') : null;
+}
+
+/**
+ * Registra en `s` las decisiones pendientes hasta DEV con la frase: autonomía hasta DEV, la clasificación propuesta, el
+ * diseño (si `disenoTodas`, también el de un Arquitectónico con su plan) y la ejecución. Nunca PROD ni saltos.
+ * Devuelve { hechos, falta }.
+ */
+function registrarPendientes(raiz, s, { frase, via, grupo, disenoTodas, ejecucion }) {
+  const fecha = ahora();
+  const marca = { frase, fecha, via, ...(grupo ? { grupo } : {}) };
+  const hechos = [];
+  if (!(Number.isInteger(s.autonomia?.hasta) && s.autonomia.hasta >= ETAPA.DEV)) {
+    s.autonomia = { hasta: ETAPA.DEV, ...marca };
+    hechos.push('autonomía hasta DEV');
+  }
+  if (s.clasificacion_pendiente === true) {
+    s.clasificacion_pendiente = false;
+    s.clasificacion_confirmada = { ...marca };
+    hechos.push(`clasificación ${nombreDe(s.clasificacion)} confirmada`);
+  }
+  let falta = '';
+  if (!aprobado(s, ETAPA.DISENO)) {
+    const faltaDiseno = faltaDisenoEscrito(raiz, s);
+    if (s.clasificacion === 'arquitectonico' && !disenoTodas) {
+      falta = ' El diseño de un Arquitectónico lo aprueba el usuario: $RQ aprobar 1 "<su frase>", $RQ ok "<su frase>" o la autonomía total.';
+    } else if (faltaDiseno) {
+      falta = ` Falta ${faltaDiseno} para aprobar el diseño: escribilo y corré $RQ autonomia aplicar --rq ${s.codigo} (o pedile el OK al usuario).`;
+    } else {
+      s.aprobaciones = [...lista(s.aprobaciones), { etapa: ETAPA.DISENO, ...marca }];
+      hechos.push(s.clasificacion === 'arquitectonico' ? 'diseño y plan aprobados' : 'diseño y tareas aprobados');
+    }
+  }
+  if (disenoTodas && !s.ejecucion && aprobado(s, ETAPA.DISENO)) {
+    s.ejecucion = { modo: ejecucion ?? 'inline', ...marca };
+    hechos.push(`ejecución ${s.ejecucion.modo}`);
+  }
+  return { hechos, falta };
+}
+
+/**
+ * Aplica la autonomía de sesión al RQ: autonomía hasta DEV, la clasificación propuesta confirmada y el diseño aprobado
+ * si está escrito (salvo en Arquitectónico, que con la autonomía total y reglas 4.4 también entra, con su plan y la
+ * ejecución). Nunca PROD ni saltos.
  */
 function aplicarAutonomia(repo, env, codigo, aut, io) {
   const raiz = repo.raiz;
+  const total = aut.nivel === 'total';
   cambiarVinculado(repo, env, codigo, io, (s) => {
     if (Number.isInteger(s.etapa) && s.etapa >= ETAPA.CIERRE) return `${codigo}: cerrado, sin cambios.`;
     // La frase de la sesión no puede ser una que ya se registró en este RQ para otra decisión.
     if (usosDeFrase(s, aut.frase, { sinSesion: true }) > 0) {
       return `${codigo}: la frase de la autonomía de sesión ya está registrada en este RQ para otra decisión; no se aplica. Pedile al usuario su decisión para este RQ.`;
     }
-    const fecha = ahora();
-    const hechos = [];
-    if (!(Number.isInteger(s.autonomia?.hasta) && s.autonomia.hasta >= ETAPA.DEV)) {
-      s.autonomia = { hasta: ETAPA.DEV, frase: aut.frase, fecha, via: 'sesion' };
-      hechos.push('autonomía hasta DEV');
-    }
-    if (s.clasificacion_pendiente === true) {
-      s.clasificacion_pendiente = false;
-      s.clasificacion_confirmada = { frase: aut.frase, fecha, via: 'sesion' };
-      hechos.push(`clasificación ${nombreDe(s.clasificacion)} confirmada`);
-    }
-    let falta = '';
-    if (!aprobado(s, ETAPA.DISENO)) {
-      if (s.clasificacion === 'arquitectonico') falta = ' El diseño de un Arquitectónico lo aprueba el usuario: $RQ aprobar 1 "<su frase>" o $RQ lote aprobar.';
-      else if (disenoEscrito(raiz, codigo)) {
-        s.aprobaciones = [...lista(s.aprobaciones), { etapa: ETAPA.DISENO, frase: aut.frase, fecha, via: 'sesion' }];
-        hechos.push('diseño y tareas aprobados');
-      } else falta = ` Falta ## Diseño y ## Tareas en docs/rq/${codigo}/spec.md: escribilos y corré $RQ autonomia aplicar --rq ${codigo}.`;
-    }
-    return `Autonomía de sesión en ${codigo}: ${hechos.length ? hechos.join(', ') : 'ya estaba aplicada'}.${falta} PROD sigue pidiendo $RQ aprobar 5.`;
+    // La autonomía total sólo aprueba diseño, plan y ejecución de un Arquitectónico en los RQ con reglas 4.4; en los de la
+    // 4.3 se aplica como la de sesión de siempre.
+    const conTodo = total && reglas44(s);
+    const { hechos, falta } = registrarPendientes(raiz, s, {
+      frase: aut.frase, via: conTodo ? 'sesion-total' : 'sesion', disenoTodas: conTodo, ejecucion: aut.ejecucion,
+    });
+    return `Autonomía ${total ? 'total ' : ''}de sesión en ${codigo}: ${hechos.length ? hechos.join(', ') : 'ya estaba aplicada'}.${falta} PROD sigue pidiendo $RQ aprobar 5.`;
   });
 }
 
-async function autonomiaSesion(repo, frase, verificacion, env, io) {
+/** La frase de la autonomía de la sesión nunca es el OK de PROD ni un salto, aunque el RQ no la tenga registrada. */
+function noEsLaAutonomia(frase, verificacion, para) {
+  const aut = autonomiaDeSesion(verificacion);
+  if (aut && mismaFrase(aut.frase, frase)) {
+    throw new ErrorCli(`La frase de la autonomía de la sesión no vale para ${para}: pedile al usuario su decisión con otras palabras (una oración distinta de la que dio la autonomía, por ejemplo nombrando el RQ o la acción: "Publicá ${'<código>'} en PROD").`);
+  }
+}
+
+/** La frase y el --ejecucion opcional de `ok` y `autonomia total`. */
+function fraseYEjecucion(args) {
+  const { res, posicionales } = opciones(args, ['ejecucion']);
+  const frase = textoNoVacio(posicionales[0], 'La frase');
+  const ejecucion = res.ejecucion === undefined ? undefined : MODOS_EJECUCION[String(res.ejecucion).trim().toLowerCase()];
+  if (res.ejecucion !== undefined && !ejecucion) throw new ErrorCli(`--ejecucion inválida: "${res.ejecucion}" (inline | subagentes).`);
+  return { frase, ejecucion };
+}
+
+/** `ok "<frase>"`: una respuesta del usuario registra todo lo pendiente del RQ hasta DEV, como un solo uso de la frase. */
+async function okDelUsuario(repo, elegido, args, verificacion, env, io) {
+  const { frase, ejecucion } = fraseYEjecucion(args);
+  const { codigo, estado } = activo(repo.raiz, elegido);
+  if (!reglas44(estado)) throw new ErrorCli(`${codigo} sigue las reglas de la 4.3: \`ok\` no aplica. Pasalo a las de la 4.4 con $RQ reglas actualizar, o registrá cada decisión con su comando (clasificacion, aprobar, ejecucion).`);
+  // Una sola respuesta cubre todo hasta DEV: el diseño (y el plan) tienen que estar escritos antes de pedirla; si no, la
+  // frase se gastaría en la clasificación y habría que pedir otra para el diseño.
+  const faltaDiseno = aprobado(estado, ETAPA.DISENO) ? null : faltaDisenoEscrito(repo.raiz, estado);
+  if (faltaDiseno) throw new ErrorCli(`Antes de pedirle el OK al usuario falta ${faltaDiseno}: escribilo y preguntale una sola vez, así su respuesta cubre la clasificación, el diseño, la ejecución y la autonomía hasta DEV.`);
+  // Sólo acá vale el tramo inicial de una oración ("Sí, dale"): ver ok.mjs.
+  await verificarFrase(frase, verificacion, estado, { flexible: true });
+  let nada = false;
+  cambiarVinculado(repo, env, codigo, io, (s) => {
+    const { hechos, falta } = registrarPendientes(repo.raiz, s, { frase, via: 'ok', grupo: `ok-${ahora()}`, disenoTodas: true, ejecucion });
+    if (hechos.length === 0) {
+      nada = true;
+      return `${codigo}: no hay nada pendiente hasta DEV.${falta}`;
+    }
+    return `OK registrado en ${codigo}: ${hechos.join(', ')}.${falta} PROD sigue pidiendo $RQ aprobar 5.`;
+  });
+  if (nada) throw new ErrorCli(`${codigo}: no hay nada pendiente hasta DEV para registrar con ese OK.`);
+}
+
+async function autonomiaSesion(repo, frase, verificacion, env, io, { nivel = 'sesion', ejecucion } = {}) {
   const id = idDeSesion(verificacion.env, 'registrar una autonomía de sesión');
   await verificarFrase(frase, verificacion, null);
   // Una frase ya usada para una decisión puntual de un RQ abierto no se vuelve aprobación general.
@@ -477,11 +584,14 @@ async function autonomiaSesion(repo, frase, verificacion, env, io) {
   }
   const archivo = archivoAutonomia(verificacion.home, id);
   fs.mkdirSync(path.dirname(archivo), { recursive: true });
-  fs.writeFileSync(archivo, `${JSON.stringify({ frase, fecha: ahora(), repo: repo.raiz })}\n`);
-  io.stdout.write('Autonomía de la sesión registrada: vale para los RQ que se abran o retomen en esta sesión, hasta DEV (nunca PROD).\n');
+  const aut = { frase, fecha: ahora(), repo: repo.raiz, ...(nivel === 'total' ? { nivel, ...(ejecucion ? { ejecucion } : {}) } : {}) };
+  fs.writeFileSync(archivo, `${JSON.stringify(aut)}\n`);
+  io.stdout.write(nivel === 'total'
+    ? 'Autonomía total de la sesión registrada: en los RQ que se abran o retomen en esta sesión confirma la clasificación, aprueba diseño y plan escritos (también en Arquitectónico), registra la ejecución y cubre hasta DEV. Nunca PROD ni saltos.\n'
+    : 'Autonomía de la sesión registrada: vale para los RQ que se abran o retomen en esta sesión, hasta DEV (nunca PROD).\n');
   for (const codigo of rqsActivos(repo.raiz)) {
     if (!fs.existsSync(path.join(repo.raiz, 'docs', 'rq', codigo, 'estado.yml'))) continue;
-    aplicarAutonomia(repo, env, codigo, { frase }, io);
+    aplicarAutonomia(repo, env, codigo, aut, io);
   }
 }
 
@@ -946,6 +1056,12 @@ function verificarLocal(repo, elegido, que, capturas, env, io) {
     }
     if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw new ErrorCli(`La captura "${c}" no existe.`);
     rel.push(path.relative(raiz, abs).split(path.sep).join('/'));
+  }
+  // 4.4 (cambio 1 y lección 13): con UI, las capturas a 390, 768 y 1280 y, si hay referencia, la de la referencia.
+  const estadoRq = activo(raiz, elegido).estado;
+  if (reglas44(estadoRq) && tocaUi(estadoRq, raiz, proyectoDe(repo, env), rutasDelRq(raiz, estadoRq))) {
+    const faltan = faltasCapturas(rel, refExigida(raiz, codigo));
+    if (faltan.length) throw new ErrorCli(`La verificación local de un RQ con UI necesita también: ${faltan.join('; ')}. Guardalas en docs/rq/${codigo}/qa/ y pasalas todas.`);
   }
   cambiarVinculado(repo, env, elegido, io, (s) => {
     s.verificacion_local = { que: que.trim(), capturas: rel, fecha: ahora() };
@@ -1722,7 +1838,7 @@ export async function main(
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
@@ -1733,6 +1849,11 @@ export async function main(
     else if (sub === 'commit') uso(n >= 2);
     else if (sub === 'auditar') uso(n === 0 || (n === 2 && args[0] === '--cerrar'));
     else if (sub === 'autonomia' && args[0] === 'aplicar') uso(n === 1);
+    else if (sub === 'autonomia' && args[0] === 'total') uso(n === 2 || n === 4);
+    else if (sub === 'ok') uso(n === 1 || n === 3);
+    else if (sub === 'reglas') uso(args[0] === 'actualizar' && n === 1);
+    else if (sub === 'devolucion') uso(n === 0 || (args[0] === 'agregar' && (n === 2 || n === 4)) || (args[0] !== 'agregar' && n === 3));
+    else if (sub === 'trazar') uso(n === 0);
     else if (sub === 'lote') uso(args[0] === 'aprobar' && n >= 3);
     else if (sub === 'skills') uso(args[0] === 'importar' && n === 1);
     else if (sub === 'activo') uso(args[0] === 'reparar' && n === 1);
@@ -1791,7 +1912,14 @@ export async function main(
         const frase = textoNoVacio(args[1], 'La frase');
         // ETAPA.CIERRE es el 6 de hoy; en un RQ abierto con 3.x, ese número era el OK de PROD.
         const e = pedida === ETAPA.CIERRE && activo(raiz, elegido).estado._v3 === true ? ETAPA.PROD : pedida;
-        await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
+        const aAprobar = activo(raiz, elegido).estado;
+        // P-17 (4.4): el diseño de un Arquitectónico declara sus criterios centrales antes de pedir la aprobación.
+        if (e === ETAPA.DISENO && aAprobar.clasificacion === 'arquitectonico' && reglas44(aAprobar)) {
+          const falta = faltaDisenoEscrito(raiz, aAprobar);
+          if (falta && /Criterios centrales/.test(falta)) throw new ErrorCli(`Antes de pedir la aprobación del diseño falta ### Criterios centrales en docs/rq/${aAprobar.codigo}/spec.md (1 a 3 criterios contra los que se revisa toda recomendación estructural).`);
+        }
+        if (e === ETAPA.PROD) noEsLaAutonomia(frase, verificacion, 'el OK de PROD');
+        await verificarFrase(frase, verificacion, aAprobar);
         if (e !== pedida) io.stdout.write(`${AVISO_PROD_V3}\n`);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.aprobaciones = [...lista(s.aprobaciones), { etapa: e, frase, fecha: ahora() }];
@@ -1802,6 +1930,11 @@ export async function main(
       case 'autonomia': {
         if (args[0] === 'sesion') {
           await autonomiaSesion(repo, textoNoVacio(args[1], 'La frase'), verificacion, env, io);
+          break;
+        }
+        if (args[0] === 'total') {
+          const { frase, ejecucion } = fraseYEjecucion(args.slice(1));
+          await autonomiaSesion(repo, frase, verificacion, env, io, { nivel: 'total', ejecucion });
           break;
         }
         if (args[0] === 'aplicar') {
@@ -1820,6 +1953,57 @@ export async function main(
       case 'lote':
         await loteAprobar(repo, args, verificacion, env, io);
         break;
+      case 'ok':
+        await okDelUsuario(repo, elegido, args, verificacion, env, io);
+        break;
+      case 'devolucion': {
+        if (args.length === 0) {
+          io.stdout.write(`${listadoDevoluciones(activo(raiz, elegido).estado)}\n`);
+          break;
+        }
+        if (args[0] === 'agregar') {
+          const { res, posicionales } = opciones(args.slice(1), ['elemento']);
+          const texto = textoNoVacio(posicionales[0], 'El punto');
+          cambiarVinculado(repo, env, elegido, io, (s) => {
+            const { n, corte, vueltas } = agregarDevolucion(s, texto, res.elemento, ahora());
+            return `Devolución ${n} anotada (pendiente).${corte ? `\n${PROTOCOLO_CORTE(res.elemento, vueltas)}` : ''}`;
+          });
+          break;
+        }
+        const [n, nuevo, evidencia] = args;
+        if (entero(n) === null) throw new ErrorUso();
+        // Rechazar o consultar un punto del usuario lo decide el usuario: la evidencia es su frase literal.
+        if (nuevo === 'rechazado' || nuevo === 'consultado') {
+          try {
+            noEsLaAutonomia(textoNoVacio(evidencia, 'La evidencia'), verificacion, `un punto ${nuevo}`);
+            await verificarFrase(evidencia, verificacion, activo(raiz, elegido).estado);
+          } catch (e) {
+            throw new ErrorCli(`Un punto ${nuevo} lleva como evidencia la respuesta literal del usuario. ${e.message}`);
+          }
+        }
+        cambiarVinculado(repo, env, elegido, io, (s) => {
+          const error = marcarDevolucion(s, entero(n), nuevo, evidencia, ahora());
+          if (error) throw new ErrorCli(error);
+          return `Devolución ${n}: ${nuevo}.`;
+        });
+        break;
+      }
+      case 'trazar': {
+        const { codigo } = activo(raiz, elegido);
+        const r = trazarSpec(raiz, codigo);
+        io.stdout.write(r.total
+          ? `Traza en ${r.ruta}: ${r.total} ítem(s) del criterio de aceptación, ${r.nuevos} nuevo(s). Completá archivos, test y estado (hecho | parcial | fuera) de cada uno.\n`
+          : `El spec de ${codigo} no tiene ítems en "## Criterio de aceptación": no hay nada que trazar.\n`);
+        break;
+      }
+      case 'reglas': {
+        if (args[0] !== 'actualizar') throw new ErrorUso();
+        cambiarVinculado(repo, env, elegido, io, (s) => {
+          s.reglas = REGLAS_ACTUALES;
+          return `${s.codigo}: reglas de cumplimiento ${REGLAS_ACTUALES / 10} activas.`;
+        });
+        break;
+      }
       case 'skills':
         await importarSkills(repo, elegido, verificacion, env, io);
         break;
@@ -1860,6 +2044,7 @@ export async function main(
         if (!COMPUERTAS.includes(compuerta)) throw new ErrorCli(`Compuerta inválida: "${compuerta}" (${COMPUERTAS.join(' | ')}).`);
         textoNoVacio(frase, 'La frase');
         textoNoVacio(motivo, 'El motivo');
+        noEsLaAutonomia(frase, verificacion, 'un salto de compuerta');
         await verificarFrase(frase, verificacion, activo(raiz, elegido).estado);
         cambiarVinculado(repo, env, elegido, io, (s) => {
           s.saltos = [...lista(s.saltos), { compuerta, frase, motivo, fecha: ahora() }];
@@ -1872,12 +2057,15 @@ export async function main(
         if (veredicto !== 'ok' && veredicto !== 'bloqueante') throw new ErrorCli(`Veredicto inválido: "${veredicto}" (ok | bloqueante).`);
         const { codigo, estado } = activo(raiz, elegido);
         if (veredicto === 'ok') {
-          const falta = faltaParaEtapa(estado, ETAPA.VERIFICACION, raiz);
+          const falta = [...faltaParaEtapa(estado, ETAPA.VERIFICACION, raiz), ...pasadasSinRepetir(estado).map((p) => `${p} otra vez (la revisión anterior es del ${estado.revision.fecha.slice(0, 10)}; corré las pasadas sobre el código nuevo)`)];
           if (falta.length) throw new ErrorCli(`Antes de la revisión del ${codigo} falta: ${falta.join('; ')}. Si el usuario decide saltearlo: $RQ saltar skills "<frase>" "<motivo>".`);
           const sensible = sensibleSinRevisar(estado, rutasDelRq(raiz, estado), proyectoDe(repo, env));
           if (sensible) throw new ErrorCli(`El ${codigo} toca ${sensible} (ruta sensible): falta claude-security (Skill "claude-security:claude-security") o, si el usuario lo decide, $RQ saltar seguridad "<frase>" "<motivo>".`);
         }
-        estado.revision = { ok: veredicto === 'ok', fecha: ahora(), nota };
+        // 4.4: el commit revisado (la revisión vence si después entra código) y las bloqueantes (piden receiving-code-review).
+        const head = commitHead(raiz);
+        estado.revision = { ok: veredicto === 'ok', fecha: ahora(), nota, ...(reglas44(estado) && head ? { head } : {}) };
+        if (veredicto === 'bloqueante' && reglas44(estado)) estado.revisiones_bloqueantes = (Number(estado.revisiones_bloqueantes) || 0) + 1;
         guardar(raiz, estado);
         io.stdout.write(`Revisión registrada: ${veredicto}.\n`);
         break;

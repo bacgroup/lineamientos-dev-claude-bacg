@@ -1,0 +1,121 @@
+codigo: PLG-DFF2
+tipo: rq
+clasificacion: arquitectonico
+clasificacion_pendiente: false
+tarea: Plugin — compuertas de cumplimiento (no de carga), OK flexibles y autonomía total, Superpowers como eje, revisión de calidad multi-pasada, journey UX y mockups obligatorios en UI (retrabajo R-MOD-V2)
+etapa: 0
+autonomia:
+  hasta: 4
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-15T17:33:57.038Z'
+  via: sesion
+aprobaciones:
+  - etapa: 1
+    frase: Apruebo el diseño y el plan de PLG-DFF2
+    fecha: '2026-11-15T23:33:48.484Z'
+  - etapa: 5
+    frase: Doy el OK de PROD para mergear PLG-DFF2 pero primero fusionar los cambios en dev-fullflow
+    fecha: '2026-11-16T00:33:19.448Z'
+tests:
+  ok: true
+  arbol: 0934d18f06bd1492a8fdbad0768f80c807a5c9be
+  fecha: '2026-11-16T00:23:04.318Z'
+  comandos:
+    - npm test
+  rojos_conocidos:
+    - hooks.test.mjs > session-start avisa si la cuenta activa de gh no es la del proyecto
+    - 'previa.test.mjs > previa: PR abiertos contra DEV con sus módulos; bloquea si el PR nombra el código'
+revision:
+  ok: true
+  fecha: '2026-11-16T00:23:04.538Z'
+  nota: Tres pasadas (code-reviewer, pr-test-analyzer, revisor-rq como subagente general) y re-pasadas sobre las correcciones; críticos e importantes corregidos con TDD; npm test 657 ok con 2 rojos conocidos de gh; E2E completo ok
+  head: 92f5c7da3440bcb84dd73fadba6135c324b51ffb
+circuito: []
+saltos:
+  - compuerta: skills
+    frase: Salteá la pasada formal de revisor-rq, ya corrió como subagente general
+    motivo: revisor-rq corrió dos veces como general-purpose con su prompt (veredicto ok en la re-pasada); el agente no existe en la 4.3.1 instalada, sí en la 4.4.0 de esta rama
+    fecha: '2026-11-16T00:22:01.105Z'
+base: 6a9224397823d770621d1ad0a730e7cef63e1990
+version_ciclo: 4
+actualizado: '2026-11-16T00:33:19.451Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:bacg-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-15T17:33:52.049Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-15T17:33:52.049Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    fecha: '2026-11-15T17:34:00.967Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: plugin-dev:create-plugin
+    etapa: 0
+    fecha: '2026-11-15T17:34:04.019Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:writing-plans
+    etapa: 0
+    fecha: '2026-11-15T17:36:17.094Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:test-driven-development
+    etapa: 1
+    fecha: '2026-11-15T23:33:59.080Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:executing-plans
+    etapa: 1
+    fecha: '2026-11-15T23:33:59.433Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:requesting-code-review
+    etapa: 2
+    fecha: '2026-11-15T23:58:14.626Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: superpowers:receiving-code-review
+    etapa: 2
+    fecha: '2026-11-16T00:07:52.804Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+  - skill: plugin-dev:plugin-validator
+    etapa: 2
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:13:51.917Z'
+    via: sesion
+  - skill: plugin-dev:skill-reviewer
+    etapa: 2
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:13:51.917Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 2
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:13:51.917Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 2
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+    fecha: '2026-11-16T00:13:51.917Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 2
+    fecha: '2026-11-16T00:13:55.826Z'
+    sesion: 04285d57-1e3b-5fb8-8643-7c48e571d0e5
+clasificacion_confirmada:
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-15T17:33:57.038Z'
+  via: sesion
+ejecucion:
+  modo: inline
+  frase: Te dejo mi OK y trabajo este RQ de manera automatizada para llegar a una nueva versión del PLUGIN pulido.
+  fecha: '2026-11-15T23:39:02.225Z'
+  via: sesion-total
+reglas: 44
+e2e:
+  ok: true
+  fecha: '2026-11-16T00:14:36.373Z'
+  comando: npm run test:e2e
+  head: 3d9832deb4ef5856fddc1cdeb4877dc7accd60b4
+  completo: true
+revisiones_bloqueantes: 1

@@ -61,8 +61,8 @@ export async function handler(entrada, { dirLin = dirLineamientos() } = {}) {
     if (!repo) return null;
     // Sin proyecto.yml se clasifica con las reglas generales; un proyecto.yml inválido lanza.
     const proyecto = proyectoRegistrado(repo.proyectoId, dirLin, repo.raiz);
-    r = await conTranscript(entrada, ({ textosUsuario, skills }) =>
-      evaluarEdicion({ raiz: repo.raiz, proyecto, rutaArchivo: abs, ctx: { textosUsuario, skills } }),
+    r = await conTranscript(entrada, ({ textosUsuario, skills, skillsContexto }) =>
+      evaluarEdicion({ raiz: repo.raiz, proyecto, rutaArchivo: abs, ctx: { textosUsuario, skills, skillsContexto } }),
     );
   } else if (comandoDeShell(tool, input) !== null) {
     const comando = comandoDeShell(tool, input);

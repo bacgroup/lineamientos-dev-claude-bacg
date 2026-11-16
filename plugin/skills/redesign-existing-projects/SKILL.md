@@ -1,6 +1,6 @@
 ---
 name: redesign-existing-projects
-description: Upgrades existing websites and apps to premium quality. Audits current design, identifies generic AI patterns, and applies high-end design standards without breaking functionality. Works with any CSS framework or vanilla CSS.
+description: Audits an existing screen or site before changing it and upgrades it without breaking functionality, with any CSS framework. In repos with .bacg-dev/ or .bacg-lineamientos it is required by the UI edit gate when the file already exists; audit against the reference screen and the project canon, never against a prototype or mockup.
 ---
 
 # Redesign Skill

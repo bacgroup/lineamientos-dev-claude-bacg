@@ -49,7 +49,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|PowerShell|Skill|mcp__.*__(execute_sql|apply_migration)",
+        "matcher": "Bash|PowerShell|Skill|Agent|Task|mcp__.*__(execute_sql|apply_migration)",
         "hooks": [
           {
             "type": "command",

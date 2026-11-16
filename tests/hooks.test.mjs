@@ -618,7 +618,7 @@ test('hooks.json declara los cinco eventos con sus matchers', () => {
   const h = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const esperado = {
     PreToolUse: ['pre-tool', 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|mcp__.*'],
-    PostToolUse: ['post-tool', 'Bash|PowerShell|Skill|mcp__.*__(execute_sql|apply_migration)'],
+    PostToolUse: ['post-tool', 'Bash|PowerShell|Skill|Agent|Task|mcp__.*__(execute_sql|apply_migration)'],
     SessionStart: ['session-start', 'startup|resume|clear|compact'],
     UserPromptSubmit: ['user-prompt', undefined],
     PreCompact: ['pre-compact', undefined],

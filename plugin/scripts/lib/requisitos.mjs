@@ -12,6 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { saltoValido } from './estado.mjs';
 import { globARegExp, tipoArchivo } from './rutas.mjs';
 import { buscarRepo, dirLineamientos } from './config.mjs';
@@ -20,6 +21,9 @@ import { rutasDelRq } from './circuito.mjs';
 import { exigenciasOdoo, usaOdoo } from './odoo-skills.mjs';
 import { ETAPA, etapaProyectoAV4 } from './etapas.mjs';
 import { esPropioDeLaCli } from './arbol.mjs';
+import { reglas44 } from './reglas.mjs';
+import { pendientes as pendientesDevolucion } from './devoluciones.mjs';
+import { faltasTraza } from './traza.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x : []);
 
@@ -140,6 +144,7 @@ export function exigenciasDelProyecto(estado, proyecto, rutasRq) {
 
 /** Exigencias por etapa según el tipo: [{ etapa, skill?, causa?, tareas?, plan?, revision? }]. */
 export function exigencias(estado) {
+  if (reglas44(estado)) return exigencias44(estado);
   const bug = esBug(estado);
   const l = [];
   const { DESARROLLO, VERIFICACION, PROD } = ETAPA;
@@ -149,6 +154,71 @@ export function exigencias(estado) {
   else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: DESARROLLO, skill: 'superpowers:writing-plans' }, { etapa: DESARROLLO, plan: true });
   l.push({ etapa: VERIFICACION, skill: 'superpowers:test-driven-development' });
   if (!bug) l.push({ etapa: PROD, skill: 'superpowers:verification-before-completion' });
+  l.push({ etapa: PROD, revision: true });
+  return l;
+}
+
+/**
+ * Pasadas de la revisión de calidad (PLG-DFF2, premisa 3): subagentes que el hook anota en el RQ al correrlos
+ * (herramienta Agent con su subagent_type). code-reviewer mira calidad y convenciones; pr-test-analyzer, si los tests
+ * prueban el comportamiento; revisor-rq (de este plugin), el diff contra el spec, la traza, la paridad y los duplicados.
+ */
+export const PASADAS_REVISION = ['pr-review-toolkit:code-reviewer', 'pr-review-toolkit:pr-test-analyzer', 'lineamientos-dev-claude-bacg:revisor-rq'];
+
+/**
+ * ¿La revisión registrada sigue valiendo? Con reglas 4.4 guarda el commit revisado (`head`): si después entraron
+ * commits con archivos de producto (no docs ni tests), venció. Sin `head` (revisiones de antes de la 4.4) vale como
+ * antes. Falla cerrada: si el commit revisado ya no existe (rebase, otro clon) o git no responde, venció.
+ */
+export function revisionVigente(raiz, estado, proyecto) {
+  const head = estado?.revision?.head;
+  if (!raiz || head === undefined) return true;
+  if (typeof head !== 'string' || !/^[0-9a-f]{7,40}$/.test(head)) return false;
+  try {
+    const rutas = execFileSync('git', ['diff', '--name-only', '--no-renames', `${head}..HEAD`], { cwd: raiz, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\n').filter(Boolean);
+    return !rutas.some((r) => tipoArchivo(r, proyecto) !== 'libre' && !esPropioDeLaCli(r));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pasadas de revisión que faltan correr de nuevo: si ya hubo una revisión (`revision.fecha`), cada pasada tiene que
+ * estar anotada después de ella (el hook la anota cada vez que se corre). Así una revisión vencida no se vuelve a dar
+ * por ok sin volver a revisar.
+ */
+export function pasadasSinRepetir(estado) {
+  const desde = estado?.revision?.fecha;
+  if (!reglas44(estado) || typeof desde !== 'string' || saltoValido(estado, 'skills')) return [];
+  return PASADAS_REVISION.filter((p) => !lista(estado?.skills).some((s) => {
+    const n = nombreSkill(s);
+    return n.split(':').pop().toLowerCase() === p.split(':').pop() && typeof s?.fecha === 'string' && s.fecha > desde;
+  }));
+}
+
+/**
+ * Reglas 4.4 (PLG-DFF2, premisa 2): Superpowers es el motor del ciclo y se sigue completo. Antes del primer commit de
+ * código, el diseño (brainstorming), el plan (writing-plans, salvo Exploración), TDD y la skill de la ejecución elegida;
+ * en la verificación, el pedido de revisión y la verificación antes de dar algo por hecho.
+ */
+function exigencias44(estado) {
+  const bug = esBug(estado);
+  const { DESARROLLO, VERIFICACION, PROD } = ETAPA;
+  const spike = estado?.clasificacion === 'spike';
+  const l = [{ etapa: DESARROLLO, skill: 'superpowers:brainstorming' }];
+  if (bug) l.push({ etapa: DESARROLLO, skill: 'superpowers:systematic-debugging' }, { etapa: DESARROLLO, causa: true });
+  if (!spike) l.push({ etapa: DESARROLLO, skill: 'superpowers:writing-plans' });
+  if (estado?.clasificacion === 'bounded') l.push({ etapa: DESARROLLO, tareas: true });
+  else if (estado?.clasificacion === 'arquitectonico') l.push({ etapa: DESARROLLO, plan: true });
+  l.push({ etapa: DESARROLLO, skill: 'superpowers:test-driven-development' });
+  if (!spike) {
+    const sub = estado?.ejecucion?.modo === 'subagentes';
+    l.push({ etapa: DESARROLLO, skill: sub ? 'superpowers:subagent-driven-development' : 'superpowers:executing-plans' });
+  }
+  l.push({ etapa: VERIFICACION, skill: 'superpowers:requesting-code-review' }, { etapa: VERIFICACION, skill: 'superpowers:verification-before-completion' });
+  if (Number(estado?.revisiones_bloqueantes) > 0) l.push({ etapa: VERIFICACION, skill: 'superpowers:receiving-code-review' });
+  for (const skill of PASADAS_REVISION) l.push({ etapa: VERIFICACION, skill, pasada: true });
   l.push({ etapa: PROD, revision: true });
   return l;
 }
@@ -169,6 +239,13 @@ export function faltaParaEtapa(estado, etapa, raiz, proyecto = undefined) {
     if (x.tareas && !tareasEnSpec(raiz, estado.codigo)) out.push(`las tareas en docs/rq/${estado.codigo}/spec.md (## Tareas)`);
     if (x.plan && !planEnDisco(raiz, estado.codigo)) out.push(`el plan en docs/rq/${estado.codigo}/plan.md`);
     if (x.revision && estado?.revision?.ok !== true) out.push('la revisión ($RQ revision ok)');
+    else if (x.revision && !revisionVigente(raiz, estado, py)) out.push('la revisión otra vez: venció por commits de código posteriores ($RQ revision ok)');
+  }
+  if (etapa >= ETAPA.VERIFICACION && reglas44(estado)) {
+    // P-11: la lista cerrada de devoluciones; P-16: la traza del spec (Acotado y Arquitectónico).
+    const pend = pendientesDevolucion(estado);
+    if (pend.length) out.push(`cerrar las devoluciones pendientes (${pend.map((d) => d.n).join(', ')}) con su evidencia ($RQ devolucion <n> hecho|consultado|rechazado "<evidencia>")`);
+    if (raiz && ['bounded', 'arquitectonico'].includes(estado?.clasificacion)) out.push(...faltasTraza(raiz, estado.codigo));
   }
   if (etapa >= ETAPA.VERIFICACION && !verificacionLocalOk(estado) && tocaUi(estado, raiz, py, rutasRq())) {
     // Antes que la revisión: la verificación local es evidencia de la etapa 3, la revisión la cierra.

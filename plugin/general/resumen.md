@@ -42,7 +42,7 @@ Se registra con sus palabras literales; un "Dale" vale si fue la respuesta enter
 
 ## Dónde vive cada cosa
 
-- Repo central de lineamientos (`bacgroup/lineamientos-dev-claude-bacg`): `proyectos/<id>/` con `proyecto.yml`, `reglas.md`, `resumen.md` y `backlog.md` (lo escribe la CLI; copia en `docs/backlog.md` del repo). Las mejoras del plugin van a `proyectos/plugin/backlog.md`.
+- Repo central de lineamientos (`bacgroup/lineamientos-dev-claude-bacg`): `proyectos/<id>/` con `proyecto.yml`, `reglas.md`, `resumen.md` y `backlog.md` (lo escribe la CLI; copia en `docs/backlog.md` del repo). Las mejoras del plugin van a `docs/backlog.md` de este repo (el plugin es su propio proyecto: `.bacg-dev/proyecto.yml`).
 - Un repo que trae su propia configuración la tiene en `.bacg-dev/` (protegida: cambiarla pasa por la compuerta).
 - `docs/rq/<código>/`: `spec.md` (encuadre + diseño), `plan.md`, `arq.md`, `estado.yml`, `qa/`.
 - `docs/log/changelog/AAAA-MM.md` y `docs/log/rq.jsonl`: changelog y log del proyecto.

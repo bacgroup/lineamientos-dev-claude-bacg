@@ -1,3 +1,5 @@
+# Los tests de la 4.3 corren con sus reglas; los de la 4.4 quitan esta línea en su copia del fixture.
+reglas: 43
 id: demo
 nombre: Demo
 repos:

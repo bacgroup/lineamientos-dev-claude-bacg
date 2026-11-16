@@ -172,7 +172,7 @@ test('decision-arq: cuándo, formato, destino y manage_adr', () => {
 
 test('diseno-frontend: orquesta las skills de diseño con la precedencia', () => {
   const texto = leer(join(dirSkills, 'diseno-frontend', 'SKILL.md'));
-  for (const s of ['design-taste-frontend', 'frontend-design:frontend-design', 'redesign-existing-projects', 'canon > skill > código vecino']) {
+  for (const s of ['design-taste-frontend', 'frontend-design:frontend-design', 'redesign-existing-projects', 'canon > referencia > skill > código vecino']) {
     assert.ok(texto.includes(s), `diseno-frontend no menciona ${s}`);
   }
 });

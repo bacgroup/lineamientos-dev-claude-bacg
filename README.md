@@ -100,9 +100,9 @@ Opcional: `.bacg-lineamientos` en un repo (`proyecto: <id>`) manda sobre el remo
 
 1. Abrís Claude Code en el repo: el proyecto sale de ese repo (marcador o remoto origin). El arranque inyecta los lineamientos, la ruta del CLI `rq.mjs` y dice si es un inicio (repos y lo último trabajado) o una reanudación (dónde quedó el RQ activo). Si abrís la sesión en una carpeta que no es un repo, el agente te pregunta en qué proyecto y repo vas a trabajar.
 2. Pedís el cambio (o `/bacg-rq <código>`): el agente abre o retoma el RQ con la skill `ciclo-rq` y te propone la clasificación (Exploración, Acotado o Arquitectónico), que confirmás o cambiás con tus palabras. Antes de abrir, la validación previa trae origin y te muestra el atraso contra la rama de DEV, las ramas y PR abiertos de otros y el backlog remoto; no abre un código que ya está tomado (`rq.mjs previa [<código>]` lo muestra sin abrir).
-3. Diseño y plan (etapa 1, en toda clasificación): aprobás con tus palabras en la sesión y el agente las registra. Antes del primer commit de código elegís si el plan se ejecuta en línea o con subagentes.
-4. Desarrollo con TDD: cada commit registra la suite en verde sobre lo que está en stage.
-5. Verificación: tests, E2E, verificación local si toca pantallas y revisión registrados destraban push y merge; DEV/Preview antes de PROD.
+3. Diseño y plan (etapa 1, en toda clasificación), con Superpowers como motor (`brainstorming` y `writing-plans`). Si toca pantallas, el diseño trae el journey del usuario, un mockup navegable estilo Figma, la referencia leída y la paridad. Contestás una sola vez con tus palabras ("Sí, dale" alcanza) y el agente registra todo lo que va hasta DEV con `rq.mjs ok`; si le das autonomía para trabajar solo, la autonomía total cubre todos los RQ de la sesión. PROD sigue pidiendo su OK aparte.
+4. Desarrollo con TDD y el plan ejecutado (`executing-plans` o `subagent-driven-development`): cada commit registra la suite en verde sobre lo que está en stage. Lo que marcás sobre lo entregado queda en una lista cerrada (`rq.mjs devolucion`), y al segundo punto sobre lo mismo el agente cambia de estrategia en lugar de iterar a ojo.
+5. Verificación: tests, E2E, verificación local si toca pantallas (390, 768 y 1280 con la referencia al lado) y una revisión de calidad en tres pasadas (`code-reviewer`, `pr-test-analyzer` y el agente propio `revisor-rq`), con la traza del spec al código y a los tests (`rq.mjs trazar`). Destraban push y merge; DEV/Preview antes de PROD.
 6. PROD: tu OK en la sesión y los pasos de `circuito_prod` en orden; al cierre, `rq.mjs cerrar --resumen` deja changelog, log y backlog. `/bacg-estado` muestra dónde está el RQ.
 
 ## Tests
@@ -111,7 +111,7 @@ Opcional: `.bacg-lineamientos` en un repo (`proyecto: <id>`) manda sobre el remo
 npm test
 ```
 
-Corre `node --test` sobre `tests/**/*.test.mjs`, sin `npm install`. La prueba de humo dentro de Claude Code está en `tests/humo/RESULTADO.md`.
+Corre `node --test` sobre `tests/**/*.test.mjs`, sin `npm install`, y muestra sólo los fallos (`npm run test:tap` da la salida completa). El plugin se desarrolla con su propio ciclo de RQ: `.bacg-dev/proyecto.yml` lo declara como proyecto y `npm run test:e2e` es su E2E (el ciclo completo de la CLI en repos temporales). La prueba de humo dentro de Claude Code está en `tests/humo/RESULTADO.md`.
 
 ## Límites conocidos
 
