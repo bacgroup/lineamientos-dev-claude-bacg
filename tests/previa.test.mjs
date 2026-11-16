@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { main } from '../plugin/scripts/rq.mjs';
 import { validacionPrevia, ramaDev, modulosDe } from '../plugin/scripts/lib/previa.mjs';
 import { buscarRepo } from '../plugin/scripts/lib/config.mjs';
+import { sesionDePrueba } from './helpers.mjs';
 
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), p));
@@ -125,21 +126,59 @@ test('previa: ignora ramas ya integradas en DEV y las de PROD', () => {
   const { lineas } = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto: { ...PROYECTO, ramas_prod: ['main'] }, codigo: 'R-4', env: ENV, dirLin: tmp('lin-vacio-') });
   const t = lineas.join('\n');
   assert.doesNotMatch(t, /rama main/);
-  assert.match(t, /Trabajo en paralelo: ninguna rama ni PR/);
+  // Sin consultar los PR (BACG_DEV_SIN_GH) no afirma "ni PR": sólo que no hay ramas.
+  assert.match(t, /Trabajo en paralelo: ninguna rama de otros/);
 });
 
-test('previa: PR abiertos contra DEV con sus módulos; bloquea si el PR nombra el código', () => {
-  const { raiz } = montar();
+// PLG-CLOUD: los PR se leen por REST (gh api …/pulls y …/pulls/{n}/files); GraphQL da 403 en la nube.
+function ghFalso({ prs = [], archivos = {}, error } = {}) {
   const llamadas = [];
   const gh = (args) => {
     llamadas.push(args);
-    return { datos: [{ number: 7, title: 'feat(R-7): algo', author: { login: 'ana' }, headRefName: 'feature-x', files: [{ path: 'mod_a/models/a.py' }, { path: 'mod_b/views/b.xml' }] }] };
+    if (error) return { error };
+    const ruta = args[1] ?? '';
+    const m = ruta.match(/pulls\/(\d+)\/files/);
+    if (m) return { datos: (archivos[m[1]] ?? []).map((filename) => ({ filename })) };
+    return { datos: prs };
   };
+  return { gh, llamadas };
+}
+const ENV_GH = { ...process.env, BACG_DEV_SIN_GH: '' };
+
+test('previa: PR abiertos contra DEV por REST, con sus módulos; bloquea si el PR nombra el código', () => {
+  const { raiz } = montar();
+  const { gh, llamadas } = ghFalso({
+    prs: [{ number: 7, title: 'feat(R-7): algo', user: { login: 'ana' }, head: { ref: 'feature-x' }, base: { ref: 'dev' } }],
+    archivos: { 7: ['mod_a/models/a.py', 'mod_b/views/b.xml'] },
+  });
   const proyecto = { ...PROYECTO, cuenta_github: 'OrgX' };
-  const { lineas, bloqueos } = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto, codigo: 'R-7', env: { ...process.env }, dirLin: tmp('lin-vacio-'), gh });
-  assert.deepEqual(llamadas[0].slice(0, 6), ['pr', 'list', '-R', 'OrgX/demo-app', '--base', 'dev']);
+  const { lineas, bloqueos } = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto, codigo: 'R-7', env: ENV_GH, dirLin: tmp('lin-vacio-'), gh });
+  assert.equal(llamadas[0][0], 'api');
+  assert.match(llamadas[0][1], /^repos\/OrgX\/demo-app\/pulls\?state=open.*base=dev/);
+  assert.match(llamadas[1][1], /^repos\/OrgX\/demo-app\/pulls\/7\/files/);
   assert.match(lineas.join('\n'), /PR #7 feat\(R-7\): algo · ana · feature-x · toca mod_a, mod_b/);
   assert.match(bloqueos.join('\n'), /PR abierto del código: #7 \(ana\)/);
+});
+
+test('previa: si no puede listar los PR lo dice y nunca afirma "ninguna rama ni PR"', () => {
+  const { raiz } = montar();
+  const { gh } = ghFalso({ error: 'HTTP 403' });
+  const proyecto = { ...PROYECTO, cuenta_github: 'OrgX' };
+  const t = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto, codigo: 'R-8', env: ENV_GH, dirLin: tmp('lin-vacio-'), gh }).lineas.join('\n');
+  assert.match(t, /no pude listar los PR \(HTTP 403\)/);
+  assert.doesNotMatch(t, /ninguna rama ni PR/);
+  // Con BACG_DEV_SIN_GH los PR no se consultan, y lo dice.
+  const t2 = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto, codigo: 'R-8', env: { ...process.env, BACG_DEV_SIN_GH: '1' }, dirLin: tmp('lin-vacio-'), gh }).lineas.join('\n');
+  assert.match(t2, /PR no consultados \(BACG_DEV_SIN_GH=1\)/);
+  assert.doesNotMatch(t2, /ninguna rama ni PR/);
+});
+
+test('previa: ve las ramas de otros aunque el clon traiga sólo main (refspec angosto, como en la nube)', () => {
+  const { raiz, pushear } = montar();
+  pushear('rq/R-9', { 'x.txt': 'x' }, 'feat(R-9): algo');
+  git(raiz, 'config', '--replace-all', 'remote.origin.fetch', '+refs/heads/dev:refs/remotes/origin/dev');
+  const t = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto: PROYECTO, codigo: 'R-10', env: ENV, dirLin: tmp('lin-vacio-') }).lineas.join('\n');
+  assert.match(t, /rama rq\/R-9/);
 });
 
 test('previa: backlog remoto (upstream de la copia de lineamientos), atraso de la copia y otras filas En curso', () => {
@@ -165,10 +204,10 @@ test('previa: backlog remoto (upstream de la copia de lineamientos), atraso de l
   assert.deepEqual(r.bloqueos, []);
 });
 
-async function correrCli(cwd, args, env) {
+async function correrCli(cwd, args, env, home) {
   let out = '';
   let err = '';
-  const code = await main(args, { cwd, env: { ...process.env, ...env }, stdout: { write: (s) => { out += s; } }, stderr: { write: (s) => { err += s; } } });
+  const code = await main(args, { cwd, ...(home ? { home } : {}), env: { ...process.env, ...env }, stdout: { write: (s) => { out += s; } }, stderr: { write: (s) => { err += s; } } });
   return { code, out, err };
 }
 
@@ -182,7 +221,9 @@ test('abrir: corre la previa, frena un código tomado y --sin-previa lo deja pas
   assert.match(r.out, /Validación previa:\nProyecto: demo/);
   assert.match(r.err, /No abro R-2: parece que ya se está trabajando\.\n- en demo-app ya existe la rama origin\/rq\/R-2/);
   assert.equal(fs.existsSync(path.join(raiz, 'docs', 'rq', 'R-2', 'estado.yml')), false);
-  r = await correrCli(raiz, ['abrir', 'R-2', '--tipo', 'rq', '--clasificacion', 'bounded', '--sin-previa'], env);
+  // PLG-CLOUD: saltear la previa pide la frase del usuario.
+  const sesion = sesionDePrueba('Abrí R-2 sin la validación previa');
+  r = await correrCli(raiz, ['abrir', 'R-2', '--tipo', 'rq', '--clasificacion', 'bounded', '--sin-previa', '--frase', 'Abrí R-2 sin la validación previa'], { ...env, ...sesion.env }, sesion.home);
   assert.equal(r.code, 0, r.err);
   assert.doesNotMatch(r.out, /Validación previa/);
   assert.match(r.out, /RQ R-2 abierto/);
@@ -219,4 +260,14 @@ test('repo declarado en dos proyectos: buscarRepo lo marca ambiguo y abrir pide 
     assert.equal(r.code, 1, `con BACG_DEV_SIN_PREVIA="${sinPrevia}"`);
     assert.match(r.err, /figura en varios proyectos \(dos, uno\)/);
   }
+});
+
+test('previa: si no puede traer origin, las ramas quedan como no verificadas (nunca "ninguna rama")', () => {
+  const { raiz } = montar();
+  git(raiz, 'remote', 'set-url', 'origin', path.join(os.tmpdir(), 'no-existe-origen.git'));
+  const t = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto: PROYECTO, codigo: 'R-12', env: ENV, dirLin: tmp('lin-vacio-') }).lineas.join('\n');
+  assert.match(t, /no verifiqué las ramas en paralelo/);
+  assert.match(t, /Trabajo en paralelo: sin verificar/);
+  assert.doesNotMatch(t, /ninguna rama/);
+  assert.doesNotMatch(t, /ninguna rama ni PR/);
 });

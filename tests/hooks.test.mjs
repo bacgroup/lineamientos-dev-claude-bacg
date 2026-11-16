@@ -579,7 +579,8 @@ test('session-start avisa si la cuenta activa de gh no es la del proyecto', () =
   const conf = (usuario) => {
     const dir = tmp('gh como-');
     fs.writeFileSync(path.join(dir, 'hosts.yml'), `github.com:\n    user: ${usuario}\n    git_protocol: https\n`);
-    return { ...process.env, GH_CONFIG_DIR: dir };
+    // Sin heredar BACG_DEV_SIN_GH del entorno (en la nube suele venir en 1): el test prueba el aviso.
+    return { ...process.env, BACG_DEV_SIN_GH: '', GH_CONFIG_DIR: dir };
   };
   assert.match(avisoCuentaGh({ cuenta_github: 'duena' }, conf('otra')), /cuenta activa de gh es otra .*gh auth switch -u duena/);
   assert.equal(avisoCuentaGh({ cuenta_github: 'duena' }, conf('duena')), null);

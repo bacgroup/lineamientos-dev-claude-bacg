@@ -20,6 +20,7 @@ import { reposHermanos, vinculados } from './multi-repo.mjs';
 import { parsearBacklog } from './backlog.mjs';
 import { refPrincipal, nombraCodigo } from './no-aplica.mjs';
 import { ramasProd } from './stack.mjs';
+import { ghJson, prsAbiertos, archivosPr } from './github.mjs';
 
 export const DIAS_PARALELO = 30;
 const lista = (x) => (Array.isArray(x) ? x : []);
@@ -40,16 +41,6 @@ function git(cwd, args, timeout = 15000) {
   }
 }
 
-function ghJson(args, env) {
-  try {
-    const r = spawnSync('gh', args, { encoding: 'utf8', timeout: 30000, env, stdio: ['ignore', 'pipe', 'pipe'] });
-    if (r.status !== 0) return { error: (r.stderr ?? '').trim().split('\n')[0] || `gh salió ${r.status}` };
-    return { datos: JSON.parse(r.stdout || '[]') };
-  } catch (e) {
-    return { error: e.message };
-  }
-}
-
 const entradaDe = (proyecto, nombre) =>
   lista(proyecto?.repos).find((r) => texto(r?.nombre).toLowerCase() === String(nombre).toLowerCase()) ?? null;
 
@@ -64,6 +55,15 @@ export function ramaDev(proyecto, entradaRepo) {
     if (texto(x)) return texto(x);
   }
   return null;
+}
+
+/**
+ * Trae todas las ramas de origin aunque el clon tenga el refspec angosto o sea superficial (clones de la nube:
+ * `--depth 1` con sólo la rama por defecto). Sin esto, las ramas de otros no se ven nunca.
+ */
+export function fetchTodasLasRamas(raiz) {
+  const superficial = git(raiz, ['rev-parse', '--is-shallow-repository']).out === 'true';
+  return git(raiz, ['fetch', '--prune', '--quiet', ...(superficial ? ['--depth=50'] : []), 'origin', '+refs/heads/*:refs/remotes/origin/*'], 90000);
 }
 
 const existeRef = (raiz, ref) => git(raiz, ['rev-parse', '--verify', '-q', `${ref}^{commit}`]).ok;
@@ -137,7 +137,9 @@ export function validacionPrevia({ repo, proyecto, codigo = null, nuevo = true, 
   const vinculado = codigo ? vinculados(raiz, id, proyecto, codigo).length > 0 : false;
   const esNuevo = Boolean(codigo) && nuevo && !vinculado;
   const usarGh = env.BACG_DEV_SIN_GH !== '1';
-  const correrGh = gh ?? ((args) => ghJson(args, env));
+  const correrGh = gh ?? ((args) => ghJson(args, { env }));
+  const sinConsultar = [];
+  let ramasSinVerificar = false;
   const cuentaGh = texto(proyecto?.cuenta_github) || texto(proyecto?.cuenta_gh);
 
   lineas.push('Repos (origin recién traído):');
@@ -148,7 +150,7 @@ export function validacionPrevia({ repo, proyecto, codigo = null, nuevo = true, 
       lineas.push(`- ${n}: sin remoto origin, no se puede verificar.`);
       continue;
     }
-    const f = git(r, ['fetch', '--prune', '--quiet', 'origin'], 60000);
+    const f = fetchTodasLasRamas(r);
     const entrada = entradaDe(proyecto, n);
     const dev = ramaDev(proyecto, entrada);
     const base = dev ? `origin/${dev}` : refPrincipal(r);
@@ -160,25 +162,38 @@ export function validacionPrevia({ repo, proyecto, codigo = null, nuevo = true, 
       const atras = cuenta(r, `HEAD..${base}`);
       lineas.push(`- ${n} (${rama}): ${atras ? `${atras} commit(s) detrás de ${base}: actualizá antes de empezar` : `al día con ${base}`}${aviso}.`);
     }
+    if (!f.ok) {
+      ramasSinVerificar = true;
+      sinConsultar.push(`${n}: no verifiqué las ramas en paralelo (no pude traer origin: ${f.err.split('\n')[0] || 'sin red'})`);
+    }
     const excluir = [dev, ...(ramasProd(proyecto, entrada) ?? []), refPrincipal(r)?.replace(/^origin\//, ''), rama];
     for (const p of ramasEnParalelo(r, base && existeRef(r, base) ? base : null, excluir, { ahora })) {
       paralelo.push(`- ${n}: rama ${p.rama} · ${p.autor} · ${p.fecha} · ${p.adelante} commit(s) que ${dev ?? 'DEV'} no tiene`);
       if (esNuevo && nombraCodigo(codigo, p.rama)) bloqueos.push(`en ${n} ya existe la rama origin/${p.rama} (${p.autor}, ${p.fecha})`);
     }
-    if (usarGh && cuentaGh && dev) {
-      const pr = correrGh(['pr', 'list', '-R', `${cuentaGh}/${n}`, '--base', dev, '--state', 'open', '--limit', '50', '--json', 'number,title,author,headRefName,files']);
-      if (pr.error) paralelo.push(`- ${n}: no pude listar los PR (${pr.error}).`);
-      for (const x of lista(pr.datos)) {
-        const mods = modulosDe(x.files);
-        paralelo.push(`- ${n}: PR #${x.number} ${corto(texto(x.title))} · ${x.author?.login ?? '?'} · ${x.headRefName}${mods.length ? ` · toca ${mods.join(', ')}` : ''}`);
-        if (esNuevo && (nombraCodigo(codigo, x.headRefName) || nombraCodigo(codigo, x.title))) {
-          bloqueos.push(`en ${n} ya hay un PR abierto del código: #${x.number} (${x.author?.login ?? '?'})`);
+    // PLG-CLOUD: PR por REST. Lo que no se pudo consultar se dice; nunca cuenta como "ninguno".
+    if (!usarGh) sinConsultar.push(`${n}: PR no consultados (BACG_DEV_SIN_GH=1); no verifiqué si hay PR en paralelo`);
+    else if (!cuentaGh || !dev) sinConsultar.push(`${n}: PR no consultados (falta ${!cuentaGh ? 'cuenta_github' : 'la rama de DEV'} en proyecto.yml); no verifiqué si hay PR en paralelo`);
+    else {
+      const repoGh = `${cuentaGh}/${n}`;
+      const prs = prsAbiertos(repoGh, { base: dev }, { correr: correrGh });
+      if (prs.error) sinConsultar.push(`${n}: no pude listar los PR (${prs.error}); no verifiqué si hay PR en paralelo`);
+      for (const x of lista(prs.datos)) {
+        const arch = archivosPr(repoGh, x.number, { correr: correrGh });
+        const mods = modulosDe(arch.datos);
+        paralelo.push(`- ${n}: PR #${x.number} ${corto(texto(x.title))} · ${x.autor} · ${x.head}${mods.length ? ` · toca ${mods.join(', ')}` : arch.error ? ' · archivos sin consultar' : ''}`);
+        if (esNuevo && (nombraCodigo(codigo, x.head) || nombraCodigo(codigo, x.title))) {
+          bloqueos.push(`en ${n} ya hay un PR abierto del código: #${x.number} (${x.autor})`);
         }
       }
+      if (prs.cortado) sinConsultar.push(`${n}: hay 100 PR o más abiertos; listé los primeros 100`);
     }
   }
-  lineas.push(paralelo.length ? 'Trabajo en paralelo (ramas y PR abiertos):' : `Trabajo en paralelo: ninguna rama ni PR abierto en los últimos ${DIAS_PARALELO} días.`);
-  lineas.push(...paralelo);
+  if (paralelo.length) lineas.push('Trabajo en paralelo (ramas y PR abiertos):', ...paralelo);
+  else if (ramasSinVerificar) lineas.push('Trabajo en paralelo: sin verificar.');
+  else if (sinConsultar.length) lineas.push(`Trabajo en paralelo: ninguna rama de otros en los últimos ${DIAS_PARALELO} días.`);
+  else lineas.push(`Trabajo en paralelo: ninguna rama ni PR abierto en los últimos ${DIAS_PARALELO} días.`);
+  for (const x of sinConsultar) lineas.push(`- ${x}.`);
 
   const b = backlogRemoto({ raiz, proyectoId: id, dirLin });
   if (b.error) {

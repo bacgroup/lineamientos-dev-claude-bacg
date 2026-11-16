@@ -11,7 +11,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
 import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
-import { faltaParaEtapa, pasadasSinRepetir, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
+import { faltaParaEtapa, pasadasSinRepetir, PASADAS_REVISION, nombreSkill as nombreSkillDe, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, rutaBacklog, leerBacklog } from './lib/backlog.mjs';
@@ -35,6 +35,9 @@ import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
 import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 import { avisoMergeado } from './lib/rq-rama.mjs';
 import { REGLAS_ACTUALES, reglas44 } from './lib/reglas.mjs';
+import { prsDeRama, checksDe, REST } from './lib/github.mjs';
+import { compiladosCompartidos } from './lib/compilados.mjs';
+import { remotoGh } from './lib/config.mjs';
 import { faltasCapturas, refExigida } from './lib/diseno-ui.mjs';
 import { agregar as agregarDevolucion, marcar as marcarDevolucion, listado as listadoDevoluciones, PROTOCOLO_CORTE } from './lib/devoluciones.mjs';
 import { trazar as trazarSpec } from './lib/traza.mjs';
@@ -50,7 +53,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   alta                                     (stepper de primer uso: qué falta configurar en esta PC antes del primer RQ)
   odoo-skills [--rama <rama>]              (instala en ~/.claude/skills (o CLAUDE_CONFIG_DIR/skills) las skills oficiales de Odoo: odoo/odoo skills/, rama 20.0)
   previa [<código>]                        (proyecto detectado, fetch de los repos, atraso contra la rama de DEV, ramas y PR en paralelo, backlog remoto)
-  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa] [--llevar-cambios]
+  abrir <código> --tipo rq|bug --clasificacion exploracion|acotado|arquitectonico [--tarea "<texto>"] [--prioridad <p>] [--impacto <i>] [--sin-alta] [--sin-previa] [--frase "<frase del usuario para saltear alta o previa>"] [--llevar-cambios]
   clasificacion confirmar "<frase>"   (el usuario confirma la clasificación propuesta; hasta entonces no se edita código)
   clasificacion cambiar <exploracion|acotado|arquitectonico> "<frase>"   (cambia y confirma; la frase es texto literal del usuario)
   ejecucion inline|subagentes "<frase>"   (cómo se ejecuta el plan, antes del primer commit de código; acepta executing-plans y subagent-driven-development)
@@ -350,9 +353,18 @@ function previa(repo, env, codigo, nuevo) {
 
 async function abrir(repo, args, env, io, verificacion) {
   const raiz = repo.raiz;
-  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
+  const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto', 'frase'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
   if (posicionales.length !== 1 || !res.tipo || !res.clasificacion) throw new ErrorUso();
   exigirProyectoUnico(repo);
+  // PLG-CLOUD (hallazgo 15): saltear el alta o la previa lo decide el usuario, con su frase.
+  for (const flag of ['sin-alta', 'sin-previa']) {
+    const env43 = flag === 'sin-alta' ? env.BACG_DEV_SIN_ALTA : env.BACG_DEV_SIN_PREVIA;
+    if (res[flag] !== true || env43 === '1') continue;
+    if (typeof res.frase !== 'string' || !res.frase.trim()) {
+      throw new ErrorCli(`--${flag} saltea un control y lo decide el usuario: pedíselo y pasá su respuesta literal con --frase "<su frase>".`);
+    }
+    await verificarFrase(res.frase, verificacion, null);
+  }
   // Alta de la PC: sin los pasos obligatorios (tests, lineamientos…) no se abre un RQ. --sin-alta sólo si el usuario
   // lo pide con sus palabras (p. ej. un RQ de sólo documentación).
   if (res['sin-alta'] !== true && env.BACG_DEV_SIN_ALTA !== '1') {
@@ -674,11 +686,25 @@ async function loteAprobar(repo, args, verificacion, env, io) {
 /** `skills importar`: las skills cargadas en esta sesión (según su transcripción) quedan anotadas en el RQ. */
 async function importarSkills(repo, elegido, verificacion, env, io, { silencioso = false } = {}) {
   const raiz = repo.raiz;
-  const { id, skills } = await transcriptDeLaSesion(verificacion, 'importar las skills de la sesión');
+  const { id, skills, ultimoUso } = await transcriptDeLaSesion(verificacion, 'importar las skills de la sesión');
   const { codigo, estado } = activo(raiz, elegido);
+  // Pasadas de revisión corridas otra vez después de la última revisión: se anotan con su hora (como lo hace el hook).
+  const desde = estado.revision?.fecha;
+  const corta = (x) => String(x).split(':').pop().toLowerCase();
+  const repetidas = typeof desde !== 'string' ? [] : PASADAS_REVISION.flatMap((p) => {
+    const uso = [...(ultimoUso ?? new Map())].find(([n, t]) => corta(n) === corta(p) && t > desde);
+    const anotada = lista(estado.skills).some((x) => corta(nombreSkillDe(x)) === corta(p) && typeof x?.fecha === 'string' && x.fecha > desde);
+    return uso && !anotada ? [{ skill: uso[0], fecha: uso[1] }] : [];
+  });
+  if (repetidas.length) {
+    cambiarVinculado(repo, env, codigo, silencioso ? { stdout: { write() {} } } : io, (s) => {
+      s.skills = [...lista(s.skills), ...repetidas.map((r) => ({ ...r, etapa: etapaDerivada(s, raiz), sesion: id, via: 'sesion' }))];
+      return `${codigo}: pasadas de revisión corridas otra vez, anotadas (${repetidas.map((r) => r.skill).join(', ')}).`;
+    });
+  }
   const nuevas = [...skills].filter((s) => !tieneSkill(estado, s));
   if (nuevas.length === 0) {
-    if (!silencioso) io.stdout.write(`${codigo}: no hay skills de esta sesión para sumar.\n`);
+    if (!silencioso && !repetidas.length) io.stdout.write(`${codigo}: no hay skills de esta sesión para sumar.\n`);
     return;
   }
   cambiarVinculado(repo, env, codigo, silencioso ? { stdout: { write() {} } } : io, (s) => {
@@ -788,7 +814,12 @@ function msgCambiosAjenos(codigo, ajenos) {
 function imprimirClasificacion(estado, io) {
   const c = estado.clasificacion;
   const pendiente = estado.clasificacion_pendiente === true;
-  const l = [`Clasificación propuesta: ${nombreDe(c)}${pendiente ? ' (pendiente de confirmar por el usuario)' : ''}.`];
+  const l = [];
+  // PLG-CLOUD (hallazgo 19): lo que frena a un Arquitectónico, primero y no al final de la salida.
+  if (c === 'arquitectonico') {
+    l.push(`Arquitectónico: no se edita código hasta que el diseño y el plan estén escritos (spec.md con ## Diseño y ### Criterios centrales, plan.md) y aprobados: ${reglas44(estado) ? '$RQ ok "<frase>" del usuario, $RQ aprobar 1, o la autonomía total de la sesión' : '$RQ aprobar 1 "<frase>"'}. Una autonomía de sesión común no alcanza.`);
+  }
+  l.push(`Clasificación propuesta: ${nombreDe(c)}${pendiente ? ' (pendiente de confirmar por el usuario)' : ''}.`);
   for (const x of implicancias(c, estado.tipo)) l.push(`  - ${x}`);
   if (pendiente) {
     l.push('Proponésela al usuario con su motivo; hasta que la confirme no se edita código. Con su respuesta: $RQ clasificacion confirmar "<su frase>" o $RQ clasificacion cambiar <exploracion|acotado|arquitectonico> "<su frase>".');
@@ -1181,7 +1212,9 @@ function verificar(repo, elegido, args, env, io) {
   if (r.error) io.stderr.write(`No pude ejecutar "${cmd}": ${r.error.message}\n`);
   // Playwright sin specs que coincidan: no es un E2E fallido del RQ, es una ruta mal pasada. No se registra.
   if (r.status !== 0 && specs.length && /No tests found/i.test(`${r.stdout ?? ''}\n${r.stderr ?? ''}`)) {
-    throw new ErrorCli(`El runner no encontró tests con ${specs.map((s) => `"${s}"`).join(' ')} (No tests found). No se registró el E2E. Pasá la ruta del spec como la espera el runner de tests.e2e (relativa a su carpeta, p. ej. e2e/<spec>.spec.ts).`);
+    // PLG-CLOUD (hallazgo 13): un spec guardado en docs/rq/<código>/qa/ queda fuera del testDir del runner.
+    const enQa = specs.some((s) => /(?:^|[\\/])docs[\\/]rq[\\/][^\\/]+[\\/]qa[\\/]/.test(s));
+    throw new ErrorCli(`El runner no encontró tests con ${specs.map((s) => `"${s}"`).join(' ')} (No tests found). No se registró el E2E. Pasá la ruta del spec como la espera el runner de tests.e2e (relativa a su carpeta, p. ej. e2e/<spec>.spec.ts).${enQa ? ' El spec está en docs/rq/<código>/qa/, fuera del testDir de Playwright: el spec vive en la carpeta de E2E del proyecto (ahí corre y queda para regresión); en qa/ van las capturas y, si querés, una copia.' : ''}`);
   }
   const ok = r.status === 0;
   if (!ok) io.stdout.write(`${resumenFalla(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80, { id: `e2e-${rq}` })}\n`);
@@ -1272,32 +1305,30 @@ function entregar(repo, elegido, env, io) {
   if (principal && gitOk(raiz, ['merge-base', '--is-ancestor', 'HEAD', principal])) {
     l.push(`Rama integrada: HEAD ya está en ${principal} (merge-base --is-ancestor); no hace falta PR.`);
   } else if (env.BACG_DEV_SIN_GH === '1') {
-    l.push('PR y CI: sin consultar (BACG_DEV_SIN_GH).');
+    l.push('PR y CI: no consultados (BACG_DEV_SIN_GH=1).');
   } else {
-    const r = spawnSync('gh', ['pr', 'view', ...(otraRamaDeRq ? [ramaPropia] : []), '--json', 'number,state,url,statusCheckRollup'], { cwd: raiz, encoding: 'utf8' });
-    if (r.status !== 0) {
-      // PLG-RAMAS: con rama de DEV, el PR del RQ va a DEV (sin --base, gh usa la rama por defecto, que puede ser PROD).
-      const proy = proyectoDe(repo, env);
-      const orden = ordenDeRamas(proy, lista(proy?.repos).find((x) => String(x?.nombre ?? '').toLowerCase() === nombreRepo(raiz).toLowerCase()));
-      l.push(`PR: no hay PR de esta rama (gh pr create --fill${orden ? ` --base ${orden.dev}` : ''}).`);
-    }
+    // PLG-CLOUD: PR y CI por REST (GraphQL da 403 en la nube).
+    const repoGh = remotoGh(raiz);
+    const ramaPr = otraRamaDeRq ? ramaPropia : rama;
+    const prs = repoGh && ramaPr ? prsDeRama(repoGh, ramaPr, { estado: 'all' }, { env }) : { error: 'no sé el repo o la rama' };
+    const proy = proyectoDe(repo, env);
+    const orden = ordenDeRamas(proy, lista(proy?.repos).find((x) => String(x?.nombre ?? '').toLowerCase() === nombreRepo(raiz).toLowerCase()));
+    const pr = prs.error ? null : prs.datos.find((p) => p.estado === 'open') ?? prs.datos[0];
+    if (prs.error) l.push(`PR y CI: no consultados (${prs.error}).`);
+    else if (!pr) l.push(`PR: no hay PR de esta rama. Crealo por REST: ${REST.crearPr(repoGh, orden?.dev ?? '<base>', ramaPr)}`);
     else {
-      try {
-        const pr = JSON.parse(r.stdout);
-        const checks = lista(pr.statusCheckRollup);
-        const de = (f) => checks.filter(f).length;
-        const fallados = de((c) => ['FAILURE', 'ERROR', 'TIMED_OUT', 'CANCELLED'].includes(c.conclusion ?? c.state));
-        const pendientesCi = de((c) => (c.status && c.status !== 'COMPLETED') || c.state === 'PENDING');
-        l.push(`PR #${pr.number} (${pr.state}): ${pr.url}`);
-        l.push(
-          checks.length === 0
-            ? 'CI: sin checks.'
-            : `CI: ${checks.length - fallados - pendientesCi} ok, ${fallados} fallados, ${pendientesCi} en curso${pendientesCi ? ' (gh pr checks --watch en segundo plano)' : ''}.`,
-        );
-      } catch {
-        l.push('PR: no pude leer la respuesta de gh.');
+      l.push(`PR #${pr.number} (${pr.mergeado ? 'mergeado' : pr.estado}): ${pr.url}`);
+      const c = pr.sha ? checksDe(repoGh, pr.sha, { env }) : { error: 'sin commit' };
+      if (c.error) l.push(`CI: no consultada (${c.error}).`);
+      else {
+        const de = (e) => c.datos.filter((x) => x.estado === e).length;
+        l.push(c.datos.length === 0
+          ? 'CI: sin checks.'
+          : `CI: ${de('ok')} ok, ${de('fallo')} fallados, ${de('en-curso')} en curso${de('en-curso') ? ` (seguila en segundo plano: ${REST.checks(repoGh, pr.sha)})` : ''}.`);
       }
     }
+    // PLG-CLOUD (hallazgo 18): artefactos compilados que otra rama rq/* también toca.
+    for (const aviso of compiladosCompartidos(raiz, estado, proy, ramaPropia)) l.push(aviso);
   }
   io.stdout.write(`${l.join('\n')}\n\n`);
   desplegar(repo, elegido, [], env, io);
@@ -1624,7 +1655,7 @@ function desplegar(repo, elegido, args, env, io) {
     } else if (/^merge-prs-sync:/i.test(p)) {
       const sede = p.slice('merge-prs-sync:'.length);
       como = cuenta
-        ? `gh pr list -R ${cuenta}/${sede} --head ${rama}; gh pr merge <n> --merge -R ${cuenta}/${sede}`
+        ? `gh pr list -R ${cuenta}/${sede} --head ${rama}; gh pr merge <n> --merge -R ${cuenta}/${sede} (en la nube, REST: gh api "repos/${cuenta}/${sede}/pulls?state=open&head=${cuenta}:${rama}" y gh api -X PUT repos/${cuenta}/${sede}/pulls/<n>/merge -f merge_method=merge)`
         : `mergear el PR ${rama} de ${sede}`;
     } else if (esManual(p)) como = 'manual: lo hace el usuario; no bloquea el cierre';
     else if (/^dev:/i.test(p)) como = `en DEV, antes de PROD (los que siguen lo esperan): con el cambio desplegado y probado en DEV, $RQ paso hecho ${p} "<qué se probó y dónde>"`;

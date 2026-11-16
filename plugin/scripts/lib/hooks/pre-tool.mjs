@@ -67,8 +67,9 @@ export async function handler(entrada, { dirLin = dirLineamientos() } = {}) {
   } else if (comandoDeShell(tool, input) !== null) {
     const comando = comandoDeShell(tool, input);
     if (comando === '') return null;
-    r = await conTranscript(entrada, ({ textosUsuario }) =>
-      evaluarBash({ comando, cwd, ctx: { textosUsuario }, dirLin }),
+    // PLG-CLOUD: las escrituras por Bash pasan por la compuerta de edición, que necesita las skills del contexto.
+    r = await conTranscript(entrada, ({ textosUsuario, skills, skillsContexto }) =>
+      evaluarBash({ comando, cwd, ctx: { textosUsuario, skills, skillsContexto }, dirLin }),
     );
   } else if (typeof tool === 'string' && tool.startsWith('mcp__')) {
     let { proyecto, raiz, estado, rqs } = resolverMcp({ cwd, toolInput: input, dirLin, toolName: tool });

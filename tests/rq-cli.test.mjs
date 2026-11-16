@@ -731,7 +731,7 @@ test('entregar: informa rama, tests, E2E, revisión y el plan de despliegue', as
   assert.match(r.out, /Entrega de R-1/);
   assert.match(r.out, /sin upstream/);
   assert.match(r.out, /E2E: sin correr/);
-  assert.match(r.out, /PR y CI: sin consultar/);
+  assert.match(r.out, /PR y CI: no consultados/);
   assert.match(r.out, /Plan de despliegue de R-1/);
 });
 

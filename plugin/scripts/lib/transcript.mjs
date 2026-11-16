@@ -129,6 +129,9 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
   const textosUsuario = [];
   const skills = new Set();
+  // Última vez (timestamp de la transcripción) que se usó cada skill o subagente: una pasada de revisión corrida otra
+  // vez se puede anotar con su hora real (skills importar).
+  const ultimoUso = new Map();
   // Skills cargadas desde la última compactación: las que siguen en el contexto del modelo (P-4).
   let skillsContexto = new Set();
   let primera = true;
@@ -151,6 +154,7 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
       for (const s of skillsDe(entry)) {
         skills.add(s);
         skillsContexto.add(s);
+        if (typeof entry.timestamp === 'string') ultimoUso.set(s, entry.timestamp);
       }
     }
   } catch {
@@ -159,7 +163,7 @@ export async function leerTranscript(ruta, { maxBytes = 50 * 1024 * 1024 } = {})
     rl.close();
     stream.destroy();
   }
-  return { textosUsuario, skills, skillsContexto };
+  return { textosUsuario, skills, skillsContexto, ultimoUso };
 }
 
 // Herramientas cuya entrada nombra un archivo que la sesión leyó o cambió.

@@ -9,6 +9,7 @@ import { pasosAlta, formatoAlta, bloqueante, lineaAlta, scriptDelComando } from 
 import { limpiarCacheOdoo } from '../plugin/scripts/lib/odoo-skills.mjs';
 import { main } from '../plugin/scripts/rq.mjs';
 import { handler as sessionStart } from '../plugin/scripts/lib/hooks/session-start.mjs';
+import { sesionDePrueba } from './helpers.mjs';
 
 const git = (cwd, ...a) => spawnSync('git', a, { cwd, encoding: 'utf8' });
 
@@ -83,10 +84,11 @@ test('scriptDelComando: ruta entre comillas o token con extensión', () => {
 
 test('rq.mjs: alta sale 1 si falta algo obligatorio; abrir se frena hasta completar el alta (o --sin-alta)', async () => {
   const m = montar();
+  const sesion = sesionDePrueba();
   const correr = async (args) => {
     let out = '';
     let err = '';
-    const code = await main(args, { cwd: m.repo, env: { ...process.env, HOME: m.home, USERPROFILE: m.home, BACG_LINEAMIENTOS_DIR: m.lin, BACG_DEV_SIN_GH: '1' },
+    const code = await main(args, { cwd: m.repo, home: sesion.home, env: { ...process.env, CLAUDE_CODE_SESSION_ID: sesion.id, HOME: m.home, USERPROFILE: m.home, BACG_LINEAMIENTOS_DIR: m.lin, BACG_DEV_SIN_GH: '1', BACG_DEV_SIN_ALTA: '' },
       stdout: { write: (s) => { out += s; } }, stderr: { write: (s) => { err += s; } } });
     return { code, out, err };
   };
@@ -96,7 +98,9 @@ test('rq.mjs: alta sale 1 si falta algo obligatorio; abrir se frena hasta comple
   const r = await correr(['abrir', 'PF-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
   assert.equal(r.code, 1);
   assert.match(r.err, /Antes del primer RQ falta completar el alta de esta PC: "Tests del proyecto pf en esta PC"/);
-  const s = await correr(['abrir', 'PF-1', '--tipo', 'rq', '--clasificacion', 'bounded', '--sin-alta']);
+  // PLG-CLOUD: saltear el alta pide la frase del usuario.
+  sesion.dijo('Abrilo igual sin terminar el alta');
+  const s = await correr(['abrir', 'PF-1', '--tipo', 'rq', '--clasificacion', 'bounded', '--sin-alta', '--frase', 'Abrilo igual sin terminar el alta']);
   assert.equal(s.code, 0, s.err);
 });
 

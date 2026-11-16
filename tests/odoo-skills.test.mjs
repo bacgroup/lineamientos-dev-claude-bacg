@@ -153,3 +153,25 @@ test('faltaParaEtapa: proyecto sin datos en repo sin manifiesto no menciona Odoo
   const sup = faltaParaEtapa(estado, 3, repoAddons(), { datos: { motor: 'supabase' } });
   assert.ok(!sup.some((x) => /odoo/i.test(x)), 'motor supabase declarado, aunque haya manifiesto');
 });
+
+test('PLG-CLOUD: si la API de GitHub no deja leer odoo/odoo, instala desde un clon anónimo con sparse-checkout de skills/', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-odoo-git-'));
+  const api = () => { throw new Error('gh api repos/odoo/odoo/commits/20.0: HTTP 403 access not enabled for this session'); };
+  const llamadas = [];
+  const clonar = (rama, destino) => {
+    llamadas.push(rama);
+    for (const s of SKILLS_ODOO) {
+      fs.mkdirSync(path.join(destino, 'skills', s), { recursive: true });
+      fs.writeFileSync(path.join(destino, 'skills', s, 'SKILL.md'), `# ${s}\n`);
+    }
+    return 'cafe123';
+  };
+  const r = instalarSkillsOdoo({ home, api, clonar });
+  assert.deepEqual(llamadas, ['20.0']);
+  assert.equal(r.commit, 'cafe123');
+  assert.equal(r.via, 'git');
+  assert.deepEqual(estadoSkillsOdoo(home).faltan, []);
+  assert.equal(estadoSkillsOdoo(home).origen.commit, 'cafe123');
+  // Si también falla el clon, el error nombra las dos vías.
+  assert.throws(() => instalarSkillsOdoo({ home, api, clonar: () => { throw new Error('sin red'); } }), /API.*403[\s\S]*git.*sin red/);
+});

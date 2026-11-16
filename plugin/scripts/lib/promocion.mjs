@@ -10,6 +10,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { ramasProd } from './stack.mjs';
 import { ramaDev } from './previa.mjs';
 import { cli } from './cli.mjs';
+import { resolverPr, pr as prRest, ramaPorDefecto as ramaPorDefectoRest, EN_HOOK } from './github.mjs';
+import { remotoGh } from './config.mjs';
 
 const sinHeads = (r) => String(r ?? '').replace(/^refs\/heads\//, '');
 
@@ -39,8 +41,10 @@ function ramaActual(raiz) {
 function cabezaDelPr(op, raiz, ctx) {
   if (typeof ctx?.headPr === 'function') return ctx.headPr(op) ?? null;
   try {
-    const args = ['pr', 'view', ...(op.pr ? [op.pr] : []), ...(op.repoGh ? ['-R', op.repoGh] : []), '--json', 'headRefName', '-q', '.headRefName'];
-    return execFileSync('gh', args, { cwd: raiz, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+    const ref = resolverPr({ pr: op.pr, repoGh: op.repoGh, raiz, ramaActual: ramaActual(raiz) }, EN_HOOK);
+    if (ref.error) return null;
+    const p = prRest(ref.datos.repo, ref.datos.numero, EN_HOOK);
+    return p.error ? null : p.datos.head;
   } catch {
     return null;
   }
@@ -49,15 +53,17 @@ function cabezaDelPr(op, raiz, ctx) {
 function ramaPorDefecto(op, raiz, ctx) {
   if (typeof ctx?.ramaPorDefecto === 'function') return ctx.ramaPorDefecto(op) ?? null;
   try {
-    const args = ['repo', 'view', ...(op.repoGh ? [op.repoGh] : []), '--json', 'defaultBranchRef', '-q', '.defaultBranchRef.name'];
-    return execFileSync('gh', args, { cwd: raiz, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+    const repo = op.repoGh || remotoGh(raiz);
+    if (!repo) return null;
+    const r = ramaPorDefectoRest(repo, EN_HOOK);
+    return r.error ? null : r.datos;
   } catch {
     return null;
   }
 }
 
 const pasos = ({ dev, prod }) =>
-  `Primero un PR de tu rama a ${dev} (gh pr create --base ${dev}), desplegado y verificado en DEV; después la promoción ${dev} → ${prod} (gh pr create --base ${prod} --head ${dev}, o git push origin origin/${dev}:${prod} si es fast-forward). Si el usuario decide un hotfix directo a PROD: ${cli()} saltar rama "<frase>" "<motivo>".`;
+  `Primero un PR de tu rama a ${dev} (gh pr create --base ${dev}, o en la nube gh api repos/<owner>/<repo>/pulls -f base=${dev} -f head=<rama>), desplegado y verificado en DEV; después la promoción ${dev} → ${prod} (gh pr create --base ${prod} --head ${dev}, o git push origin origin/${dev}:${prod} si es fast-forward). Si el usuario decide un hotfix directo a PROD: ${cli()} saltar rama "<frase>" "<motivo>".`;
 
 /**
  * Motivo para negar una publicación (push o merge de PR) a una rama de PROD que no viene de la rama de DEV, o null si
@@ -102,5 +108,5 @@ export function prAProdSinDev(op, raiz, nombre, orden, ctx) {
   const cabeza = op.head ?? ramaActual(raiz);
   if (cabeza === orden.dev) return null;
   const explicita = op.base ? '' : ` (sin --base, gh usa la rama por defecto del repo, que es ${base})`;
-  return `${nombre}: un PR a ${base} (PROD) sólo puede venir de ${orden.dev}${explicita}. Abrilo a DEV: gh pr create --base ${orden.dev}${op.head ? ` --head ${op.head}` : ''}. Si el usuario decide un hotfix directo a PROD: ${cli()} saltar rama "<frase>" "<motivo>".`;
+  return `${nombre}: un PR a ${base} (PROD) sólo puede venir de ${orden.dev}${explicita}. Abrilo a DEV: gh pr create --base ${orden.dev}${op.head ? ` --head ${op.head}` : ''}. Si el usuario decide un hotfix directo a PROD: ${cli()} saltar rama "<frase>" "<motivo>". En la nube (REST): gh api repos/<owner>/<repo>/pulls -f base=${orden.dev} -f head=<rama>.`;
 }

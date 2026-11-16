@@ -13,6 +13,8 @@ import { spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, configEnRepo, dirLineamientos, nombreRepo, ajustesLocales } from './config.mjs';
 import { reposHermanos } from './multi-repo.mjs';
 import { PLUGINS_REQUERIDOS } from './hooks/session-start.mjs';
+import { pluginsInstalados } from './plugins-instalados.mjs';
+import { cuentaActual } from './github.mjs';
 import { estadoSkillsOdoo, ramaSkills, usaOdoo, tieneAddons } from './odoo-skills.mjs';
 import { fileURLToPath } from 'node:url';
 import { higienePlugins, textoCandidato, bloqueApagar } from './higiene.mjs';
@@ -67,7 +69,7 @@ export function reglaMergeEnAjustes(dirs, env, home) {
     } catch {
       continue;
     }
-    const r = lista(allow).find((x) => typeof x === 'string' && /^Bash\(\s*gh\s+pr\s+merge\b/i.test(x.trim()));
+    const r = lista(allow).find((x) => typeof x === 'string' && /^Bash\(\s*gh\s+(?:pr\s+merge\b|api\s+-X\s+PUT\s+repos\/\S*pulls\/\S*merge)/i.test(x.trim()));
     if (r) return `${a}: ${r}`;
   }
   return null;
@@ -98,10 +100,19 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
   if (sinGh || env.BACG_DEV_SIN_GH === '1') {
     sumar({ id: 'gh', titulo: 'GitHub CLI autenticado', obligatorio: true, estado: 'na', detalle: 'omitido' });
   } else {
-    const ok = typeof gh === 'function' ? gh() : sh('gh', ['auth', 'status'], { env }).status === 0;
+    // PLG-CLOUD: `gh api user` y no `gh auth status`, que falla en la nube aunque la credencial del proxy ande.
+    let login = null;
+    if (typeof gh === 'function') {
+      const r = gh();
+      login = typeof r === 'string' ? r : r ? 'autenticado' : null;
+    } else {
+      const r = cuentaActual({ env });
+      login = r.error ? null : r.datos;
+    }
     sumar({
-      id: 'gh', titulo: 'GitHub CLI autenticado', obligatorio: true, estado: ok ? 'ok' : 'falta',
-      como: 'Corré `gh auth login` con una cuenta que vea la org bacgroup (y `gh auth setup-git`).',
+      id: 'gh', titulo: 'GitHub CLI autenticado', obligatorio: true, estado: login ? 'ok' : 'falta',
+      detalle: login ? `cuenta ${login}` : 'gh api user no respondió',
+      como: 'Verificalo con `gh api user --jq .login`. En una PC: `gh auth login` con una cuenta que vea los repos del proyecto (y `gh auth setup-git`). En la nube la credencial la inyecta el entorno: revisá el acceso a GitHub del entorno.',
     });
   }
 
@@ -115,28 +126,28 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
     como: `Cloná el repo central: \`gh repo clone ${REPO_CENTRAL} "${lin}"\`. Si la querés en otra carpeta, poné su ruta en ~/.claude/bacg-dev.json como "lineamientosDir".`,
   });
 
-  // 4. Lineamientos al día (sin red: compara con lo último que se trajo)
+  // 4. Lineamientos al día (PLG-CLOUD: trae origin antes de comparar; sin red, "no verificado", nunca "ok")
   if (hayLin) {
+    const esClon = fs.existsSync(path.join(lin, '.git'));
+    const f = !esClon ? { status: 1 } : sh('git', ['-C', lin, '-c', 'credential.interactive=false', 'fetch', '--quiet', 'origin'], { env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }, timeout: 20000 });
     const r = sh('git', ['-C', lin, 'rev-list', '--count', 'HEAD..@{u}']);
-    const atras = r.status === 0 ? Number(r.stdout.trim()) : 0;
+    const atras = r.status === 0 ? Number(r.stdout.trim()) : null;
+    const verificado = f.status === 0 && atras !== null;
     sumar({
-      id: 'al-dia', titulo: 'Lineamientos al día', obligatorio: false, estado: atras > 0 ? 'aviso' : 'ok',
-      detalle: atras > 0 ? `${atras} commit(s) atrás` : undefined, como: `Corré \`git -C "${lin}" pull\`.`,
+      id: 'al-dia', titulo: 'Lineamientos al día', obligatorio: false, estado: verificado && atras === 0 ? 'ok' : 'aviso',
+      detalle: !verificado ? `no verificado (${!esClon ? 'la copia no es un clon de git' : f.status !== 0 ? 'no pude traer origin' : 'la copia no tiene upstream'})` : atras > 0 ? `${atras} commit(s) atrás` : undefined,
+      como: `Corré \`git -C "${lin}" pull\`.`,
     });
   }
 
   // 5. Plugins requeridos
-  let instalados = null;
-  try {
-    instalados = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(dirConfigClaude({ env, home }), 'plugins', 'installed_plugins.json'), 'utf8'))?.plugins ?? {}));
-  } catch {
-    // sin el archivo: no se puede saber
-  }
-  const faltan = instalados ? PLUGINS_REQUERIDOS.filter((p) => !instalados.has(p)) : [];
+  // PLG-CLOUD: también los sincronizados desde claude.ai (plugins/synced/), que no figuran en installed_plugins.json.
+  const instalados = pluginsInstalados({ env, home });
+  const faltan = instalados ? PLUGINS_REQUERIDOS.filter((p) => !instalados.tiene(p)) : [];
   sumar({
     id: 'plugins', titulo: 'Plugins complementarios', obligatorio: false,
     estado: instalados === null ? 'aviso' : faltan.length ? 'aviso' : 'ok',
-    detalle: instalados === null ? 'no pude leer ~/.claude/plugins/installed_plugins.json' : faltan.length ? `faltan: ${faltan.join(', ')}` : undefined,
+    detalle: instalados === null ? 'no pude leer ~/.claude/plugins/installed_plugins.json ni los plugins sincronizados' : faltan.length ? `faltan: ${faltan.join(', ')}` : undefined,
     como: faltan.length ? faltan.map((p) => `/plugin install ${p}`).join(' · ') : 'Verificalos con /plugin.',
   });
 
@@ -245,7 +256,7 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
       id: 'merge-dev', titulo: `Merge del PR a ${dev} en modo automático`, obligatorio: false,
       estado: regla ? 'ok' : 'aviso',
       detalle: regla ?? 'sin regla de permisos: el modo automático niega gh pr merge y la autonomía hasta DEV se corta ahí',
-      como: 'Sumá "Bash(gh pr merge:*)" a permissions.allow de .claude/settings.local.json (de esta carpeta o del repo). Los merges a PROD los sigue frenando la compuerta del plugin hasta el OK del usuario ($RQ aprobar 5).',
+      como: 'Lo agrega el usuario, no el agente (el clasificador del modo automático le niega ampliar sus propios permisos): sumá "Bash(gh pr merge:*)" y, en la nube, "Bash(gh api -X PUT repos/*/pulls/*/merge*)" a permissions.allow de .claude/settings.local.json (de esta carpeta o del repo), o pedile al administrador que lo ponga en la configuración del entorno. Los merges a PROD los sigue frenando la compuerta del plugin hasta el OK de la etapa 5.',
     });
   }
 
