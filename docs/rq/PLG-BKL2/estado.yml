@@ -3,7 +3,7 @@ tipo: bug
 clasificacion: bounded
 clasificacion_pendiente: false
 tarea: 'Plugin — el backlog con filas separadas por líneas en blanco bajo un solo encabezado: abrir y cerrar duplican la fila (regresión de la 4.6.0)'
-etapa: 0
+etapa: 6
 autonomia:
   hasta: 4
   frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
@@ -14,6 +14,9 @@ aprobaciones:
     frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
     fecha: '2026-11-16T19:42:37.430Z'
     via: sesion-total
+  - etapa: 5
+    frase: OK de PROD para PLG-BKL2
+    fecha: '2026-11-16T20:10:14.107Z'
 tests:
   ok: true
   arbol: ae0b198ba0271d42e3dc94dd1bb0234728600130
@@ -34,7 +37,7 @@ saltos:
 base: 59a2830febb396065e540af766540cb0121d0fdb
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T20:09:09.245Z'
+actualizado: '2026-11-16T20:10:38.333Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -125,3 +128,5 @@ e2e:
   comando: npm run test:e2e
   head: 789443ec347e6eeda9adeb12976736c8e554ba4d
   completo: true
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
