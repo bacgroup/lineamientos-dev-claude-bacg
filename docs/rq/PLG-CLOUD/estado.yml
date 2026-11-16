@@ -26,7 +26,7 @@ saltos: []
 base: fd70e74ce5f2b5c75f5ecd2cd0a8b4e8294ed35e
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T17:07:30.880Z'
+actualizado: '2026-11-16T17:07:59.908Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -107,3 +107,9 @@ ejecucion:
   frase: Trabajar de forma autonoma cuando se recuperen los tokens de sesión los fixes para mejorar las situaciones debajo mencionadas en la experiencia de DEV con el PLUGIN en PowerFy.
   fecha: '2026-11-16T16:48:04.808Z'
   via: sesion-total
+e2e:
+  ok: true
+  fecha: '2026-11-16T17:07:59.903Z'
+  comando: npm run test:e2e
+  head: 57f70236ba909595a863072c9fb6895be186b85a
+  completo: true
