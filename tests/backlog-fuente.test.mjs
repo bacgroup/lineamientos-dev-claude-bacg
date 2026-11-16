@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { main } from '../plugin/scripts/rq.mjs';
-import { fusionarFilas, diferencias, parsearBacklog, fuenteBacklog } from '../plugin/scripts/lib/backlog.mjs';
+import { fusionarEnArchivo, diferencias, parsearBacklog, fuenteBacklog } from '../plugin/scripts/lib/backlog.mjs';
 import { crearRepoTemporal, sesionDePrueba } from './helpers.mjs';
 
 const ENC = '| Código | Tarea | Prioridad | Estado | Impacto | Link |\n|---|---|---|---|---|---|\n';
@@ -39,11 +39,9 @@ async function correr(raiz, lin, args) {
 }
 const estados = (archivo) => Object.fromEntries(parsearBacklog(fs.readFileSync(archivo, 'utf8')).map((f) => [f['Código'], f.Estado]));
 
-test('fusionarFilas: por código gana el estado más avanzado y se conservan las filas de las dos copias', () => {
-  const a = parsearBacklog(ENC + fila('A', 'Pendiente') + fila('B', 'En curso'));
+test('diferencias: códigos en una sola copia o con distinto estado; ignora filas sin código', () => {
+  const a = parsearBacklog(ENC + fila('A', 'Pendiente') + fila('B', 'En curso') + '|  | sin código | | Pendiente | | |\n');
   const b = parsearBacklog(ENC + fila('A', 'Hecho 10/11/2026') + fila('C', 'Pendiente'));
-  const f = Object.fromEntries(fusionarFilas(a, b).map((x) => [x['Código'], x.Estado]));
-  assert.deepEqual(f, { A: 'Hecho 10/11/2026', B: 'En curso', C: 'Pendiente' });
   assert.deepEqual(diferencias(a, b).sort(), ['A', 'B', 'C']);
   assert.deepEqual(diferencias(a, a), []);
 });
@@ -88,4 +86,54 @@ test('la previa avisa si el backlog central y el del repo difieren, con los cód
   const t = validacionPrevia({ repo: { raiz, proyectoId: 'pf' }, proyecto: { id: 'pf' }, codigo: 'Z-1', env: { ...process.env, BACG_DEV_SIN_GH: '1' }, dirLin: lin }).lineas.join('\n');
   assert.match(t, /dos copias del backlog difieren: A, B, C/);
   assert.match(t, /backlog migrar/);
+});
+
+test('fusionar en un archivo es quirúrgico: conserva columnas extra, texto después de la tabla, filas sin código y pipes escapados', async () => {
+  const { fusionarEnArchivo } = await import('../plugin/scripts/lib/backlog.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bk-'));
+  const f = path.join(dir, 'backlog.md');
+  const original = '# B\n\n| Código | Tarea | Prioridad | Estado | Impacto | Link | Owner |\n|---|---|---|---|---|---|---|\n| A | usa x \\| y | Alta | Pendiente | i | l | ana |\n|  | nota sin código | | | | | |\n| B | b | Media | En curso | i | l | juan |\n\n## Notas\nTexto al final.\n';
+  fs.writeFileSync(f, original);
+  const r = fusionarEnArchivo(f, [{ 'Código': 'A', Estado: 'Hecho 16/11/2026' }, { 'Código': 'B', Estado: 'Pendiente' }, { 'Código': 'C', Tarea: 'nueva', Estado: 'Pendiente' }]);
+  const t = fs.readFileSync(f, 'utf8');
+  assert.match(t, /\| A \| usa x \\\| y \| Alta \| Hecho 16\/11\/2026 \| i \| l \| ana \|/);
+  assert.match(t, /nota sin código/);
+  assert.match(t, /\| B \| b \| Media \| En curso \| i \| l \| juan \|/, 'no baja de En curso a Pendiente');
+  assert.match(t, /\| C \| nueva \|/);
+  assert.match(t, /## Notas\nTexto al final\./);
+  assert.deepEqual(r, { agregadas: ['C'], actualizadas: ['A'] });
+  // Sin nada que cambiar, el archivo queda byte a byte igual.
+  const antes = fs.readFileSync(f, 'utf8');
+  fusionarEnArchivo(f, [{ 'Código': 'A', Estado: 'Hecho 16/11/2026' }]);
+  assert.equal(fs.readFileSync(f, 'utf8'), antes);
+});
+
+test('rango: un "Hecho … Falta" parcial no le gana a En curso; Cerrado cuenta como cerrado', async () => {
+  const { rangoEstado } = await import('../plugin/scripts/lib/backlog.mjs');
+  assert.ok(rangoEstado('Hecho en el plugin 04/11/2026. Falta: declarar') <= rangoEstado('En curso'));
+  assert.ok(rangoEstado('Cerrado') > rangoEstado('En curso'));
+  assert.ok(rangoEstado('Descartado 16/11/2026') > rangoEstado('Pendiente'));
+});
+
+test('backlog migrar declara backlog: repo en el proyecto.yml central y no vuelve a fusionar una central obsoleta', async () => {
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  assert.equal((await correr(raiz, lin, ['backlog', 'migrar'])).code, 0);
+  assert.match(fs.readFileSync(path.join(lin, 'proyectos', 'pf', 'proyecto.yml'), 'utf8'), /^backlog: repo$/m);
+  const otra = await correr(raiz, lin, ['backlog', 'migrar']);
+  assert.match(otra.out, /ya está migrado/);
+});
+
+test('fuente central: reabrir un código que una copia tenía Hecho lo deja En curso en las dos', async () => {
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  const r = await correr(raiz, lin, ['abrir', 'A', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(estados(path.join(raiz, 'docs', 'backlog.md')).A, 'En curso');
+  assert.equal(estados(path.join(lin, 'proyectos', 'pf', 'backlog.md')).A, 'En curso');
+});
+
+test('fusionarEnArchivo crea el archivo con encabezado si no existe', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fus-'));
+  const f = path.join(dir, 'docs', 'backlog.md');
+  assert.deepEqual(fusionarEnArchivo(f, parsearBacklog(ENC + fila('A', 'Pendiente'))), { agregadas: ['A'], actualizadas: [] });
+  assert.equal(estados(f).A, 'Pendiente');
 });

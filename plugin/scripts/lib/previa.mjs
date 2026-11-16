@@ -97,8 +97,8 @@ export function modulosDe(archivos, max = 6) {
  * docs/backlog.md de la rama principal de origin; si no, proyectos/<id>/backlog.md del upstream de la copia de
  * lineamientos (después de un fetch). `atras` = commits que la copia local no tiene.
  */
-export function backlogRemoto({ raiz, proyectoId, dirLin }) {
-  if (configEnRepo(raiz)) {
+export function backlogRemoto({ raiz, proyectoId, dirLin, proyecto }) {
+  if (fuenteBacklog(raiz, proyecto) === 'repo') {
     const principal = refPrincipal(raiz);
     if (!principal) return { error: 'el repo no tiene rama principal en origin' };
     const r = git(raiz, ['show', `${principal}:docs/backlog.md`]);
@@ -202,7 +202,7 @@ export function validacionPrevia({ repo, proyecto, codigo = null, nuevo = true, 
     const dif = central.length && copia.length ? diferencias(central, copia) : [];
     if (dif.length) lineas.push(`Backlog: las dos copias del backlog difieren: ${dif.slice(0, 12).join(', ')}${dif.length > 12 ? ` y ${dif.length - 12} más` : ''}. abrir y cerrar las fusionan (gana el estado más avanzado); para una sola fuente: $RQ backlog migrar.`);
   }
-  const b = backlogRemoto({ raiz, proyectoId: id, dirLin });
+  const b = backlogRemoto({ raiz, proyectoId: id, dirLin, proyecto });
   if (b.error) {
     lineas.push(`Backlog remoto: ${b.error}; no verifiqué el código contra el backlog.`);
   } else {
