@@ -14,7 +14,7 @@ import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, f
 import { faltaParaEtapa, pasadasSinRepetir, PASADAS_REVISION, nombreSkill as nombreSkillDe, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
-import { upsertFila, upsertEnArchivo, fusionarEnArchivo, columnasDe, crearConEncabezadoDe, rutaBacklog, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
+import { upsertFila, upsertEnArchivo, fusionarEnArchivo, columnasDe, crearConEncabezadoDe, rutaBacklog, rutaCentral, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
 import { tipoArchivo } from './lib/rutas.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { seccionAgents, escribirAgents } from './lib/agents.mjs';
@@ -2032,7 +2032,7 @@ export async function main(
       case 'backlog': {
         // PLG-BACKLOG: deja docs/backlog.md del repo como la fuente, con todo lo de la copia central fusionado.
         const dirLin = dirLineamientos({ env });
-        const central = path.join(dirLin, 'proyectos', repo.proyectoId, 'backlog.md');
+        const central = rutaCentral(dirLin, repo.proyectoId);
         const copia = path.join(raiz, 'docs', 'backlog.md');
         if (!fs.existsSync(central)) {
           io.stdout.write(`No hay backlog central de ${repo.proyectoId} (${central}): la fuente ya es docs/backlog.md del repo.\n`);
