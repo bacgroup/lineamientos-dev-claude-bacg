@@ -1,5 +1,51 @@
 # Changelog
 
+## 4.5.0: el plugin en Claude Code en la nube (2026-11-16)
+
+**Origen.** La sesión cloud autónoma de PowerFy del 16/11: alta, 7 RQ de UI y el diseño de PF-MARCA. El handoff está en `docs/handoff/2026-11-16-powerfy-cloud.md`. El ciclo funcionó, pero el plugin dio "todo OK" falsos ("ningún PR abierto" con 7 abiertos, "lineamientos al día" con 5 commits de atraso), bloqueó por falsos negativos y dejó escribir código por Bash antes del diseño aprobado. Criterio: el plugin nunca afirma "nada" o "al día" sin haberlo verificado.
+
+**GitHub por REST** (`lib/github.mjs`, hallazgos 1, 2 y 4). Todo lo que se lee de GitHub va por `gh api`:
+- en la validación previa, los PR abiertos contra DEV y sus archivos;
+- en `entregar`, el PR de la rama y sus checks (check-runs y statuses);
+- el PR ya mergeado de `rq/<código>`;
+- los PR de sync del circuito;
+- en las compuertas de merge, la base, la cabeza y los archivos del PR.
+
+Antes iba por `gh pr list/view` (GraphQL), que da 403 en la nube. Cada consulta devuelve datos o error, y un error se informa: "no pude listar los PR (HTTP 403)" o "PR: no consultados", nunca "ninguno".
+- La previa trae todas las ramas de origin (`+refs/heads/*`, con `--depth=50` en clones superficiales). En la nube los clones traen sólo la rama por defecto y las ramas de otros no se veían nunca.
+- `entregar` da los comandos REST para crear el PR y seguir la CI. `ciclo-rq` documenta los equivalentes REST de crear, checks y merge.
+
+**El alta y el arranque en la nube** (hallazgos 3, 6, 7 y 11)
+- GitHub se verifica con `gh api user`, no con `gh auth status`, y el alta muestra la cuenta.
+- El aviso de cuenta de gh lee `hosts.yml` directo (`gh config get` falla sin keyring), con `gh api user` como respaldo.
+- "Lineamientos al día" trae origin (timeout de 20 s) antes de comparar. Sin red o sin clon dice "no verificado".
+- Los plugins sincronizados desde claude.ai (`plugins/synced/`) cuentan como instalados (`lib/plugins-instalados.mjs`).
+- El paso del merge en modo automático dice que la regla la agrega el usuario o el entorno (el agente no puede ampliarse los permisos) y reconoce también la regla REST.
+
+**`rq.mjs odoo-skills`** (hallazgo 5). Si la API no deja leer odoo/odoo, baja `skills/` con un clon anónimo y sparse-checkout. `.odoo-skills.json` registra la vía.
+
+**Compuertas** (hallazgos 15 y 16)
+- Con reglas 4.4, lo que un comando de Bash escribe en un repo pasa por la compuerta de edición. Cubre redirección y heredoc, `sed -i`, `tee`, `cp`, `mv`, y `python -c` / `node -e` con `open(…,'w')`, `Path().write_text` o `writeFileSync`. El motivo de la negación es el mismo que con Edit/Write. El hook le pasa a Bash las skills del contexto.
+- `abrir --sin-previa` y `--sin-alta` exigen `--frase "<frase del usuario>"`.
+- Fijar `BACG_DEV_SIN_PREVIA`, `SIN_ALTA` o `SIN_GH` en un comando que corre `rq.mjs` se niega.
+
+**Otros**
+- Los rojos conocidos reconocen la salida de Odoo (hallazgo 12).
+- `entregar` avisa si otra rama `rq/*` toca el mismo artefacto compilado (`compilados` en `proyecto.yml`; por defecto `*.bundle.js`, `*.min.js` y `dist/**`) (hallazgo 18).
+- `abrir` dice primero qué frena a un Arquitectónico (hallazgo 19).
+- "No tests found" con el spec en `docs/rq/<código>/qa/` explica dónde va (hallazgo 13).
+- En el criterio ARQ, el tamaño sólo cuenta junto con un eje: contrato, datos, seguridad o despliegue (hallazgo 14).
+- Registrar y pushear van en comandos separados (hallazgo 9). Con el Stop hook de la nube, commit local y push después de la revisión (hallazgo 10).
+- `docs/ENTORNOS.md` suma una sección de la nube.
+
+**Tests.** La suite queda sin rojos conocidos. Los dos que fallaban en la nube eran bugs:
+- la previa (hallazgo 1);
+- el test del aviso de cuenta, que heredaba el `BACG_DEV_SIN_GH=1` del entorno (PLG-GH).
+
+**Sin construir.**
+- La fuente única del backlog (hallazgo 8) queda como propuesta en PLG-BACKLOG.
+- El 17 (falso positivo al commitear docs) no se reprodujo con un script común: queda en PLG-BASH.
+
 ## 4.4.0: compuertas de cumplimiento, OK flexibles y Superpowers como eje (2026-11-15)
 
 **Origen.** El retrabajo de R-MOD-V2 en dev-fullflow (`nkick25/dev-fullflow` → `docs/rq/PLG-DFF2/`): 22 devoluciones, unos 82 puntos y 6 casos de producto que encontró el usuario, todo con las compuertas en verde. A eso se suman cuatro premisas del usuario: los OK eran rígidos y la autonomía los volvía a pedir; Superpowers había quedado como optativo; la revisión miraba poco la calidad; y los mockups eran optativos. El plugin controlaba que una skill se cargó, no que se cumplió.
