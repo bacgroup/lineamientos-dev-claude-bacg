@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.6.1: el backlog con grupos de filas ya no duplica la fila del RQ (2026-11-16)
+
+**Origen:** BUG PLG-BKL2, regresión de la 4.6.0 vista al cerrar PLG-BACKLOG en este repo.
+
+**Cambios:**
+- La tabla del backlog va desde su encabezado hasta que empieza otra tabla (una fila seguida de una línea separadora). Las líneas en blanco o el texto entre grupos de filas ya no la cortan, así que `abrir` y `cerrar` encuentran la fila existente en cualquier grupo y no agregan una duplicada.
+- Una segunda tabla con su propio encabezado (notas, glosario) sigue sin tomarse como backlog.
+
 ## 4.6.0: fuente única del backlog (2026-11-16)
 
 **Origen:** hallazgo 8 del handoff de PowerFy en la nube. En los proyectos con la configuración en el repo central, `abrir` y `cerrar` copiaban entero el backlog central sobre `docs/backlog.md` del repo. Si la copia local estaba atrasada, o alguien agregó o actualizó filas en el repo, esas filas se perdían. En PowerFy aparecieron paneles hechos que figuraban como Pendiente y desapareció una fila agregada en un commit.

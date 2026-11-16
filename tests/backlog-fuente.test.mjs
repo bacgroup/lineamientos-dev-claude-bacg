@@ -246,3 +246,43 @@ test('migrar sin docs/backlog.md crea la copia con las columnas de la central', 
   assert.doesNotMatch(r.out, /Ojo/);
   assert.equal(parsearBacklog(fs.readFileSync(path.join(raiz, 'docs', 'backlog.md'), 'utf8'))[0].Responsable, 'Ana');
 });
+
+test('PLG-BKL2: grupos de filas separados por líneas en blanco son un solo backlog (no se duplica la fila)', async () => {
+  const { upsertEnArchivo } = await import('../plugin/scripts/lib/backlog.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grupos-'));
+  const f = path.join(dir, 'backlog.md');
+  const texto = `# Backlog\n\n${ENC}${fila('A', 'Pendiente')}\n${fila('B', 'En curso')}\nNota suelta.\n\n${fila('C', 'Pendiente')}\n## Notas\n\n| Fecha | Nota |\n|---|---|\n| 2026 | algo |\n`;
+  fs.writeFileSync(f, texto);
+  assert.deepEqual(parsearBacklog(texto).map((x) => x['Código']), ['A', 'B', 'C']);
+  assert.equal(upsertEnArchivo(f, 'B', { Estado: 'Hecho 16/11/2026' }), 'actualizada');
+  assert.deepEqual(fusionarEnArchivo(f, parsearBacklog(ENC + fila('C', 'Hecho 1/1/2026'))), { agregadas: [], actualizadas: ['C'] });
+  const despues = fs.readFileSync(f, 'utf8');
+  assert.deepEqual(parsearBacklog(despues).map((x) => [x['Código'], x.Estado]), [['A', 'Pendiente'], ['B', 'Hecho 16/11/2026'], ['C', 'Hecho 1/1/2026']]);
+  assert.match(despues, /Nota suelta\.\n\n\| C /);
+  assert.match(despues, /\| 2026 \| algo \|\n$/);
+});
+
+test('PLG-BKL2: una fila nueva va al final del primer grupo, también con otra tabla pegada al backlog', async () => {
+  const { upsertEnArchivo } = await import('../plugin/scripts/lib/backlog.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grupos2-'));
+  const f = path.join(dir, 'backlog.md');
+  fs.writeFileSync(f, `# Backlog\n\n${ENC}${fila('A', 'Pendiente')}\n${fila('C', 'Pendiente')}`);
+  assert.equal(upsertEnArchivo(f, 'D', { Estado: 'En curso' }), 'agregada');
+  assert.deepEqual(parsearBacklog(fs.readFileSync(f, 'utf8')).map((x) => x['Código']), ['A', 'D', 'C']);
+  // Glosario pegado, sin línea en blanco: la fila nueva no cae en el glosario ni se duplica.
+  const g = path.join(dir, 'pegado.md');
+  fs.writeFileSync(g, `${ENC}${fila('A', 'Pendiente')}| Término | Def |\n|---|---|\n| g | d |\n`);
+  assert.equal(upsertEnArchivo(g, 'N', { Tarea: 't' }), 'agregada');
+  assert.equal(upsertEnArchivo(g, 'N', { Tarea: 't' }), 'actualizada');
+  const t = fs.readFileSync(g, 'utf8');
+  assert.deepEqual(parsearBacklog(t).map((x) => x['Código']), ['A', 'N']);
+  assert.match(t, /\| g \| d \|\n$/);
+});
+
+test('PLG-BKL2: una fila cuyo código empieza con guion no se toma como separador', async () => {
+  const { upsertEnArchivo } = await import('../plugin/scripts/lib/backlog.mjs');
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'guion-')), 'backlog.md');
+  fs.writeFileSync(f, `${ENC}${fila('A', 'Pendiente')}${fila('-B', 'Pendiente')}${fila('C', 'Pendiente')}`);
+  assert.equal(upsertEnArchivo(f, 'C', { Estado: 'En curso' }), 'actualizada');
+  assert.deepEqual(parsearBacklog(fs.readFileSync(f, 'utf8')).map((x) => x['Código']), ['A', '-B', 'C']);
+});
