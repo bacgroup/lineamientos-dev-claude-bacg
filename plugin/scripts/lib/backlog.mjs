@@ -174,6 +174,19 @@ export function upsertEnArchivo(archivo, codigo, campos) {
   return i === undefined ? 'agregada' : 'actualizada';
 }
 
+/** Columnas del encabezado de la tabla del archivo (COLUMNAS si no existe o no tiene tabla). */
+export function columnasDe(archivo) {
+  return abrirTabla(archivo).cols;
+}
+
+/** Crea `archivo` con el título y el encabezado de la tabla de `modelo` (sin filas), si `archivo` no existe. */
+export function crearConEncabezadoDe(archivo, modelo) {
+  if (fs.existsSync(archivo)) return;
+  const cols = columnasDe(modelo);
+  fs.mkdirSync(path.dirname(archivo), { recursive: true });
+  fs.writeFileSync(archivo, `# Backlog\n\n| ${cols.join(' | ')} |\n|${cols.map(() => '---').join('|')}|\n`);
+}
+
 /** upsertEnArchivo sobre la fuente del backlog del proyecto. */
 export function upsertFila(dirLin, proyectoId, codigo, campos, raiz, proyecto) {
   return upsertEnArchivo(rutaBacklog(dirLin, proyectoId, raiz, proyecto), codigo, campos);

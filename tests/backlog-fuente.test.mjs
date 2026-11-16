@@ -235,3 +235,12 @@ test('rango: En revisión o En QA cuentan como en curso', async () => {
   assert.equal(rangoEstado('En revisión'), rangoEstado('En curso'));
   assert.equal(rangoEstado('En QA'), rangoEstado('En curso'));
 });
+
+test('migrar sin docs/backlog.md crea la copia con las columnas de la central', async () => {
+  const { lin, raiz } = proyectoCentral('reglas: 43\n');
+  fs.rmSync(path.join(raiz, 'docs', 'backlog.md'));
+  fs.writeFileSync(path.join(lin, 'proyectos', 'pf', 'backlog.md'), '# Backlog\n\n| Código | Tarea | Prioridad | Estado | Impacto | Link | Responsable |\n|---|---|---|---|---|---|---|\n| B | B | Alta | En curso | x | | Ana |\n');
+  const r = await correr(raiz, lin, ['backlog', 'migrar']);
+  assert.doesNotMatch(r.out, /Ojo/);
+  assert.equal(parsearBacklog(fs.readFileSync(path.join(raiz, 'docs', 'backlog.md'), 'utf8'))[0].Responsable, 'Ana');
+});

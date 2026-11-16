@@ -14,7 +14,7 @@ import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, f
 import { faltaParaEtapa, pasadasSinRepetir, PASADAS_REVISION, nombreSkill as nombreSkillDe, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
-import { upsertFila, upsertEnArchivo, fusionarEnArchivo, rutaBacklog, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
+import { upsertFila, upsertEnArchivo, fusionarEnArchivo, columnasDe, crearConEncabezadoDe, rutaBacklog, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
 import { tipoArchivo } from './lib/rutas.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { seccionAgents, escribirAgents } from './lib/agents.mjs';
@@ -2056,8 +2056,9 @@ export async function main(
           break;
         }
         // Columnas que tiene la central y no la copia del repo: sus valores no pasan; se avisa para no perderlos sin saberlo.
-        const colsDe = (archivo) => Object.keys(filasDe(archivo)[0] ?? {});
-        const sinColumna = fs.existsSync(copia) ? colsDe(central).filter((c) => !colsDe(copia).includes(c)) : [];
+        // Sin copia en el repo, se crea con el encabezado de la central (no se pierde ninguna columna).
+        crearConEncabezadoDe(copia, central);
+        const sinColumna = columnasDe(central).filter((c) => !columnasDe(copia).includes(c));
         const { agregadas, actualizadas } = fusionarEnArchivo(copia, filasDe(central));
         fs.writeFileSync(central, `> OBSOLETO desde ${hoy()}: la fuente del backlog es docs/backlog.md del repo ${nombreRepo(raiz)}. No lo edites.\n\n${t}`);
         io.stdout.write(`Backlog migrado: ${filasDe(copia).length} fila(s) en docs/backlog.md (${agregadas.length} agregada(s), ${actualizadas.length} con estado actualizado). La copia central quedó marcada como obsoleta${declarado ? ' y proyecto.yml declara `backlog: repo`' : falta}.${sinColumna.length ? ` Ojo: la central tiene columnas que docs/backlog.md no tiene (${sinColumna.join(', ')}); sus valores quedaron sólo en la copia obsoleta: agregalas a mano si las querés.` : ''} Commiteá docs/backlog.md acá y los cambios de proyectos/${repo.proyectoId}/ en lineamientos.\n`);
