@@ -1,0 +1,64 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: la previa lista los PR abiertos contra DEV por REST y trae todas las ramas aunque el clon sea angosto; si no pudo, lo dice.
+    archivos: [plugin/scripts/lib/github.mjs, plugin/scripts/lib/previa.mjs]
+    test: tests/previa.test.mjs > PR abiertos contra DEV por REST · si no puede listar los PR · ve las ramas de otros aunque el clon traiga sólo main
+    estado: hecho
+  - id: S-2
+    texto: entregar, rama mergeada, circuito y compuertas de PR usan REST por lib/github.mjs, sin gh pr.
+    archivos: [plugin/scripts/lib/github.mjs, plugin/scripts/rq.mjs, plugin/scripts/lib/rq-rama.mjs, plugin/scripts/lib/circuito.mjs, plugin/scripts/lib/promocion.mjs, plugin/scripts/lib/compuerta-bash.mjs]
+    test: tests/github-rest.test.mjs (gh falso en el PATH que sólo acepta gh api; rq-rama y resolverPr de punta a punta)
+    estado: parcial
+    motivo: entregar, circuito y las compuertas de PR quedan probados por unidad (github.mjs) y no de punta a punta con el gh falso; queda en el backlog.
+  - id: S-3
+    texto: el alta verifica GitHub con gh api user y muestra la cuenta.
+    archivos: [plugin/scripts/lib/alta.mjs, plugin/scripts/lib/hooks/session-start.mjs]
+    test: tests/alta-nube.test.mjs > GitHub ok con la cuenta que devuelve gh api user · tests/hooks.test.mjs > session-start avisa si la cuenta activa de gh no es la del proyecto
+    estado: hecho
+  - id: S-4
+    texto: BACG_DEV_SIN_GH dice qué no consultó en lugar de dar "ninguno".
+    archivos: [plugin/scripts/lib/previa.mjs, plugin/scripts/rq.mjs]
+    test: tests/previa.test.mjs > si no puede listar los PR lo dice · tests/rq-cli.test.mjs > entregar (PR y CI no consultados)
+    estado: hecho
+  - id: S-5
+    texto: odoo-skills usa la API y, si falla, un clon anónimo con sparse-checkout.
+    archivos: [plugin/scripts/lib/odoo-skills.mjs]
+    test: tests/odoo-skills.test.mjs > PLG-CLOUD si la API de GitHub no deja leer odoo/odoo
+    estado: hecho
+  - id: S-6
+    texto: lineamientos al día hace fetch antes de comparar; sin red, no verificado.
+    archivos: [plugin/scripts/lib/alta.mjs]
+    test: tests/alta-nube.test.mjs > lineamientos al día trae origin antes de comparar
+    estado: hecho
+  - id: S-7
+    texto: los plugins sincronizados de claude.ai cuentan como instalados.
+    archivos: [plugin/scripts/lib/plugins-instalados.mjs, plugin/scripts/lib/alta.mjs, plugin/scripts/lib/hooks/session-start.mjs]
+    test: tests/alta-nube.test.mjs > plugins instalados cuenta installed_plugins.json y los sincronizados
+    estado: hecho
+  - id: S-8
+    texto: con reglas 4.4, las escrituras de código por Bash pasan por la compuerta de edición.
+    archivos: [plugin/scripts/lib/compuerta-bash.mjs, plugin/scripts/lib/hooks/pre-tool.mjs]
+    test: tests/escritura-bash.test.mjs
+    estado: hecho
+  - id: S-9
+    texto: abrir --sin-previa y --sin-alta exigen --frase verificada.
+    archivos: [plugin/scripts/rq.mjs, plugin/scripts/lib/compuerta-bash.mjs]
+    test: tests/sin-previa-frase.test.mjs
+    estado: hecho
+  - id: S-10
+    texto: los rojos conocidos reconocen la salida de Odoo.
+    archivos: [plugin/scripts/lib/cli.mjs]
+    test: tests/rojos-odoo.test.mjs
+    estado: hecho
+  - id: S-11
+    texto: entregar avisa si otra rama rq/* toca el mismo compilado.
+    archivos: [plugin/scripts/lib/compilados.mjs, plugin/scripts/rq.mjs]
+    test: tests/github-rest.test.mjs > compilados avisa si otra rama rq/* toca el mismo bundle
+    estado: hecho
+  - id: S-12
+    texto: E2E del plugin y npm test sin rojos nuevos.
+    archivos: [package.json, .bacg-dev/proyecto.yml]
+    test: npm run test:e2e (rq verificar) y npm test (682 ok, 0 rojos conocidos)
+    estado: hecho
