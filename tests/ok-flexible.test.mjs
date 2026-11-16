@@ -245,3 +245,46 @@ test('ok: Arquitectónico sin plan.md no gasta la frase: pide escribir el diseñ
   assert.equal((await correr(raiz, ['ok', 'Dale, arquitectónico'])).code, 0);
   assert.deepEqual(cargarEstado(raiz, 'R-1').aprobaciones.map((a) => a.etapa), [1]);
 });
+
+test('la frase de la autonomía de sesión no vale para PROD ni saltos, aunque el RQ no la tenga registrada', async () => {
+  const s = sesionDePrueba();
+  const correr = correrCon(s);
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  s.dijo('Trabajá solo hasta DEV');
+  assert.equal((await correr(raiz, ['autonomia', 'total', 'Trabajá solo hasta DEV'])).code, 0);
+  // R-2 se abre después pero la autonomía se aplica al abrir: se la quitamos para que el RQ no tenga la frase.
+  await correr(raiz, ['abrir', 'R-2', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  const e = cargarEstado(raiz, 'R-2');
+  e.autonomia = null;
+  e.clasificacion_confirmada = undefined;
+  guardarEstado(raiz, e);
+  for (const args of [['aprobar', '5', 'Trabajá solo hasta DEV', '--rq', 'R-2'], ['saltar', 'e2e', 'Trabajá solo hasta DEV', 'm', '--rq', 'R-2']]) {
+    const r = await correr(raiz, args);
+    assert.notEqual(r.code, 0, args.join(' '));
+    assert.match(r.err, /autonomía de la sesión/);
+  }
+});
+
+test('aprobar 5 y saltar siguen estrictos: un tramo inicial no vale aunque nunca se haya usado', async () => {
+  const s = sesionDePrueba();
+  const correr = correrCon(s);
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  s.dijo('Sí, dale, publicá');
+  for (const args of [['aprobar', '5', 'Sí, dale'], ['saltar', 'e2e', 'Sí, dale', 'm']]) {
+    const r = await correr(raiz, args);
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /no aparece/);
+  }
+});
+
+test('ok en Acotado sin ## Diseño no registra nada', async () => {
+  const s = sesionDePrueba();
+  const correr = correrCon(s);
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
+  s.dijo('Dale con el acotado');
+  assert.notEqual((await correr(raiz, ['ok', 'Dale con el acotado'])).code, 0);
+  assert.equal(cargarEstado(raiz, 'R-1').clasificacion_pendiente, true);
+});

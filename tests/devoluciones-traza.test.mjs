@@ -146,3 +146,24 @@ test('4.4 Arquitectónico: aprobar 1 sin ### Criterios centrales se niega', asyn
   fs.appendFileSync(path.join(raiz, 'docs', 'rq', 'A-1', 'spec.md'), '\n### Criterios centrales\n- C-1: una pantalla\n');
   assert.equal((await correr(raiz, ['aprobar', '1', 'Apruebo el diseño de A-1'])).code, 0);
 });
+
+test('traza: "fuera" sin motivo falta; un test que no es una ruta no se marca como inexistente', async () => {
+  const raiz = await rq();
+  await correr(raiz, ['trazar']);
+  const archivo = path.join(raiz, 'docs', 'rq', 'R-1', 'traza.yml');
+  const t = yaml.load(fs.readFileSync(archivo, 'utf8'));
+  t.items[0] = { ...t.items[0], estado: 'fuera' };
+  t.items[1] = { ...t.items[1], estado: 'hecho', test: 'manual: flujo de vigencia recorrido con el rol staff' };
+  fs.writeFileSync(archivo, yaml.dump(t));
+  const faltas = faltaParaEtapa(cargarEstado(raiz, 'R-1'), 3, raiz).join(' ');
+  assert.match(faltas, /S-1 "fuera" sin motivo/);
+  assert.doesNotMatch(faltas, /no existe/);
+});
+
+test('devolucion: consultar también pide la frase del usuario', async () => {
+  const raiz = await rq();
+  await correr(raiz, ['devolucion', 'agregar', '¿estilo de toast?', '--elemento', 'agrupador']);
+  assert.notEqual((await correr(raiz, ['devolucion', '1', 'consultado', 'lo consulté'])).code, 0);
+  SESION.dijo('Usá el toast del canon');
+  assert.equal((await correr(raiz, ['devolucion', '1', 'consultado', 'Usá el toast del canon'])).code, 0);
+});

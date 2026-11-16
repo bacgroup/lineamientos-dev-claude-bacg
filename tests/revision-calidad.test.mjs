@@ -133,3 +133,21 @@ test('4.4: la revisión vence con un commit de código posterior; con uno de só
   git(raiz, 'commit', '-q', '-m', 'código');
   assert.ok(faltaParaEtapa(cargarEstado(raiz, 'R-1'), 5, raiz).some((x) => /la revisión.*(vencida|commits)/.test(x)));
 });
+
+test('el hook anota una pasada cada vez que corre; una skill común, una sola vez', async () => {
+  const raiz = await rqListoParaRevisar();
+  const correrAgente = (t) => postTool({ cwd: raiz, session_id: 's', tool_name: 'Agent', tool_input: { subagent_type: t, prompt: 'x' }, tool_response: {} }, { dirLin: DIR_LIN });
+  await correrAgente('pr-review-toolkit:code-reviewer');
+  await correrAgente('pr-review-toolkit:code-reviewer');
+  await postTool({ cwd: raiz, session_id: 's', tool_name: 'Skill', tool_input: { skill: 'superpowers:brainstorming' }, tool_response: {} }, { dirLin: DIR_LIN });
+  const nombres = cargarEstado(raiz, 'R-1').skills.map((s) => s.skill);
+  assert.equal(nombres.filter((n) => n === 'pr-review-toolkit:code-reviewer').length, 2);
+  assert.equal(nombres.filter((n) => n === 'superpowers:brainstorming').length, 1);
+});
+
+test('revisionVigente: head mal formado vence; una revisión de la 4.3 sin head sigue valiendo', async () => {
+  const { revisionVigente } = await import('../plugin/scripts/lib/requisitos.mjs');
+  const raiz = await rqListoParaRevisar();
+  assert.equal(revisionVigente(raiz, { revision: { ok: true, head: 'xyz' } }, {}), false);
+  assert.equal(revisionVigente(raiz, { revision: { ok: true } }, {}), true);
+});
