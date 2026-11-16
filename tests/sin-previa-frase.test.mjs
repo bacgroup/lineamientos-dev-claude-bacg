@@ -51,3 +51,13 @@ test('la compuerta de Bash niega fijar BACG_DEV_SIN_* al correr rq.mjs', () => {
   }
   assert.equal(evaluarBash({ comando: 'BACG_DEV_SIN_GH=1 npm test', cwd: raiz, ctx: { textosUsuario: [] }, dirLin: DIR_LIN }).decision, 'allow');
 });
+
+test('abrir un Arquitectónico dice primero qué lo frena (diseño y plan aprobados)', async () => {
+  const s = sesionDePrueba();
+  const raiz = crearRepoTemporal({ proyectoId: 'demo' });
+  const r = await correr(raiz, s, ['abrir', 'A-1', '--tipo', 'rq', '--clasificacion', 'arquitectonico'], { BACG_DEV_SIN_PREVIA: '1' });
+  assert.equal(r.code, 0, r.err);
+  const primera = r.out.split('\n').findIndex((l) => /^Arquitectónico: no se edita código/.test(l));
+  const clasif = r.out.split('\n').findIndex((l) => /^Clasificación propuesta/.test(l));
+  assert.ok(primera !== -1 && primera < clasif, r.out);
+});

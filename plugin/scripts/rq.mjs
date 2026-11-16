@@ -800,7 +800,12 @@ function msgCambiosAjenos(codigo, ajenos) {
 function imprimirClasificacion(estado, io) {
   const c = estado.clasificacion;
   const pendiente = estado.clasificacion_pendiente === true;
-  const l = [`Clasificación propuesta: ${nombreDe(c)}${pendiente ? ' (pendiente de confirmar por el usuario)' : ''}.`];
+  const l = [];
+  // PLG-CLOUD (hallazgo 19): lo que frena a un Arquitectónico, primero y no al final de la salida.
+  if (c === 'arquitectonico') {
+    l.push(`Arquitectónico: no se edita código hasta que el diseño y el plan estén escritos (spec.md con ## Diseño y ### Criterios centrales, plan.md) y aprobados: ${reglas44(estado) ? '$RQ ok "<frase>" del usuario, $RQ aprobar 1, o la autonomía total de la sesión' : '$RQ aprobar 1 "<frase>"'}. Una autonomía de sesión común no alcanza.`);
+  }
+  l.push(`Clasificación propuesta: ${nombreDe(c)}${pendiente ? ' (pendiente de confirmar por el usuario)' : ''}.`);
   for (const x of implicancias(c, estado.tipo)) l.push(`  - ${x}`);
   if (pendiente) {
     l.push('Proponésela al usuario con su motivo; hasta que la confirme no se edita código. Con su respuesta: $RQ clasificacion confirmar "<su frase>" o $RQ clasificacion cambiar <exploracion|acotado|arquitectonico> "<su frase>".');
@@ -1193,7 +1198,9 @@ function verificar(repo, elegido, args, env, io) {
   if (r.error) io.stderr.write(`No pude ejecutar "${cmd}": ${r.error.message}\n`);
   // Playwright sin specs que coincidan: no es un E2E fallido del RQ, es una ruta mal pasada. No se registra.
   if (r.status !== 0 && specs.length && /No tests found/i.test(`${r.stdout ?? ''}\n${r.stderr ?? ''}`)) {
-    throw new ErrorCli(`El runner no encontró tests con ${specs.map((s) => `"${s}"`).join(' ')} (No tests found). No se registró el E2E. Pasá la ruta del spec como la espera el runner de tests.e2e (relativa a su carpeta, p. ej. e2e/<spec>.spec.ts).`);
+    // PLG-CLOUD (hallazgo 13): un spec guardado en docs/rq/<código>/qa/ queda fuera del testDir del runner.
+    const enQa = specs.some((s) => /(?:^|[\\/])docs[\\/]rq[\\/][^\\/]+[\\/]qa[\\/]/.test(s));
+    throw new ErrorCli(`El runner no encontró tests con ${specs.map((s) => `"${s}"`).join(' ')} (No tests found). No se registró el E2E. Pasá la ruta del spec como la espera el runner de tests.e2e (relativa a su carpeta, p. ej. e2e/<spec>.spec.ts).${enQa ? ' El spec está en docs/rq/<código>/qa/, fuera del testDir de Playwright: el spec vive en la carpeta de E2E del proyecto (ahí corre y queda para regresión); en qa/ van las capturas y, si querés, una copia.' : ''}`);
   }
   const ok = r.status === 0;
   if (!ok) io.stdout.write(`${resumenFalla(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80, { id: `e2e-${rq}` })}\n`);

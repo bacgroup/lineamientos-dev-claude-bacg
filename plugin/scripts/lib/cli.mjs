@@ -71,6 +71,18 @@ export function fallosDe(salida) {
   const fail = [];
   const cruz = [];
   for (const l of String(salida ?? '').replace(RE_ANSI, '').split(/\r?\n/)) {
+    // PLG-CLOUD: Odoo. En el log: "… odoo.addons.<mod>.tests.<archivo>: FAIL: Clase.test"; estilo unittest:
+    // "FAIL: test_x (odoo.addons.<mod>.tests.<archivo>.Clase.test_x)". Se anotan con la ruta punteada completa.
+    const log = l.match(/odoo\.addons\.([\w.]+):\s+(?:FAIL|ERROR):\s+([\w.]+)/);
+    if (log) {
+      fail.push(`${log[1]}.${log[2]}`);
+      continue;
+    }
+    const ut = l.match(/^\s*(?:FAIL|ERROR):\s+\w+\s+\(([\w.]+)\)/);
+    if (ut) {
+      fail.push(ut[1]);
+      continue;
+    }
     const m = l.match(/^\s*(FAIL|×|✗)\s+(.+?)\s*$/);
     if (m) (m[1] === 'FAIL' ? fail : cruz).push(m[2].replace(/\s+\d+ms$/, '').trim());
   }

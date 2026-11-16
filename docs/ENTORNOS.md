@@ -66,3 +66,19 @@ Después de los pasos de arriba, corré **`/bacg-alta`** en un repo del proyecto
 
 Sirven para tareas puntuales, no para el trabajo del día a día. En la nube los repos se eligen en cada sesión y los
 plugins sólo llegan si están publicados en la biblioteca de plugins de la organización en claude.ai.
+
+Lo que cambia en la nube (desde la 4.5, PLG-CLOUD; handoff `docs/handoff/2026-11-16-powerfy-cloud.md`):
+- **GitHub por REST.** `gh pr …` (GraphQL) da 403 y `gh auth status` falla aunque la credencial del proxy ande. El plugin lee PR, archivos, checks y cuenta con `gh api`. La skill da los comandos REST para crear el PR, ver los checks y mergear.
+- **Clones superficiales.** Los repos vienen con `--depth 1` y sólo la rama por defecto. La validación previa trae todas las ramas de origin para ver el trabajo en paralelo. Si no pudo consultar los PR, lo dice ("no verifiqué si hay PR en paralelo"); nunca "ninguno".
+- **`BACG_DEV_SIN_GH`.** Ya no hace falta: el alta verifica GitHub con `gh api user`. Si está puesta, la previa y `entregar` dicen que no consultaron los PR. Fijarla (o `BACG_DEV_SIN_PREVIA`/`SIN_ALTA`) en el mismo comando que corre `rq.mjs` se niega: saltear la previa o el alta es `abrir --sin-previa|--sin-alta --frase "<frase del usuario>"`.
+- **`rq.mjs odoo-skills`.** Si la API no deja leer odoo/odoo ("access not enabled for this session"), baja `skills/` con un clon anónimo y sparse-checkout.
+- **Plugins.** Los sincronizados desde claude.ai (`~/.claude/plugins/synced/`) cuentan como instalados.
+- **Merge a DEV en modo automático.** La regla de permisos la agrega el usuario o la configuración del entorno; el agente no puede ampliarse los permisos. Las reglas son `Bash(gh pr merge:*)` y, en la nube, `Bash(gh api -X PUT repos/*/pulls/*/merge*)`.
+- **Stop hook de la nube** ("commit y push de lo pendiente"). Si la compuerta todavía no deja pushear (falta la revisión), commiteá local y pusheá en otro comando, después de registrar la revisión.
+- **Tests de Odoo.** `tests.rojos_conocidos` reconoce las líneas `… odoo.addons.<mod>.tests.<archivo>: FAIL: Clase.test` y `FAIL: test_x (odoo.addons….Clase.test_x)`. Declará el rojo con un tramo de esa ruta (por ejemplo, `powerfy_migracion.tests.test_loader`).
+- **Specs E2E.** Van en la carpeta de E2E del proyecto (el `testDir` del runner); en `docs/rq/<código>/qa/` van las capturas. Un spec que sólo está en `qa/` da "No tests found".
+- **Entorno de tests de un proyecto con Docker** (lo que se aprendió con PowerFy):
+  - `dockerd` no arranca solo en un contenedor nuevo: hay que lanzarlo.
+  - Docker Hub puede dar 429: usá `mirror.gcr.io/library/<imagen>`.
+  - Después de recompilar un bundle hay que reiniciar el contenedor si el E2E corre sin `--dev`.
+  - En Odoo, las capturas `fullPage` no sirven, porque el scroll está en `.o_action_manager`: agrandá el viewport.

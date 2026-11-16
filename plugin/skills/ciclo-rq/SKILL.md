@@ -147,7 +147,7 @@ Las salidas largas de logs, Docker, `gh` y tests llegan compactadas (errores con
 
 ## 3. ARQ: el "deber ser" antes de diseñar
 
-Amerita si el cambio toca contratos (API, RPC, edge functions, formatos entre repos), datos (esquema, fuente de verdad, migraciones duraderas), seguridad (RLS, roles, auth, secretos, datos personales), despliegue, suma una plataforma o integración, o se estima en más de ~10 archivos o más de un repo. Si amerita, la clasificación es Arquitectónico; si no, anotá "ARQ: no aplica — motivo" y seguí.
+Amerita si el cambio toca contratos (API, RPC, edge functions, formatos entre repos), datos (esquema, fuente de verdad, migraciones duraderas), seguridad (RLS, roles, auth, secretos, datos personales), despliegue, suma una plataforma o integración, o toca más de un repo. El tamaño solo no alcanza: más de ~10 archivos cuenta si además toca alguno de esos ejes. Un reemplazo mecánico en 17 archivos (textos, renombres) es Acotado. Si amerita, la clasificación es Arquitectónico; si no, anotá "ARQ: no aplica — motivo" y seguí.
 
 En orden, cada una sólo si aporta:
 1. ADR vigentes (`adr/` de la carpeta del proyecto) y `reglas.md`: lo ya decidido no se rediscute.
