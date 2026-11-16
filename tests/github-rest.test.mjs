@@ -139,6 +139,8 @@ test('la compuerta reconoce crear y mergear un PR por REST, con base, cabeza, nÃ
   assert.deepEqual(crearPost.map((o) => [o.op, o.base, o.head]), [['pr-create', 'dev', 'rq/Y']]);
   const merge = operacionesGit('gh api -X PUT repos/o/r/pulls/7/merge -f merge_method=squash', raiz);
   assert.deepEqual(merge.map((o) => [o.op, o.pr, o.repoGh, Boolean(o.red)]), [['merge-pr', '7', 'o/r', false]]);
+  const conInput = operacionesGit('gh api repos/o/r/pulls --input pr.json', raiz);
+  assert.deepEqual(conInput.map((o) => [o.op, o.repoGh]), [['pr-create', 'o/r']]);
   // Leer un PR por la API no es una operaciÃ³n.
   assert.deepEqual(operacionesGit('gh api repos/o/r/pulls/7/files', raiz), []);
 });
@@ -163,7 +165,32 @@ test('merge por REST con gh en 403: la compuerta lo trata como PROD y lo niega s
   try {
     const r = evaluarBash({ comando: 'gh api -X PUT repos/o/r/pulls/5/merge -f merge_method=squash', cwd: raiz, ctx: { textosUsuario: [] } });
     assert.equal(r.decision, 'deny');
+    // Sin poder leer la base del PR, se trata como PROD (el motivo lo dice), no como un merge cualquiera.
+    assert.equal(r.critica, true);
   } finally {
     gh.restaurar();
   }
+});
+
+test('crear por REST un PR de una rama de RQ directo a PROD se niega como gh pr create', async () => {
+  const { evaluarBash } = await import('../plugin/scripts/lib/compuerta-bash.mjs');
+  const raiz = crearRepoTemporal({ nombre: 'r', archivos: { '.bacg-dev/proyecto.yml': 'id: demo\nnombre: Demo\ncuenta_github: o\nramas_prod: ["main"]\nrepos:\n  - { nombre: r, rol: padre, push_prod: true, rama_dev: dev }\n' } });
+  git(raiz, 'remote', 'add', 'origin', 'https://github.com/o/r.git');
+  const viaGh = evaluarBash({ comando: 'gh pr create --base main --head rq/X', cwd: raiz, ctx: { textosUsuario: [], ramaPorDefecto: () => 'main' } });
+  const viaRest = evaluarBash({ comando: 'gh api repos/o/r/pulls -f base=main -f head=rq/X -f title=t', cwd: raiz, ctx: { textosUsuario: [], ramaPorDefecto: () => 'main' } });
+  assert.equal(viaRest.decision, viaGh.decision);
+  assert.equal(viaRest.decision, 'deny');
+});
+
+test('la compuerta reconoce las otras formas de gh api: placeholders, flags pegados, URL absoluta, graphql y rutas que publican', async () => {
+  const { operacionesGit } = await import('../plugin/scripts/lib/compuerta-bash.mjs');
+  const raiz = crearRepoTemporal({});
+  const ops = (c) => operacionesGit(c, raiz).map((o) => [o.op, o.repoGh ?? null, o.base ?? null, Boolean(o.red)]);
+  assert.deepEqual(ops('gh api repos/{owner}/{repo}/pulls -f base=main -f head=x'), [['pr-create', null, 'main', false]]);
+  assert.deepEqual(ops('gh api repos/o/r/pulls -fbase=main -fhead=x'), [['pr-create', 'o/r', 'main', false]]);
+  assert.deepEqual(ops('gh api https://api.github.com/repos/o/r/pulls -f base=dev -f head=x'), [['pr-create', 'o/r', 'dev', false]]);
+  assert.deepEqual(ops("gh api graphql -f query='mutation { mergePullRequest(input:{pullRequestId:\"x\"}) { clientMutationId } }'").map((o) => o[0]), ['merge-pr']);
+  assert.deepEqual(ops('gh api repos/o/r/merges -f base=main -f head=dev').map((o) => o[0]), ['merge-pr']);
+  assert.deepEqual(ops('gh api -X PATCH repos/o/r/git/refs/heads/main -f sha=abc').map((o) => o[0]), ['merge-pr']);
+  assert.deepEqual(ops('gh api -X GET repos/o/r/pulls'), []);
 });

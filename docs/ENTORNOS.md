@@ -68,7 +68,7 @@ Sirven para tareas puntuales, no para el trabajo del día a día. En la nube los
 plugins sólo llegan si están publicados en la biblioteca de plugins de la organización en claude.ai.
 
 Lo que cambia en la nube (desde la 4.5, PLG-CLOUD; handoff `docs/handoff/2026-11-16-powerfy-cloud.md`):
-- **GitHub por REST.** `gh pr …` (GraphQL) da 403 y `gh auth status` falla aunque la credencial del proxy ande. El plugin lee PR, archivos, checks y cuenta con `gh api`. La skill da los comandos REST para crear el PR, ver los checks y mergear.
+- **GitHub por REST.** `gh pr …` (GraphQL) da 403 y `gh auth status` falla aunque la credencial del proxy ande. El plugin lee PR, archivos, checks y cuenta con `gh api`. La skill da los comandos REST para crear el PR, ver los checks y mergear. La compuerta los evalúa igual que `gh pr create` y `gh pr merge`.
 - **Clones superficiales.** Los repos vienen con `--depth 1` y sólo la rama por defecto. La validación previa trae todas las ramas de origin para ver el trabajo en paralelo. Si no pudo consultar los PR, lo dice ("no verifiqué si hay PR en paralelo"); nunca "ninguno".
 - **`BACG_DEV_SIN_GH`.** Ya no hace falta: el alta verifica GitHub con `gh api user`. Si está puesta, la previa y `entregar` dicen que no consultaron los PR. Fijarla (o `BACG_DEV_SIN_PREVIA`/`SIN_ALTA`) en el mismo comando que corre `rq.mjs` se niega: saltear la previa o el alta es `abrir --sin-previa|--sin-alta --frase "<frase del usuario>"`.
 - **`rq.mjs odoo-skills`.** Si la API no deja leer odoo/odoo ("access not enabled for this session"), baja `skills/` con un clon anónimo y sparse-checkout.

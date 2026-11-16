@@ -90,3 +90,16 @@ test('heredoc a tests/ pasa; cp -r a src/ antes del diseño, no', () => {
   assert.equal(evaluar(raiz, "cat > tests/a.test.mjs <<'EOF'\nx\nEOF").decision, 'allow');
   assert.equal(evaluar(raiz, 'cp -r /tmp/x src/').decision, 'deny');
 });
+
+test('logs y archivos de salida no cuentan; un archivo del producto con nombre numérico sí', () => {
+  const raiz = repo();
+  fs.rmSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'));
+  assert.equal(evaluar(raiz, 'npm run build > build.log 2>&1').decision, 'allow');
+  assert.equal(evaluar(raiz, 'node x.js > salida.out').decision, 'allow');
+  assert.equal(evaluar(raiz, 'echo x > src/1').decision, 'deny');
+});
+
+test('un RQ activo de la 4.3 deja escribir por Bash como antes', () => {
+  const raiz = repo({ reglas: null });
+  assert.equal(evaluar(raiz, 'echo x > src/a.ts').decision, 'allow');
+});

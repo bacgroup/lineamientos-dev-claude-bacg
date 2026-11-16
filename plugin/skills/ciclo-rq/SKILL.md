@@ -208,7 +208,7 @@ Además, sólo si corresponde: `pr-review-toolkit:silent-failure-hunter` si el c
 - Checks: `gh api "repos/<owner>/<repo>/commits/<rama>/check-runs" --jq '.check_runs[] | [.name,.status,.conclusion] | @tsv'`.
 - Merge a DEV: `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/merge -f merge_method=squash`.
 
-En una PC con `gh` autenticado, los comandos `gh pr …` siguen sirviendo.
+En una PC con `gh` autenticado, los comandos `gh pr …` siguen sirviendo. Por las dos vías rigen las mismas compuertas: crear un PR a PROD que no venga de DEV, o mergear sin el OK de PROD, se niega igual con `gh api` que con `gh pr`.
 
 **Merge a DEV en modo automático.** La autonomía hasta DEV incluye mergear el PR del RQ a la rama de DEV, pero el modo automático de Claude Code niega el merge sin una regla de permisos. El agente no puede agregar esa regla: el clasificador lo frena porque es una regla que amplía sus propios permisos. Decíselo al usuario: la suma él a `permissions.allow` de `.claude/settings.local.json` (`"Bash(gh pr merge:*)"` y, en la nube, `"Bash(gh api -X PUT repos/*/pulls/*/merge*)"`), o la trae la configuración del entorno. El alta lo marca. El merge a PROD lo sigue frenando la compuerta del plugin hasta el OK de la etapa 5. No lo intentes por otra vía.
 

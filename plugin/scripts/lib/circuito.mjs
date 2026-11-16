@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { buscarRepo, nombreRepo } from './config.mjs';
 import { baseDeUpstream, rutaQueImpide, rutasDesde } from './no-aplica.mjs';
 import { baseDelRepo, esMigracion } from './stack.mjs';
-import { prsAbiertos, archivosPr } from './github.mjs';
+import { prsAbiertos, archivosPr, EN_HOOK } from './github.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x : []);
 const norm = (x) => (typeof x === 'string' ? x.trim().toLowerCase() : '');
@@ -83,7 +83,7 @@ export function hechoEnRealidad(paso, { raiz, proyecto }) {
       if (!cuenta) return false;
       const repo = paso.trim().slice('merge-prs-sync:'.length);
       const rama = proyecto?.sync?.rama || RAMA_SYNC;
-      const r = prsAbiertos(`${cuenta}/${repo}`, { head: rama });
+      const r = prsAbiertos(`${cuenta}/${repo}`, { head: rama }, EN_HOOK);
       return !r.error && !r.cortado && r.datos.length === 0;
     }
   } catch {
@@ -111,14 +111,14 @@ export function migracionesEnSync(proyecto, soloSede = null) {
     }
     try {
       const repoGh = `${cuenta}/${r.nombre}`;
-      const prs = prsAbiertos(repoGh, { head: rama });
+      const prs = prsAbiertos(repoGh, { head: rama }, EN_HOOK);
       if (prs.error) {
         out[ref] = null;
         continue;
       }
       let leido = true;
       out[ref] = prs.datos.some((p) => {
-        const a = archivosPr(repoGh, p.number);
+        const a = archivosPr(repoGh, p.number, EN_HOOK);
         if (a.error || a.cortado) leido = false;
         return lista(a.datos).some((ruta) => esMigracion(ruta, proyecto));
       });

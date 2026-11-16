@@ -266,6 +266,8 @@ test('previa: si no puede traer origin, las ramas quedan como no verificadas (nu
   const { raiz } = montar();
   git(raiz, 'remote', 'set-url', 'origin', path.join(os.tmpdir(), 'no-existe-origen.git'));
   const t = validacionPrevia({ repo: { raiz, proyectoId: 'demo' }, proyecto: PROYECTO, codigo: 'R-12', env: ENV, dirLin: tmp('lin-vacio-') }).lineas.join('\n');
-  assert.match(t, /ramas no verificadas/);
+  assert.match(t, /no verifiqué las ramas en paralelo/);
+  assert.match(t, /Trabajo en paralelo: sin verificar/);
+  assert.doesNotMatch(t, /ninguna rama/);
   assert.doesNotMatch(t, /ninguna rama ni PR/);
 });

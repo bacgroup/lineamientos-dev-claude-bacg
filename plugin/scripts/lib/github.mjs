@@ -29,7 +29,7 @@ export function api(ruta, { correr, env, timeout } = {}) {
 }
 
 /** Tope para las consultas que corren dentro de un hook (el hook entero tiene 30 s): mejor un error que un corte. */
-export const EN_HOOK = { timeout: 8000 };
+export const EN_HOOK = { timeout: 4000 };
 
 const enc = (s) => encodeURIComponent(String(s));
 const owner = (repo) => String(repo).split('/')[0];

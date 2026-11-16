@@ -26,6 +26,9 @@ Antes iba por `gh pr list/view` (GraphQL), que da 403 en la nube. Cada consulta 
 
 **Compuertas** (hallazgos 15 y 16)
 - Con reglas 4.4, lo que un comando de Bash escribe en un repo pasa por la compuerta de edición. Cubre redirección y heredoc, `sed -i`, `tee`, `cp`, `mv`, y `python -c` / `node -e` con `open(…,'w')`, `Path().write_text` o `writeFileSync`. El motivo de la negación es el mismo que con Edit/Write. El hook le pasa a Bash las skills del contexto.
+- Crear o mergear un PR por la API REST tiene las mismas compuertas que `gh pr create` y `gh pr merge`. Cubre `gh api …/pulls` con campos o `--input`, `-X PUT …/pulls/<n>/merge`, flags pegados, URL absoluta y `{owner}/{repo}`. Las rutas que publican sin PR (`…/merges`, `git/refs`) y las mutaciones de merge por `graphql` se evalúan contra el RQ como PROD.
+- Las consultas a GitHub dentro de un hook tienen un tope de 4 s: si tarda, la compuerta niega, en lugar de que el hook se corte y deje pasar.
+- Las redirecciones a descriptores (`2>&1`, `>&2`), `/dev/*` y las salidas tipo log (`.log`, `.out`, `.tmp`, `.pid`) no cuentan como escrituras.
 - `abrir --sin-previa` y `--sin-alta` exigen `--frase "<frase del usuario>"`.
 - Fijar `BACG_DEV_SIN_PREVIA`, `SIN_ALTA` o `SIN_GH` en un comando que corre `rq.mjs` se niega.
 

@@ -80,6 +80,7 @@ Lo que mintió son los peores casos: ocultan riesgos en lugar de frenar.
   - Detecta también `python -c`, `python3 -c` y `node -e`, buscando `open('<ruta>', 'w'|'a')`, `.write_text(`, `writeFileSync('<ruta>'` y `appendFileSync`.
   - El hook de Bash le pasa `skills` y `skillsContexto` del transcript, como el de Write.
   - Sin reglas 4.4 sólo se mira lo de siempre (estado y transcript), para no cambiar a los RQ en curso.
+- **PR por REST en la compuerta (revisión):** `gh api …/pulls` (POST) y `-X PUT …/pulls/<n>/merge` son `pr-create` y `merge-pr`. `merges`, `git/refs` y las mutaciones de merge por `graphql` van a la red de seguridad. Las consultas en hooks tienen un tope de 4 s.
 - **`--sin-previa` / `--sin-alta`:** exigen `--frase` verificada contra la transcripción, sin consumir usos.
 - **Rojos de Odoo:** `fallosDe` también reconoce `^(FAIL|ERROR): (\w+) \(([\w.]+)\)` como `<modulo.tests.Clase>.<test>`.
 - **Compilados:** en `entregar`, con `proyecto.compilados`, para cada `origin/rq/*` distinta de la propia se mira si su diff contra la base toca alguno de los mismos archivos compilados. Si los toca, aviso.

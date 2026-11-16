@@ -536,27 +536,36 @@ function analizarGh(args, dir, ghRepoEnv, info) {
   // PLG-CLOUD: crear y mergear un PR por la API REST (la vía de la nube) son las mismas operaciones que gh pr create y
   // gh pr merge, con su base, cabeza, número y repo: la compuerta no se esquiva cambiando de herramienta.
   if (posicionales[0] === 'api') {
-    const ruta = posicionales.slice(1).find((p) => /^\/?repos\//.test(p)) ?? '';
+    const normal = (p) => String(p).replace(/^https?:\/\/api\.github\.com\//i, '');
+    const ruta = normal(posicionales.slice(1).find((p) => /^(?:https?:\/\/api\.github\.com)?\/?(?:repos\/|graphql\b)/i.test(p)) ?? '');
+    // GraphQL (mergePullRequest) y las rutas que publican sin PR (merges, git/refs): merge con la red de seguridad, que
+    // evalúa contra el RQ como PROD (falla cerrada).
+    if (/^graphql\b/i.test(ruta) && /merge/i.test(args.join(' '))) return [{ op: 'merge-pr', dir, red: true }];
     const metodo = (() => {
       for (let i = 0; i < args.length; i++) {
         if (args[i] === '-X' || args[i] === '--method') return String(args[i + 1] ?? '').toUpperCase();
         if (args[i].startsWith('--method=')) return args[i].slice(9).toUpperCase();
         if (args[i].startsWith('-X') && args[i].length > 2) return args[i].slice(2).toUpperCase();
       }
-      return args.some((a) => /^(?:-f|-F|--field|--raw-field)$/.test(a) || /^--(?:raw-)?field=/.test(a)) ? 'POST' : 'GET';
+      // gh api usa POST si hay campos o --input; sin eso, GET.
+      return args.some((a) => /^(?:-f|-F|--field|--raw-field|--input)$/.test(a) || /^--(?:(?:raw-)?field|input)=/.test(a) || /^-[fF]\S/.test(a)) ? 'POST' : 'GET';
     })();
     const campo = (nombre) => {
       for (let i = 0; i < args.length; i++) {
         const a = args[i];
-        const v = /^(?:-f|-F|--field|--raw-field)$/.test(a) ? args[i + 1] : /^--(?:raw-)?field=/.test(a) ? a.slice(a.indexOf('=') + 1) : null;
+        const v = /^(?:-f|-F|--field|--raw-field)$/.test(a) ? args[i + 1] : /^--(?:raw-)?field=/.test(a) ? a.slice(a.indexOf('=') + 1) : /^-[fF]\S/.test(a) ? a.slice(2) : null;
         if (typeof v === 'string' && v.startsWith(`${nombre}=`)) return v.slice(nombre.length + 1);
       }
       return undefined;
     };
+    if (/^\/?repos\/[^/]+\/[^/]+\/(?:merges|git\/refs)\b/.test(ruta) && metodo !== 'GET') return [{ op: 'merge-pr', dir, red: true }];
     const m = ruta.match(/^\/?repos\/([^/]+\/[^/?]+)\/pulls(?:\/(\d+)\/merge)?(?:\?|$)/);
+    // {owner}/{repo}: gh lo completa con el repo de la carpeta; sin repoGh, la compuerta usa el de la carpeta.
+    const repoRuta = m && !m[1].includes('{') ? m[1] : undefined;
     if (m && !m[2] && metodo === 'POST') {
       info.resuelto = true;
-      const op = { op: 'pr-create', dir, repoGh: m[1] };
+      // Con --input la base y la cabeza vienen en un archivo: sin base conocida, la compuerta la evalúa como PROD.
+      const op = { op: 'pr-create', dir, ...(repoRuta ? { repoGh: repoRuta } : {}) };
       const base = campo('base');
       const head = campo('head');
       if (base) op.base = base;
@@ -565,7 +574,7 @@ function analizarGh(args, dir, ghRepoEnv, info) {
     }
     if (m && m[2] && metodo === 'PUT') {
       info.resuelto = true;
-      return [{ op: 'merge-pr', dir, repoGh: m[1], pr: m[2] }];
+      return [{ op: 'merge-pr', dir, ...(repoRuta ? { repoGh: repoRuta } : {}), pr: m[2] }];
     }
     return [];
   }
