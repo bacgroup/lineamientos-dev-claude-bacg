@@ -155,6 +155,7 @@ test('fuente central sin backlog central todavía: abrir lo arma con las filas d
   fs.rmSync(path.join(lin, 'proyectos', 'pf', 'backlog.md'));
   const r = await correr(raiz, lin, ['abrir', 'D-1', '--tipo', 'rq', '--clasificacion', 'bounded']);
   assert.equal(r.code, 0, r.err);
+  assert.doesNotMatch(r.out, /diferían/);
   for (const e of [estados(path.join(raiz, 'docs', 'backlog.md')), estados(path.join(lin, 'proyectos', 'pf', 'backlog.md'))]) {
     assert.equal(e.A, 'Hecho 10/11/2026');
     assert.equal(e.C, 'Pendiente');
@@ -234,6 +235,7 @@ test('rango: En revisión o En QA cuentan como en curso', async () => {
   const { rangoEstado } = await import('../plugin/scripts/lib/backlog.mjs');
   assert.equal(rangoEstado('En revisión'), rangoEstado('En curso'));
   assert.equal(rangoEstado('En QA'), rangoEstado('En curso'));
+  assert.equal(rangoEstado('Desplegado en DEV'), rangoEstado('En curso'));
 });
 
 test('migrar sin docs/backlog.md crea la copia con las columnas de la central', async () => {
