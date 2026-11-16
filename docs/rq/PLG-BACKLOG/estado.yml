@@ -20,13 +20,17 @@ tests:
   fecha: '2026-11-16T18:34:52.315Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: false
+  fecha: '2026-11-16T18:34:58.019Z'
+  nota: 'Ronda 1 (code-reviewer + pr-test-analyzer + revisor-rq): escribirFilas perdía columnas extra y texto tras la tabla; partir rompía con pipes escapados; rango dejaba ganar un Hecho parcial y no permitía reabrir; reescritura sin cambios; migrar no declaraba backlog repo y repetía; backlogRemoto ignoraba backlog repo. Corregido en f6fa985 con tests.'
+  head: f6fa985a622cfa061a7a9820da079e2b8572af55
 circuito: []
 saltos: []
 base: 05b8d279dd9209fdce6b92ae74a7a6e22883339d
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-16T18:34:52.317Z'
+actualizado: '2026-11-16T18:34:58.021Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:bacg-rq
     etapa: 0
@@ -113,3 +117,4 @@ e2e:
   comando: npm run test:e2e
   head: f21ddc53b743c37ff01562b60b3c94123cc1286e
   completo: true
+revisiones_bloqueantes: 1
