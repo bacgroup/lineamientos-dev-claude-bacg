@@ -1,0 +1,22 @@
+codigo: PLG-PRREV
+tipo: rq
+clasificacion: arquitectonico
+clasificacion_pendiente: true
+tarea: Revisor automático independiente en PR y push
+etapa: 0
+autonomia: null
+aprobaciones: []
+tests: null
+revision: null
+circuito: []
+saltos: []
+base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-18T23:37:04.274Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-18T23:37:04.273Z'
+    via: sesion
