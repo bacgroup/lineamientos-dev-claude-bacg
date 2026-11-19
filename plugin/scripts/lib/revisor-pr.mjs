@@ -20,13 +20,16 @@ export function renderRevisor({ proyecto, entradaRepo, ramaDefecto = 'main' }) {
   }
   const autores = autoresExternos(proyecto);
   const push = autores.length ? `  push:\n    branches: ${lista(ramas)}\n` : '';
+  const pr = "(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')";
+  const json = JSON.stringify(autores).replace(/'/g, "''");
   const condicion = autores.length
-    ? `github.event_name == 'pull_request' || contains(fromJSON('${JSON.stringify(autores).replace(/'/g, "''")}'), github.event.head_commit.author.name)`
-    : "github.event_name == 'pull_request'";
+    ? `${pr} || (github.event_name == 'push' && (contains(fromJSON('${json}'), github.event.head_commit.author.name) || contains(fromJSON('${json}'), github.event.head_commit.author.username)))`
+    : pr;
+  // Reemplazos con función: un autor o una rama con $ no se interpreta como patrón.
   const texto = fs.readFileSync(PLANTILLA, 'utf8')
-    .replace('__RAMAS__', lista(ramas))
-    .replace('__PUSH__\n', push)
-    .replace('__IF__', JSON.stringify(condicion));
+    .replace('__RAMAS__', () => lista(ramas))
+    .replace('__PUSH__\n', () => push)
+    .replace('__IF__', () => JSON.stringify(condicion));
   return { texto, avisos };
 }
 

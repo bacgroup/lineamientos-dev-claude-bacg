@@ -38,3 +38,9 @@ test('PLG-PRREV: sólo un crítico de seguridad (puntos 1 a 5 con evidencia) pon
   assert.match(cuerpo, /sin cambios de c[oó]digo/i, 'diff vacío o sólo docs: criticos 0');
   assert.ok(cuerpo.split(/\r?\n/).length <= 90, 'la skill tiene que ser corta');
 });
+
+test('PLG-PRREV: la skill siempre deja bacg-revision.json (revisado false si no pudo) y contempla la rama nueva', () => {
+  const { cuerpo } = partes();
+  assert.match(cuerpo, /"revisado": false/);
+  assert.match(cuerpo, /0000000/);
+});

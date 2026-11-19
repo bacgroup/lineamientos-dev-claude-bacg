@@ -32,3 +32,9 @@ Fuera: activar la protección de rama en GitHub (lo hace un admin; se documenta)
 
 ## Tareas
 El plan con sus tareas está en `docs/rq/PLG-PRREV/plan.md` (Arquitectónico).
+
+### Desvíos decididos al ejecutar (19/11)
+- La plantilla vive en `plugin/plantillas/bacg-revisor.yml` (viaja con el plugin instalado), no en `plantillas/repo-proyecto/`: la compuerta de edición toma esa carpeta como otro proyecto (PLG-PLANT).
+- En un push, el resumen va al resumen del job (`bacg-revision.md` → `$GITHUB_STEP_SUMMARY`), no a un comentario del commit: comentar un commit pide `contents: write` y el revisor sólo lee.
+- `revisor-pr` instala en el repo actual (sin `--repo`): cada repo del proyecto lo corre desde su checkout.
+- Endurecido tras la revisión: token `GITHUB_TOKEN` (respeta `permissions`, sin `id-token`), `gh api` acotado a archivos del PR y comentarios, `Write` sólo a `bacg-revision.*`, se borran los `bacg-revision.*` que traiga el PR, sin forks ni Dependabot, y si no hubo revisión el check avisa en vez de quedar verde en silencio (no rojo: criterio central 3).

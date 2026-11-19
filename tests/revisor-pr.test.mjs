@@ -23,7 +23,8 @@ test('PLG-PRREV: el workflow corre en PR y push a las ramas de DEV y PROD del re
   assert.match(accion.with.plugins, /lineamientos-dev-claude-bacg@lineamientos-dev-claude-bacg/);
   assert.match(accion.with.claude_args, /--max-turns 30/);
   assert.ok(wf.concurrency, 'acota el costo con concurrency');
-  assert.deepEqual(wf.permissions, { contents: 'read', 'pull-requests': 'write', issues: 'read', 'id-token': 'write' });
+  assert.deepEqual(wf.permissions, { contents: 'read', 'pull-requests': 'write', issues: 'read' });
+  assert.equal(accion.with.github_token, '${{ secrets.GITHUB_TOKEN }}', 'el token respeta el bloque permissions');
   const final = job.steps.at(-1);
   assert.match(final.run, /jq -e '\.criticos == 0' bacg-revision\.json/);
   assert.match(final.run, /-f bacg-revision\.json/, 'si el archivo falta, el paso final no pone rojo por eso');
@@ -77,4 +78,56 @@ test('PLG-PRREV: rq.mjs revisor-pr instala el workflow en el repo con las ramas 
   out = '';
   assert.equal(await main(['revisor-pr'], io), 0, err);
   assert.match(out, /al día/);
+});
+
+test('PLG-PRREV: endurecido: sin bacg-revision.* del PR, gh api acotado, sin forks ni Dependabot, aviso si no hubo revisión', () => {
+  const wf = yaml.load(renderRevisor({ proyecto: POWERFY, entradaRepo: {} }).texto);
+  const job = wf.jobs.revisar;
+  const idx = job.steps.findIndex((s) => String(s.uses).startsWith('anthropics/claude-code-action'));
+  assert.ok(job.steps.slice(0, idx).some((s) => /rm -f bacg-revision\.json bacg-revision\.md/.test(s.run ?? '')), 'borra lo que trae el PR antes de revisar');
+  const args = job.steps[idx].with.claude_args;
+  assert.doesNotMatch(args, /Bash\(gh api:\*\)/, 'gh api sin acotar');
+  assert.match(args, /Bash\(gh api repos\/\*\/pulls\/\*\/files\*\)/);
+  assert.match(job.if, /dependabot\[bot\]/);
+  assert.match(job.if, /head\.repo\.full_name == github\.repository/);
+  const final = job.steps.at(-1).run;
+  assert.match(final, /::warning::/);
+  assert.match(final, /revisado/);
+});
+
+test('PLG-PRREV: autores con comillas, $ o barras sobreviven al YAML y a la expresión de GitHub', () => {
+  const autores = ["o'brien", 'x"y', 'a\\b', 'pago$&x'];
+  const wf = yaml.load(renderRevisor({ proyecto: { ramas_prod: ['main'], agentes_externos: { autores } }, entradaRepo: {} }).texto);
+  const m = wf.jobs.revisar.if.match(/fromJSON\('(.*?)'\), github\.event\.head_commit\.author\.name/);
+  assert.ok(m, wf.jobs.revisar.if);
+  assert.deepEqual(JSON.parse(m[1].replace(/''/g, "'")), autores);
+  assert.match(wf.jobs.revisar.if, /head_commit\.author\.username/, 'también compara el login');
+});
+
+test('PLG-PRREV: las ramas del repo ganan a las del proyecto; con Lovable sin autores, los de Lovable por defecto', () => {
+  const r = yaml.load(renderRevisor({ proyecto: { ramas_prod: ['main'] }, entradaRepo: { ramas_prod: ['r1'] } }).texto);
+  assert.deepEqual(r.on.pull_request.branches, ['r1']);
+  const l = yaml.load(renderRevisor({ proyecto: { ramas_prod: ['main'], lovable: { proyectos: { x: {} } } }, entradaRepo: {} }).texto);
+  assert.ok(l.on.push, 'con Lovable hay disparador de push');
+  assert.match(l.jobs.revisar.if, /lovable/i);
+});
+
+test('PLG-PRREV: rq.mjs revisor-pr --forzar reemplaza un workflow cambiado a mano; sin --forzar no lo pisa', async () => {
+  const { main } = await import('../plugin/scripts/rq.mjs');
+  const { crearRepoTemporal } = await import('./helpers.mjs');
+  const raiz = crearRepoTemporal({ nombre: 'app-z', archivos: { '.bacg-dev/proyecto.yml': 'id: pz\nnombre: Z\nramas_prod: ["main"]\nrepos:\n  - { nombre: App-Z, ramas_prod: ["prod"] }\n' } });
+  let out = '';
+  const io = { cwd: raiz, env: { ...process.env }, stdout: { write: (x) => { out += x; } }, stderr: { write: () => {} } };
+  assert.equal(await main(['revisor-pr'], io), 0);
+  const ruta = path.join(raiz, RUTA_WORKFLOW);
+  assert.deepEqual(yaml.load(fs.readFileSync(ruta, 'utf8')).on.pull_request.branches, ['prod'], 'la entrada del repo, sin importar mayúsculas');
+  fs.appendFileSync(ruta, '# a mano\n');
+  out = '';
+  assert.equal(await main(['revisor-pr'], io), 0);
+  assert.match(out, /--forzar/);
+  assert.match(fs.readFileSync(ruta, 'utf8'), /# a mano/);
+  out = '';
+  assert.equal(await main(['revisor-pr', '--forzar'], io), 0);
+  assert.match(out, /escrito/);
+  assert.doesNotMatch(fs.readFileSync(ruta, 'utf8'), /# a mano/);
 });
