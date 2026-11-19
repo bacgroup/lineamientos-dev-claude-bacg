@@ -110,7 +110,7 @@ Las cuatro últimas son las oficiales de `github.com/odoo/odoo/tree/20.0/skills`
 | Diseño | pregunta y sonda (2–3 frases) en `spec.md` | diseño corto en `spec.md` | spec completa en `spec.md` |
 | ARQ | no | no | sección 3; `lineamientos-dev-claude-bacg:decision-arq` + ADR |
 | Plan | no | `## Tareas` en `spec.md` | `superpowers:writing-plans` → `docs/rq/<código>/plan.md` |
-| Journey y mockups (si toca UI) | no | obligatorios en `## Diseño` (sección 4) | obligatorios en `## Diseño` (sección 4) |
+| Journey y mockups (si toca UI) | no | obligatorios en `## Diseño` (sección 4); el mockup, salvo `saltar mockup` con frase del usuario | obligatorios en `## Diseño` (sección 4); el mockup, salvo `saltar mockup` con frase del usuario |
 | Criterios centrales | no | recomendados | `### Criterios centrales` en `## Diseño` (1 a 3; la aprobación lo exige) |
 | Aprobación | `$RQ ok "<frase>"` (4.4) o `$RQ aprobar 1 "<frase>"` | `$RQ ok "<frase>"` (4.4) con `## Diseño` y `## Tareas` escritos antes de preguntar: una respuesta cubre clasificación, diseño y autonomía. En la 4.3, `aprobar 1` o la frase de `clasificacion confirmar` | `$RQ ok "<frase>"` (4.4) con `## Diseño`, `### Criterios centrales` y `plan.md` escritos: cubre clasificación, diseño y plan, ejecución y DEV. En la 4.3, `aprobar 1` |
 | Varios RQ (sección 1.1) | autonomía de sesión o total, o `lote aprobar` | autonomía de sesión o total, o `lote aprobar` | autonomía total (4.4) o `lote aprobar` (con `plan.md`) |
@@ -169,7 +169,7 @@ Resultado: `docs/rq/<código>/arq.md` de una página (contexto, opciones y trade
 - la sección `## Diseño` en `docs/rq/<código>/spec.md` con el entregable de `diseno-frontend`: canon que aplica, dirección, auditoría, estados, revisión en móvil y alineación con los componentes vecinos;
 - con reglas 4.4, la **evidencia del diseño** dentro de `## Diseño` (la compuerta la busca antes del primer cambio de UI):
   - `### Journey`: el recorrido del usuario paso a paso (rol, pantalla, decisión, datos), 3 pasos o más. Es la base de las decisiones funcionales: no se decide el paso a paso a ciegas.
-  - `### Mockups`: un mockup navegable del journey, estilo Figma (pantallas enlazadas que se recorren con clics), en `docs/rq/<código>/mockups/` (HTML, PNG o SVG) o el link de Figma. El mockup define layout y flujo; los estilos salen del canon.
+  - `### Mockups`: un mockup navegable del journey, estilo Figma (pantallas enlazadas que se recorren con clics), en `docs/rq/<código>/mockups/` (HTML, PNG o SVG) o el link de Figma. El mockup define layout y flujo; los estilos salen del canon. Si el usuario decidió que no hace falta (`saltar mockup`, ver "Sin mockup" más abajo): "no aplica — decidido por el usuario: «<frase>»".
   - `### Referencias leídas`: la pantalla o el componente de referencia, leído entero (o "no aplica — motivo").
   - `### Paridad`: si el RQ reemplaza un flujo o convive con él, cada campo, modal, paso posterior, navegación y cálculo del flujo viejo y dónde queda en el nuevo (`reusa`, `reimplementa` con justificación o `fuera` con la frase del usuario); si no, "no aplica — motivo".
 - con reglas 4.4, las skills de UI valen **por contexto**: después de una compactación, la compuerta las vuelve a pedir. Cuando el usuario devuelve algo de UI, recargá el canon y `redesign-existing-projects` antes de tocar el archivo.

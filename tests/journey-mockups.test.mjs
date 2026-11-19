@@ -153,7 +153,9 @@ test('## Diseño: un bloque de código con # adentro no corta la sección; ##Tar
 
 function conSalto(raiz, compuerta, frase = 'no hace falta mockup') {
   const p = path.join(raiz, 'docs', 'rq', 'R-1', 'estado.yml');
-  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/saltos: \[\]/, `saltos:\n  - compuerta: ${compuerta}\n    frase: ${frase}\n    motivo: cambio técnico\n    fecha: '2026-11-19T00:00:00Z'`));
+  const antes = fs.readFileSync(p, 'utf8');
+  assert.match(antes, /saltos: \[\]/, 'el estado de prueba tiene que traer saltos: []');
+  fs.writeFileSync(p, antes.replace(/saltos: \[\]/, `saltos:\n  - compuerta: ${compuerta}\n    frase: ${frase}\n    motivo: cambio técnico\n    fecha: '2026-11-19T00:00:00Z'`));
   return raiz;
 }
 
@@ -205,4 +207,31 @@ test('PLG-MOCK: rq.mjs saltar acepta la compuerta mockup sólo con frase del usu
   const buena = await correr('no, el mockup no hace falta');
   assert.equal(buena.code, 0, buena.err);
   assert.match(buena.out, /Salto de la compuerta mockup registrado/);
+  const ctx = { textosUsuario: [], skills: SKILLS_UI, skillsContexto: SKILLS_UI };
+  assert.equal(editar(raiz, ctx).decision, 'allow', 'lo que guarda la CLI es lo que lee la compuerta');
+});
+
+test('PLG-MOCK: el salto mockup no apaga el resto del refuerzo de UI (skill de diseño ni ## Diseño sin reglas 4.4)', () => {
+  const sinSkill = conSalto(repo(DISENO_COMPLETO, { mockup: false }), 'mockup');
+  const r = editar(sinSkill, { textosUsuario: [], skills: new Set(), skillsContexto: new Set() });
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /diseno-frontend/);
+  const viejo = conSalto(repo('# R-1\n\nsin diseño\n', { mockup: false, reglas: null }), 'mockup');
+  const r43 = editar(viejo, { textosUsuario: [], skills: SKILLS_UI });
+  assert.equal(r43.decision, 'deny');
+  assert.match(r43.motivo, /## Diseño/);
+});
+
+test('PLG-MOCK: el salto mockup de otro RQ activo no cubre a éste', () => {
+  const raiz = repo(DISENO_COMPLETO, { mockup: false });
+  guardarEstado(raiz, {
+    codigo: 'R-2', tipo: 'rq', clasificacion: 'bounded', etapa: 1, reglas: 44,
+    aprobaciones: [{ etapa: 1, frase: 'apruebo el diseño', fecha: '2026-11-15T00:00:00Z' }],
+    saltos: [{ compuerta: 'mockup', frase: 'no hace falta mockup', motivo: 'técnico', fecha: '2026-11-19T00:00:00Z' }],
+  });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-2', 'spec.md'), '# R-2\n\n## Diseño\nalgo\n');
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-1\nR-2\n');
+  // R-2 no cumple (sin journey) y el salto de R-2 no le sirve a R-1, que sigue sin mockup: ninguno deja pasar.
+  const r = editar(raiz, { textosUsuario: [], skills: SKILLS_UI, skillsContexto: SKILLS_UI });
+  assert.equal(r.decision, 'deny', 'el salto de R-2 no puede habilitar a R-1');
 });

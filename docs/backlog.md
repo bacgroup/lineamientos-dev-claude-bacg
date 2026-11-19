@@ -15,7 +15,7 @@ origen (`nkick25/lineamientos-dev`): lo que aplique a ambos se lleva a mano.
 | PLG-REQ | Plugin — plugins requeridos configurables por proyecto: hoy son fijos (incluye `typescript-lsp` y `frontend-design`); PowerFy es Python/Odoo y pide herramientas que no usa. | Baja | Pendiente | Tokens · DX | plugin/scripts/lib/hooks/session-start.mjs |
 | PLG-GH | Plugin — el aviso de cuenta de gh no considera `GH_TOKEN` (entornos en la nube): el test falla ahí y el aviso no salta. Aislar el test y definir el comportamiento en la nube. | Baja | Hecho 16/11/2026 en PLG-CLOUD (gh api user y hosts.yml; el test ya no hereda BACG_DEV_SIN_GH) | Tests · Nube | tests/hooks.test.mjs |
 | PLG-BKL2 | Plugin — el backlog con filas separadas por líneas en blanco bajo un solo encabezado: abrir y cerrar duplican la fila (regresión de la 4.6.0) | Alta | Hecho 16/11/2026 (falta: manual:actualizar-el-plugin-en-las-pc) | Proceso | docs/rq/PLG-BKL2/ |
-| PLG-MOCK | El mockup se pregunta cuando el cambio de UI es técnico o chico |  | En curso |  | docs/rq/PLG-MOCK/ |
+| PLG-MOCK | El mockup se pregunta cuando el cambio de UI es técnico o chico | Alta | En curso | Proceso · UI · DX | docs/rq/PLG-MOCK/ |
 
 | PLG-ID | Plugin — identidad propia para convivir con el plugin de origen en la misma PC: plugin lineamientos-dev-claude-bacg, comandos /bacg-rq y /bacg-estado, marcador .bacg-lineamientos, carpeta .bacg-dev/, BACG_LINEAMIENTOS_DIR y ~/.claude/bacg-dev.json. | Alta | Hecho 04/11/2026 | DX · Seguridad | README.md#convive-con-el-plugin-de-origen |
 

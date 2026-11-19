@@ -46,6 +46,7 @@ const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
 // verificacion-local: omite el recorrido local con el rol real en un RQ que toca UI.
 // ui: omite el refuerzo de UI del plugin (diseno-frontend, redesign y ## Diseño) en un cambio menor; el canon sigue.
+// mockup: el usuario decidió que un cambio técnico o chico no necesita mockup; journey, referencias y paridad siguen.
 const COMPUERTAS = ['edicion', 'commit', 'push', 'e2e', 'skills', 'seguridad', 'ui', 'mockup', 'verificacion-local', 'rama'];
 const RE_CODIGO = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 

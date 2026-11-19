@@ -46,9 +46,11 @@ function seccionDiseno(raiz, codigo) {
   }
 }
 
+// PLG-MOCK: si falta el mockup y el cambio es técnico o chico, el usuario decide si hace falta (`saltar mockup`).
+const PISTA_MOCKUP = ' Si el cambio es técnico o chico (sin pantalla ni flujo nuevos), preguntale al usuario en el chat si hace falta mockup; si dice que no, con su respuesta: $RQ saltar mockup "<su frase>" "<motivo>".';
+
 // Cambio menor (un texto, un ícono, un espaciado puntual, sin componentes ni pantallas nuevas): el agente le pregunta
 // al usuario en el chat, con palabras, si omite el refuerzo; un botón no queda como frase del usuario.
-const PISTA_MOCKUP = ' Si el cambio es técnico o chico (sin pantalla ni flujo nuevos), preguntale al usuario en el chat si hace falta mockup; si dice que no, con su respuesta: $RQ saltar mockup "<su frase>" "<motivo>".';
 const PISTA_MENOR = ' Si el cambio es menor, preguntale al usuario en el chat (texto, no botones) si omite el refuerzo; con su respuesta: $RQ saltar ui "<su frase>" "<motivo>".';
 
 /**
