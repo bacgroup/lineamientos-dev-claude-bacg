@@ -11,13 +11,17 @@ aprobaciones:
     fecha: '2026-11-19T11:48:46.474Z'
     via: lote
 tests: null
-revision: null
+revision:
+  ok: true
+  fecha: '2026-11-19T11:58:21.792Z'
+  nota: '3 pasadas: revisor-rq ok; code-reviewer: referencias OWASP/ISO corregidas, el agente sabe dónde está el checklist, qué bloquea aclarado; pr-test-analyzer: tests estrictos. Suite 721/721, E2E completo ok.'
+  head: cad17e11149f15ffcf6cfa1256faec95721b65c9
 circuito: []
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:58:01.358Z'
+actualizado: '2026-11-19T11:58:21.794Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -80,13 +84,18 @@ skills:
     etapa: 1
     fecha: '2026-11-19T11:54:13.925Z'
     sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: superpowers:verification-before-completion
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:21.668Z'
+    via: sesion
 clasificacion_confirmada:
   frase: Apruebo todos los RQ.
   fecha: '2026-11-19T11:48:46.474Z'
   via: lote
 e2e:
   ok: true
-  fecha: '2026-11-19T11:53:54.641Z'
+  fecha: '2026-11-19T11:58:16.814Z'
   comando: npm run test:e2e
-  head: b7eaaf94b7560b929a938ca19951e8b91b20c804
+  head: cad17e11149f15ffcf6cfa1256faec95721b65c9
   completo: true
