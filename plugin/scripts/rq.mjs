@@ -41,6 +41,7 @@ import { remotoGh } from './lib/config.mjs';
 import { faltasCapturas, refExigida } from './lib/diseno-ui.mjs';
 import { agregar as agregarDevolucion, marcar as marcarDevolucion, listado as listadoDevoluciones, PROTOCOLO_CORTE } from './lib/devoluciones.mjs';
 import { trazar as trazarSpec } from './lib/traza.mjs';
+import { instalarRevisor, RUTA_WORKFLOW } from './lib/revisor-pr.mjs';
 
 const TIPOS = ['rq', 'bug', 'fix']; // fix: nombre anterior de bug
 // skills: las de proceso por etapa (requisitos.mjs); seguridad: claude-security en rutas sensibles.
@@ -86,6 +87,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   desplegar [<handoff.md>]           (plan de despliegue: pasos que faltan, en orden, con su comando)
   entregar                           (rama, PR, CI y plan de despliegue: qué falta para terminar)
   agents                             (escribe en AGENTS.md la sección de lineamientos generada desde .bacg-dev/)
+  revisor-pr [--forzar]              (instala .github/workflows/bacg-revisor.yml: revisor independiente en PR y push; necesita el secret ANTHROPIC_API_KEY)
   auditar [--cerrar "<nota>"]        (commits de Lovable sin revisar; --cerrar mueve la marca y lo anota en docs/log/rq.jsonl)
   estado                             (avisa si la rama está atrasada o si el RQ ya figura cerrado en origin/main)
   arranque                           (inicio o reanudación de la sesión: proyecto, repos, lo último trabajado o dónde quedó el RQ activo; sólo lee)
@@ -1444,6 +1446,22 @@ function agents(repo, env, io) {
   io.stdout.write(`AGENTS.md: sección de lineamientos-dev-claude-bacg ${r}. Es documentación: se commitea sin RQ.\n`);
 }
 
+/** PLG-PRREV: instala el workflow del revisor independiente en este repo, con sus ramas de DEV y PROD. */
+function revisorPr(repo, args, env, io) {
+  const proyecto = exigirProyecto(repo, env);
+  const propio = nombreRepo(repo.raiz).toLowerCase();
+  const entradaRepo = lista(proyecto?.repos).find((r) => String(r?.nombre ?? '').toLowerCase() === propio) ?? {};
+  const cabeza = salida(repo.raiz, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']);
+  const ramaDefecto = cabeza ? cabeza.replace(/^origin\//, '') : 'main';
+  const r = instalarRevisor({ raiz: repo.raiz, proyecto, entradaRepo, ramaDefecto, forzar: args.includes('--forzar') });
+  const rel = RUTA_WORKFLOW.split(path.sep).join('/');
+  const l = [r.creado ? `${rel} escrito.` : `${rel}: ${r.motivo}.`];
+  for (const a of r.avisos) l.push(`Aviso: ${a}`);
+  l.push('Falta, a cargo de un admin del repo u organización: cargar el secret ANTHROPIC_API_KEY en GitHub (Settings → Secrets → Actions; mejor a nivel organización) y, para que un crítico frene el merge, marcar el check "revisar" como requerido en la protección de la rama.');
+  if (r.creado) l.push(`Commitealo como parte del RQ: node "<ruta>/rq.mjs" commit "ci: revisor independiente" ${rel}`);
+  io.stdout.write(`${l.join('\n')}\n`);
+}
+
 /** Lista los commits de Lovable sin revisar; con --cerrar mueve la marca y anota la revisión en el log. */
 function auditar(repo, args, env, io) {
   const raiz = repo.raiz;
@@ -1880,7 +1898,7 @@ export async function main(
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar', 'backlog'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar', 'backlog', 'revisor-pr'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
@@ -1890,6 +1908,7 @@ export async function main(
     else if (sub === 'clasificacion') uso((args[0] === 'confirmar' && n === 2) || (args[0] === 'cambiar' && n === 3));
     else if (sub === 'commit') uso(n >= 2);
     else if (sub === 'auditar') uso(n === 0 || (n === 2 && args[0] === '--cerrar'));
+    else if (sub === 'revisor-pr') uso(n === 0 || (n === 1 && args[0] === '--forzar'));
     else if (sub === 'autonomia' && args[0] === 'aplicar') uso(n === 1);
     else if (sub === 'autonomia' && args[0] === 'total') uso(n === 2 || n === 4);
     else if (sub === 'ok') uso(n === 1 || n === 3);
@@ -2159,6 +2178,9 @@ export async function main(
         break;
       case 'agents':
         agents(repo, env, io);
+        break;
+      case 'revisor-pr':
+        revisorPr(repo, args, env, io);
         break;
       case 'auditar':
         auditar(repo, args, env, io);

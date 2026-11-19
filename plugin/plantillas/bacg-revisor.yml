@@ -1,0 +1,66 @@
+# Revisor BACG (PLG-PRREV): segunda línea de revisión, independiente de la sesión que escribió el código.
+# Lo instala `rq.mjs revisor-pr`; no lo edites a mano (volvé a correrlo con --forzar si cambian las ramas).
+# Revisa con la skill revision-pr del plugin: reglas.md, ADR vigentes, canon de UI y el checklist de seguridad.
+# Comenta y sólo pone el check en rojo ante un crítico de seguridad (puntos 1 a 5 del checklist).
+#
+# Secret: ANTHROPIC_API_KEY (recomendado a nivel organización). Nunca una clave en este archivo.
+# Alternativa con suscripción: cambiá anthropic_api_key por
+#   claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+# Para que el rojo frene el merge, un admin marca el check "revisar" como requerido en la protección de la rama.
+# El check también queda en rojo si la acción falla (sin secret, más de 30 turnos): no es un hallazgo, se reintenta.
+# No corre en PR de forks ni de Dependabot (no reciben el secret).
+name: Revisor BACG
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: __RAMAS__
+__PUSH__
+concurrency:
+  group: bacg-revisor-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  revisar:
+    # PR del mismo repo (no forks ni Dependabot); push sólo de agentes sin el plugin (lo que llega por PR ya se revisó).
+    if: __IF__
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sin resultados traídos por el PR
+        run: rm -f bacg-revision.json bacg-revision.md
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          plugin_marketplaces: |
+            https://github.com/bacgroup/lineamientos-dev-claude-bacg.git
+            https://github.com/anthropics/claude-plugins-official.git
+          plugins: |
+            lineamientos-dev-claude-bacg@lineamientos-dev-claude-bacg
+            pr-review-toolkit@claude-plugins-official
+          prompt: |
+            /lineamientos-dev-claude-bacg:revision-pr
+            REPO: ${{ github.repository }}
+            EVENTO: ${{ github.event_name }}
+            PR: ${{ github.event.pull_request.number }}
+            BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+            HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          claude_args: --max-turns 30 --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh api repos/*/pulls/*/files*),Bash(gh api repos/*/issues/*/comments*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Read,Grep,Glob,Write(bacg-revision.json),Write(bacg-revision.md)"
+      - name: Resumen y críticos de seguridad
+        run: |
+          if [ -f bacg-revision.md ]; then cat bacg-revision.md >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ ! -f bacg-revision.json ] || [ "$(jq -r '.revisado' bacg-revision.json)" = "false" ]; then
+            echo "::warning::El revisor BACG no pudo revisar este cambio: revisalo a mano."
+            echo "**Revisor BACG: revisión no realizada** (ver el log de la acción)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          jq -e '.criticos == 0' bacg-revision.json
