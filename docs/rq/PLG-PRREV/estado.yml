@@ -17,12 +17,62 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:48:52.124Z'
+actualizado: '2026-11-19T12:08:00.085Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
     sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
     fecha: '2026-11-18T23:37:04.273Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
     via: sesion
 clasificacion_confirmada:
   frase: Apruebo todos los RQ.
