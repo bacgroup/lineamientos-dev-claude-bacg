@@ -12,12 +12,12 @@ items:
     archivos:
       - plugin/scripts/rq.mjs
       - plugin/scripts/lib/requisitos.mjs
-    test: 'tests/rq-cli.test.mjs · PLG-SP: verificar en rojo suma e2e_rojos y, con reglas 4.4, la revisión exige systematic-debugging'
+    test: 'tests/revision-calidad.test.mjs · PLG-SP: con un E2E en rojo, revision ok se niega sin systematic-debugging (+ rq-cli: verificar suma e2e_rojos)'
     estado: hecho
   - id: S-3
     texto: ciclo-rq nombra `dispatching-parallel-agents` para las pasadas de la sección 5 y explica por qué se reemplazan las dos skills de entrega → test de contenido.
     archivos:
       - plugin/skills/ciclo-rq/SKILL.md
       - plugin/general/proceso.md
-    test: 'tests/skills.test.mjs · PLG-SP: ciclo-rq hace de Superpowers la columna (pasadas en paralelo y por qué se reemplazan dos)'
+    test: 'tests/skills.test.mjs · PLG-SP: ciclo-rq hace de Superpowers la columna: demás skills cuando apliquen, pasadas en paralelo y por qué se reemplazan dos'
     estado: hecho

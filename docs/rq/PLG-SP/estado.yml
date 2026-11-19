@@ -16,13 +16,17 @@ tests:
   fecha: '2026-11-19T12:25:45.812Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: true
+  fecha: '2026-11-19T12:26:04.084Z'
+  nota: '3 pasadas: revisor-rq (porqué de los dos reemplazos y test débil: corregidos), code-reviewer (rojo de infraestructura no cuenta; reglas 4.4 explícitas; el rojo de TDD cuenta y frena también la entrega, documentado), pr-test-analyzer (negación de revision ok de punta a punta, BUG sin duplicado, verde no suma: tests sumados). Suite 723/723, E2E ok.'
+  head: b4626e9c015c6a61fcbe83524772d59c31aaba70
 circuito: []
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T12:25:45.814Z'
+actualizado: '2026-11-19T12:26:04.087Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -93,7 +97,7 @@ clasificacion_confirmada:
   via: lote
 e2e:
   ok: true
-  fecha: '2026-11-19T12:22:20.687Z'
+  fecha: '2026-11-19T12:25:57.032Z'
   comando: npm run test:e2e
-  head: a6b64c38c9a171a3f1a8fd88d1734ae87f8bdfaa
+  head: b4626e9c015c6a61fcbe83524772d59c31aaba70
   completo: true
