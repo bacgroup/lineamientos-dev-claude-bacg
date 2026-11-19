@@ -12,6 +12,7 @@ import { nombreDe } from './clasificacion.mjs';
 import { dirConfigClaude, dirSesiones } from './sesiones.mjs';
 import { reglas44 } from './reglas.mjs';
 import { faltasDisenoUi } from './diseno-ui.mjs';
+import { faltantesRequeridos, comandosInstalar } from './plugins-requeridos.mjs';
 
 const allow = () => ({ decision: 'allow' });
 const deny = (motivo) => ({ decision: 'deny', motivo });
@@ -88,9 +89,28 @@ export function escrituraProhibida(abs, raiz) {
   return null;
 }
 
+// PLG-DEPS: requeridos que faltan; [] si no se mira o no se puede leer lo instalado (aviso del arranque, no bloqueo).
+function pluginsFaltantes(raiz, proyecto, ctx) {
+  if (!ctx?.verPlugins && !ctx?.home) return [];
+  try {
+    return faltantesRequeridos({ raiz, proyecto, env: ctx.env ?? process.env, home: ctx.home ?? os.homedir() }) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function saltoDe(raiz, codigo, compuerta) {
+  try {
+    return saltoValido(cargarEstado(raiz, codigo), compuerta);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Decide si se puede editar un archivo. Con varios RQ activos, alcanza con que uno lo permita.
  * ctx = { skills: Set<string> } (skills cargadas en la sesión; también cuentan las registradas en el RQ).
+ * PLG-DEPS: con ctx.verPlugins (los hooks) o ctx.home (tests), mira los plugins requeridos de la cuenta.
  */
 export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
   const prohibida = escrituraProhibida(rutaArchivo, raiz);
@@ -104,6 +124,13 @@ export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
   if (codigos.length === 0) {
     return deny(
       `No hay RQ activo. Clasificá el pedido y abrilo con: ${cli()} abrir <código> --tipo rq|bug --clasificacion <...>`,
+    );
+  }
+
+  const faltanPlugins = pluginsFaltantes(raiz, proyecto, ctx);
+  if (faltanPlugins.length && !codigos.some((c) => saltoDe(raiz, c, 'plugins'))) {
+    return deny(
+      `Faltan plugins requeridos (${faltanPlugins.join(', ')}): sin ellos no se edita código (PLG-DEPS). Con el OK del usuario, corré: ${comandosInstalar(faltanPlugins).join(' && ')}; después /reload-plugins (si usa los plugins de su cuenta de claude.ai, que los active ahí). Si el usuario decide seguir sin ellos: ${cli()} saltar plugins "<su frase>" "<motivo>".`,
     );
   }
 
