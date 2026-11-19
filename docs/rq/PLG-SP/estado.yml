@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: bounded
 clasificacion_pendiente: false
 tarea: Superpowers como columna vertebral (segunda pasada)
-etapa: 0
+etapa: 6
 autonomia: null
 aprobaciones:
   - etapa: 1
@@ -24,12 +24,15 @@ revision:
   fecha: '2026-11-19T12:26:04.084Z'
   nota: '3 pasadas: revisor-rq (porqué de los dos reemplazos y test débil: corregidos), code-reviewer (rojo de infraestructura no cuenta; reglas 4.4 explícitas; el rojo de TDD cuenta y frena también la entrega, documentado), pr-test-analyzer (negación de revision ok de punta a punta, BUG sin duplicado, verde no suma: tests sumados). Suite 723/723, E2E ok.'
   head: b4626e9c015c6a61fcbe83524772d59c31aaba70
-circuito: []
+circuito:
+  - paso: push:lineamientos-dev-claude-bacg
+    fecha: '2026-11-19T13:47:11.121Z'
+    evidencia: 'merge a main: bacgroup/lineamientos-dev-claude-bacg#20 (b50bc68)'
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T13:46:46.889Z'
+actualizado: '2026-11-19T13:47:11.538Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -104,3 +107,5 @@ e2e:
   comando: npm run test:e2e
   head: b4626e9c015c6a61fcbe83524772d59c31aaba70
   completo: true
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
