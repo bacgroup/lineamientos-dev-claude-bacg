@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.7.0: calidad y seguridad como estándar (2026-11-19)
+
+**Origen:** RQ PLG-MOCK, PLG-SEG, PLG-DEPS, PLG-PRREV y PLG-SP (pedido del 18/11).
+
+**Cambios:**
+- PLG-MOCK: salto `mockup` (`rq.mjs saltar mockup "<frase>" "<motivo>"`). En un cambio técnico o chico el agente pregunta si hace falta mockup; journey, referencias, paridad y capturas se siguen exigiendo.
+- PLG-SEG: `## Checklist de aplicaciones` en `general/seguridad.md` (13 puntos OWASP, con ISO 27001 y SOC 2 como referencia, no certificación). `revisor-rq` lo aplica a lo que el diff toca; los puntos 1 a 5 son críticos.
+- PLG-DEPS: lista única de plugins requeridos (núcleo y por stack: frontend-design con `ui.patrones`, typescript-lsp con TypeScript). El alta los exige con los comandos `claude plugin install …` exactos; la compuerta de edición niega código si falta uno (`saltar plugins`). No van como `dependencies` del manifiesto: si faltara uno, Claude Code no cargaría el plugin ni sus compuertas de PROD. Paso recomendado `mcp` (codebase-memory-mcp, context7).
+- PLG-PRREV: skill `revision-pr` y `rq.mjs revisor-pr`, que instala `.github/workflows/bacg-revisor.yml` (claude-code-action): revisa PR y push de agentes externos con las reglas del proyecto y el checklist; comenta y sólo pone rojo ante un crítico. Necesita el secret `ANTHROPIC_API_KEY` y la protección de rama (admin).
+- PLG-SP: Superpowers como columna: el arranque pide usar toda skill de Superpowers que aplique; con reglas 4.4, un E2E en rojo (`e2e_rojos`) exige `systematic-debugging` antes de la revisión.
+
+**Pendiente:** prueba en vivo del revisor (PLG-PRREV) y la plantilla de settings con el núcleo de requeridos (PLG-PLANT).
+
 ## 4.6.1: el backlog con grupos de filas ya no duplica la fila del RQ (2026-11-16)
 
 **Origen:** BUG PLG-BKL2, regresión de la 4.6.0 vista al cerrar PLG-BACKLOG en este repo.
