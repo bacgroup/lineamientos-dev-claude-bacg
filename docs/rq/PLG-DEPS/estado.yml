@@ -16,13 +16,17 @@ tests:
   fecha: '2026-11-19T12:17:17.298Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: true
+  fecha: '2026-11-19T12:35:05.830Z'
+  nota: '3 pasadas: code-reviewer (archivo ilegible u otro formato ya no bloquea), pr-test-analyzer (tests por el hook real, Bash, synced y corrupto sumados), revisor-rq (cableado del hook probado; plantilla fuera por decisión del usuario: «En PLG-DEPS, la plantilla queda para PLG-PLANT.»). Suite 735/735, E2E ok.'
+  head: addd37d10120925b4c6f75b5cef26730e2241a75
 circuito: []
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T12:17:27.950Z'
+actualizado: '2026-11-19T12:35:05.832Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
