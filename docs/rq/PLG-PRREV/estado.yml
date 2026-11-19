@@ -15,8 +15,8 @@ aprobaciones:
     fecha: '2026-11-19T13:39:32.447Z'
 tests:
   ok: true
-  arbol: d9e433dc42c50f309a60f901c07d6e2b13221eed
-  fecha: '2026-11-19T12:19:20.866Z'
+  arbol: 3813aafb89d29330f0889075e1ebf17d870734d9
+  fecha: '2026-11-19T13:45:22.793Z'
   comandos:
     - npm test
 revision:
@@ -24,12 +24,14 @@ revision:
   fecha: '2026-11-19T12:19:38.799Z'
   nota: '3 pasadas: revisor-rq (aviso sin revisión: corregido), code-reviewer (resultados del PR, gh api amplio, forks/Dependabot, token: corregidos; nombres de entradas de la acción a confirmar en la prueba en vivo), pr-test-analyzer (comillas, ramas del repo, Lovable, --forzar: tests sumados). Prueba en vivo: paso manual. Suite 732/732, E2E ok.'
   head: 393ff32d5a1b71f0cc5370574047053862e05446
-circuito: []
+circuito:
+  - paso: push:lineamientos-dev-claude-bacg
+    fecha: '2026-11-19T13:44:37.504Z'
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T13:39:32.449Z'
+actualizado: '2026-11-19T13:45:22.796Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0

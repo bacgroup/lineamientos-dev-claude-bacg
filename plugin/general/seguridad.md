@@ -18,6 +18,28 @@
 
 Si el RQ toca rutas de `sensible.rutas` de `proyecto.yml`, se corre un escaneo profundo con la skill `claude-security:claude-security` en la etapa 3 (verificación), antes de pedir PROD. `security-guidance` actúa sola en todos los RQ por hooks al editar; atendé sus avisos antes de registrar la revisión.
 
+## Checklist de aplicaciones
+
+Qué revisar en el código de una app, sea cual sea el stack. La revisión de la etapa 3 (`revisor-rq`) y el futuro revisor del PR (PLG-PRREV) lo aplican **sólo a lo que el diff toca**; el resto se reporta en bloque como "no aplica", sin rellenar punto por punto. Formato: punto → qué mirar en el diff → referencia.
+
+1. Control de acceso en el servidor → cada endpoint, acción o método valida rol y dueño del dato; nada se confía al front → OWASP A01 · ISO 27001 8.3 · SOC 2 CC6.1
+2. Validación y codificación de entradas → consultas parametrizadas (nada de SQL armado con strings del usuario), sin `eval` ni HTML crudo con datos externos → OWASP A03 · ISO 27001 8.28
+3. Autenticación y sesiones → expiración y cierre de sesión; sin tokens en la URL ni en `localStorage` cuando hay alternativa → OWASP A07 · ISO 27001 8.5 · SOC 2 CC6.1
+4. Secretos → ninguna clave, token o contraseña en el código, la config o los logs (sección Secretos) → OWASP A02, A07 · ISO 27001 5.17, 8.24 · SOC 2 CC6.1
+5. Datos personales y logs → sin datos personales, tokens ni contraseñas en logs ni en mensajes de error → OWASP A09 · ISO 27001 5.34, 8.11, 8.12, 8.15 · SOC 2 CC6.1, CC6.7
+6. Errores → mensaje genérico al usuario y detalle sólo en el log; ningún error tragado en silencio → OWASP A05, A09 · ISO 27001 8.28
+7. Dependencias → versión fijada y lockfile commiteado; sin paquetes abandonados o con CVE conocida → OWASP A06 · ISO 27001 8.8 · SOC 2 CC7.1
+8. Configuración segura → CORS acotado, cabeceras de seguridad y modo debug apagado en PROD → OWASP A05 · ISO 27001 8.9
+9. Límites y abuso → rate limit o paginación en endpoints públicos y de login; tamaño máximo de archivos y pedidos → OWASP A04, A07 · ISO 27001 8.5, 8.6
+10. Integridad de datos y archivos → subidas con tipo y tamaño validados; webhooks verificados con firma → OWASP A04, A08 · ISO 27001 8.28
+11. Peticiones salientes → una URL que viene del usuario se valida contra una lista permitida (SSRF) → OWASP A10 · ISO 27001 8.20
+12. Separación de entornos y datos de prueba → sin datos reales en tests ni en DEV; credenciales distintas por entorno → ISO 27001 8.31, 8.33 · SOC 2 CC8.1
+13. Trazabilidad del cambio → RQ, revisión y aprobación registrados (lo da el ciclo) → ISO 27001 8.32 · SOC 2 CC8.1
+
+**Crítico:** un hallazgo de los puntos 1 a 5 con evidencia en el diff. Los demás puntos son hallazgos importantes o menores según el efecto. En la etapa 3, un crítico o un importante bloquean la revisión ok (como cualquier hallazgo de `revisor-rq`); el revisor del PR (PLG-PRREV) sólo pondrá en rojo su check por un crítico.
+
+SOC 2 e ISO 27001 son **referencia de calidad**: el plugin no produce evidencia de auditoría ni certifica nada.
+
 ## PROD
 
 - La etapa 5 (PROD y entrega) exige el OK explícito del usuario **en la sesión en la que se publica**. Un OK de otra sesión no vale.
