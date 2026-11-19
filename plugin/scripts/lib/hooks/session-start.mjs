@@ -67,10 +67,10 @@ function encuadre(raiz, codigo, max) {
   return `## Encuadre de ${codigo}\n\n${recortar(spec.trim().split(/\r?\n/).slice(0, LINEAS_ENCUADRE).join('\n'), max)}`;
 }
 
-// using-superpowers pide invocar cualquier skill con un 1 % de chance de aplicar; en un repo con el ciclo, las de
-// proceso las fija ciclo-rq por etapa y el resto es opcional (cada skill cargada son miles de tokens por turno).
+// PLG-SP: Superpowers es la columna del ciclo, así que su propia regla (invocar toda skill que aplique) vale para sus
+// skills. Las de otros plugins siguen por tabla, compuerta o pedido: cada skill cargada son miles de tokens por turno.
 export const REGLA_SKILLS =
-  'Skills en este repo: las de proceso las fija la skill ciclo-rq por tipo y etapa; no apliques la regla de using-superpowers de invocar toda skill con un 1 % de chance. Invocá las de la tabla de ciclo-rq, las que pida el usuario y las de UI que exija la compuerta.';
+  'Skills en este repo: Superpowers es la columna del ciclo: invocá toda skill de Superpowers cuya descripción aplique a lo que estás por hacer (la tabla de ciclo-rq es el mínimo exigido, no el máximo). Las de otros plugins, sólo las de la tabla de ciclo-rq, las que pida el usuario y las que exija la compuerta.';
 
 const recortar = (texto, max) => (texto.length > max ? `${texto.slice(0, max)}\n[…recortado]` : texto);
 

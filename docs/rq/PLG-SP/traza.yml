@@ -1,0 +1,23 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: El arranque dice que toda skill de Superpowers que aplique se invoca y que la tabla es el mínimo → tests/hooks.test.mjs.
+    archivos:
+      - plugin/scripts/lib/hooks/session-start.mjs
+    test: 'tests/hooks.test.mjs · PLG-SP: el arranque pide invocar toda skill de Superpowers que aplique (la tabla es el mínimo)'
+    estado: hecho
+  - id: S-2
+    texto: Un RQ con un `verificar` en rojo exige `superpowers:systematic-debugging` para la revisión ok; sin rojos, no → tests/etapas.test.mjs.
+    archivos:
+      - plugin/scripts/rq.mjs
+      - plugin/scripts/lib/requisitos.mjs
+    test: 'tests/revision-calidad.test.mjs · PLG-SP: con un E2E en rojo, revision ok se niega sin systematic-debugging (+ rq-cli: verificar suma e2e_rojos)'
+    estado: hecho
+  - id: S-3
+    texto: ciclo-rq nombra `dispatching-parallel-agents` para las pasadas de la sección 5 y explica por qué se reemplazan las dos skills de entrega → test de contenido.
+    archivos:
+      - plugin/skills/ciclo-rq/SKILL.md
+      - plugin/general/proceso.md
+    test: 'tests/skills.test.mjs · PLG-SP: ciclo-rq hace de Superpowers la columna: demás skills cuando apliquen, pasadas en paralelo y por qué se reemplazan dos'
+    estado: hecho

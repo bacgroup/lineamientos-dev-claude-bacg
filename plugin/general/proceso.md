@@ -107,4 +107,6 @@ Un RQ por conversación, salvo que el usuario pida trabajar varios a la vez: des
 
 El encuadre, el spec y el plan se escriben una vez y se aprueban una vez. No se arma un TO DO aparte con la checklist de cada skill: el plan es la lista. Spec y plan de Superpowers van a `docs/rq/<código>/`, nunca a `docs/superpowers/`.
 
+Superpowers es la columna del ciclo: toda skill de Superpowers cuya descripción aplique se usa (la tabla de `ciclo-rq` es el mínimo); con reglas 4.4, un E2E en rojo se depura con `systematic-debugging` antes de la revisión.
+
 Por qué: en las sesiones de octubre el mismo plan se revisaba cuatro o cinco veces (spec del plugin, TO DO, brainstorming, writing-plans y sus auto-revisiones) y cada pasada relee todo el contexto.

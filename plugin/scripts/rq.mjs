@@ -1232,6 +1232,8 @@ function verificar(repo, elegido, args, env, io) {
   const ok = r.status === 0;
   if (!ok) io.stdout.write(`${resumenFalla(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80, { id: `e2e-${rq}` })}\n`);
   estado.e2e = { ok, fecha: ahora(), comando: cmd, head: commitHead(raiz), completo };
+  // PLG-SP: un rojo del E2E (no una corrida que no pudo arrancar) hace que la revisión pida systematic-debugging.
+  if (!ok && !r.error) estado.e2e_rojos = (Number(estado.e2e_rojos) || 0) + 1;
   guardar(raiz, estado);
   const alcance = completo ? 'suite completa' : `${specs.length} spec(s) del RQ; antes de PROD: $RQ verificar --completo`;
   io.stdout.write(`E2E de ${rq} ${ok ? 'ok' : 'falló'} (${alcance}${url ? `, app ${url}` : ''}).\n`);
