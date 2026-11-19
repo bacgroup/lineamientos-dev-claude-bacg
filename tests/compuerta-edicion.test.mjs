@@ -268,3 +268,51 @@ test('M6: sin Odoo (motor declarado otro u odoo_skills false) o fuera de un addo
   const { raiz, p } = repoAddon();
   assert.equal(evaluar(raiz, 'src/x.js', {}, p).decision, 'allow');
 });
+
+// ---------- PLG-DEPS: sin los plugins requeridos no se edita código ----------
+import os from 'node:os';
+import { PLUGINS_NUCLEO, PLUGINS_TODOS } from '../plugin/scripts/lib/plugins-requeridos.mjs';
+
+function homeConPlugins(ids) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-gate-'));
+  fs.mkdirSync(path.join(home, '.claude', 'plugins'), { recursive: true });
+  const datos = { version: 2, plugins: Object.fromEntries(ids.map((p) => [p, [{ scope: 'user' }]])) };
+  fs.writeFileSync(path.join(home, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify(datos));
+  return home;
+}
+const sinFeatureDev = () => homeConPlugins(PLUGINS_NUCLEO.filter((p) => !p.startsWith('feature-dev')));
+
+test('PLG-DEPS: con un plugin del núcleo faltante, editar código se niega y nombra qué instalar', () => {
+  const raiz = repoConRq(base({ aprobaciones: [ap(1, FRASE)] }));
+  assert.equal(evaluar(raiz, 'src/lib/calculo.ts').decision, 'allow', 'el fixture permite editar sin mirar plugins');
+  const r = evaluar(raiz, 'src/lib/calculo.ts', { home: sinFeatureDev(), env: {} });
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /feature-dev@claude-plugins-official/);
+  assert.match(r.motivo, /claude plugin install feature-dev@claude-plugins-official/);
+  assert.match(r.motivo, /saltar plugins/);
+});
+
+test('PLG-DEPS: docs y .md siguen libres; sin poder leer lo instalado no se bloquea; con todo instalado pasa', () => {
+  const raiz = repoConRq(base({ aprobaciones: [ap(1, FRASE)] }));
+  assert.equal(evaluar(raiz, 'docs/notas.md', { home: sinFeatureDev(), env: {} }).decision, 'allow');
+  const vacio = fs.mkdtempSync(path.join(os.tmpdir(), 'home-vacio-'));
+  assert.equal(evaluar(raiz, 'src/lib/calculo.ts', { home: vacio, env: {} }).decision, 'allow');
+  assert.equal(evaluar(raiz, 'src/lib/calculo.ts', { home: homeConPlugins(PLUGINS_TODOS), env: {} }).decision, 'allow');
+  // El proyecto declara ui.patrones: con sólo el núcleo, falta frontend-design (por stack).
+  const r = evaluar(raiz, 'src/lib/calculo.ts', { home: homeConPlugins(PLUGINS_NUCLEO), env: {} });
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /frontend-design@claude-plugins-official/);
+  assert.equal(evaluar(raiz, 'src/lib/calculo.ts', { home: homeConPlugins(PLUGINS_NUCLEO), env: {} }, {}).decision, 'allow', 'sin UI, el núcleo alcanza');
+});
+
+test('PLG-DEPS: con saltar plugins (frase del usuario) en el RQ activo, deja editar', () => {
+  const salto = { compuerta: 'plugins', frase: 'seguí sin feature-dev', motivo: 'no lo puedo instalar hoy', fecha: '2026-11-19T00:00:00Z' };
+  const raiz = repoConRq(base({ aprobaciones: [ap(1, FRASE)], saltos: [salto] }));
+  assert.equal(evaluar(raiz, 'src/lib/calculo.ts', { home: sinFeatureDev(), env: {} }).decision, 'allow');
+});
+
+test('PLG-DEPS: saltar edicion (frase del usuario) también deja editar con un plugin faltante', () => {
+  const salto = { compuerta: 'edicion', frase: 'editá igual', motivo: 'urgente', fecha: '2026-11-19T00:00:00Z' };
+  const raiz = repoConRq(base({ aprobaciones: [ap(1, FRASE)], saltos: [salto] }));
+  assert.equal(evaluar(raiz, 'src/lib/calculo.ts', { home: sinFeatureDev(), env: {} }).decision, 'allow');
+});

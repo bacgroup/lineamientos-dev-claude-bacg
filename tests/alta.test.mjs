@@ -34,12 +34,12 @@ const opts = (m, extra = {}) => ({ cwd: m.repo, home: m.home, dirLin: m.lin, env
 test('alta: en orden, sin tests en la PC bloquea con el JSON para declararlos', () => {
   const m = montar();
   const pasos = pasosAlta(opts(m));
-  assert.deepEqual(pasos.map((p) => p.id), ['node', 'gh', 'lineamientos', 'al-dia', 'plugins', 'repo', 'repos', 'tests', 'e2e', 'local']);
+  assert.deepEqual(pasos.map((p) => p.id), ['node', 'gh', 'lineamientos', 'al-dia', 'plugins', 'mcp', 'repo', 'repos', 'tests', 'e2e', 'local']);
   const b = bloqueante(pasos);
   assert.equal(b.id, 'tests');
   assert.match(b.como, /"pf": \{\s+"tests"/);
   assert.equal(pasos.find((p) => p.id === 'repos').estado, 'aviso', 'pf-bi no está clonado al lado');
-  assert.match(formatoAlta(pasos), /Próximo paso \(obligatorio\): 8\. Tests del proyecto pf en esta PC/);
+  assert.match(formatoAlta(pasos), /Próximo paso \(obligatorio\): 9\. Tests del proyecto pf en esta PC/);
   assert.match(lineaAlta(pasos), /Alta incompleta .*\/bacg-alta/);
 });
 
@@ -121,4 +121,47 @@ test('alta: sin addons en ningún repo del proyecto no ofrece odoo-skills; con a
   fs.writeFileSync(path.join(m.repo, 'addons', 'x', '__manifest__.py'), '{}');
   limpiarCacheOdoo();
   assert.ok(pasosAlta(opts(m)).some((p) => p.id === 'odoo-skills'));
+});
+
+// ---------- PLG-DEPS: plugins requeridos obligatorios, con los comandos exactos; MCP recomendados ----------
+
+function conPlugins(home, ids) {
+  fs.mkdirSync(path.join(home, '.claude', 'plugins'), { recursive: true });
+  const datos = { version: 2, plugins: Object.fromEntries(ids.map((p) => [p, [{ scope: 'user' }]])) };
+  fs.writeFileSync(path.join(home, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify(datos));
+}
+
+test('PLG-DEPS: si falta un plugin del núcleo, el paso plugins es obligatorio, bloquea y da el comando exacto', async () => {
+  const { PLUGINS_NUCLEO } = await import('../plugin/scripts/lib/plugins-requeridos.mjs');
+  const m = montar();
+  conPlugins(m.home, PLUGINS_NUCLEO.filter((p) => !p.startsWith('feature-dev')));
+  const pasos = pasosAlta(opts(m));
+  const p = pasos.find((x) => x.id === 'plugins');
+  assert.equal(p.obligatorio, true);
+  assert.equal(p.estado, 'falta');
+  assert.match(p.como, /claude plugin install feature-dev@claude-plugins-official/);
+  assert.match(p.como, /claude\.ai/);
+  assert.equal(bloqueante(pasos).id, 'plugins');
+});
+
+test('PLG-DEPS: con el núcleo instalado el paso plugins está ok; sin poder leer lo instalado, avisa y no bloquea', async () => {
+  const { PLUGINS_NUCLEO } = await import('../plugin/scripts/lib/plugins-requeridos.mjs');
+  const m = montar();
+  conPlugins(m.home, PLUGINS_NUCLEO);
+  assert.equal(pasosAlta(opts(m)).find((x) => x.id === 'plugins').estado, 'ok');
+  const sinLeer = pasosAlta(opts(montar())).find((x) => x.id === 'plugins');
+  assert.equal(sinLeer.estado, 'aviso');
+  assert.equal(sinLeer.obligatorio, false);
+});
+
+test('PLG-DEPS: el paso mcp recomienda codebase-memory-mcp y context7 si no están, sin bloquear', () => {
+  const m = montar();
+  const sin = pasosAlta(opts(m)).find((x) => x.id === 'mcp');
+  assert.ok(sin, 'falta el paso mcp');
+  assert.equal(sin.obligatorio, false);
+  assert.equal(sin.estado, 'aviso');
+  assert.match(sin.detalle, /codebase-memory-mcp/);
+  assert.match(sin.como, /claude mcp add context7/);
+  fs.writeFileSync(path.join(m.home, '.claude.json'), JSON.stringify({ mcpServers: { context7: {}, 'codebase-memory-mcp': {} } }));
+  assert.equal(pasosAlta(opts(m)).find((x) => x.id === 'mcp').estado, 'ok');
 });

@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: bounded
 clasificacion_pendiente: false
 tarea: El mockup se pregunta cuando el cambio de UI es técnico o chico
-etapa: 0
+etapa: 6
 autonomia: null
 aprobaciones:
   - etapa: 1
@@ -24,12 +24,15 @@ revision:
   fecha: '2026-11-19T11:56:22.353Z'
   nota: '3 pasadas: code-reviewer sin críticos ni importantes; revisor-rq marcó la tabla 2.1 de ciclo-rq (corregida); pr-test-analyzer: sumados tests CLI→compuerta, alcance del salto y salto de otro RQ. Menores corregidos. Suite 724/724 y E2E completo ok.'
   head: 6e2f6211d6af5ae26d355f8955e2de681e2bf434
-circuito: []
+circuito:
+  - paso: push:lineamientos-dev-claude-bacg
+    fecha: '2026-11-19T13:42:59.744Z'
+    evidencia: 'merge a main: bacgroup/lineamientos-dev-claude-bacg#16 (4bf7ebb)'
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T13:39:18.150Z'
+actualizado: '2026-11-19T13:43:04.729Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -86,3 +89,5 @@ e2e:
   comando: npm run test:e2e
   head: 6e2f6211d6af5ae26d355f8955e2de681e2bf434
   completo: true
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc

@@ -2,7 +2,7 @@
 
 > **Ejecución elegida:** en línea (`superpowers:executing-plans`), salvo que el usuario pida subagentes. Pasos con checkbox.
 
-**Goal:** que los plugins requeridos se instalen solos y que no se pueda editar código de un RQ sin ellos.
+**Goal:** que el alta instale los plugins requeridos (comandos exactos) y que no se pueda editar código de un RQ sin ellos, sin apagar nunca el plugin (opción C, 19/11).
 
 **Architecture:** una sola fuente de la lista (nueva `lib/plugins-requeridos.mjs`) que separa núcleo y por stack; la consumen el manifiesto (vía test de coherencia), el alta, el arranque y la compuerta de edición.
 
@@ -32,11 +32,11 @@
 - [ ] Implementar; `session-start` y `alta` importan de acá (`PLUGINS_REQUERIDOS` se reemplaza por `pluginsRequeridos`).
 - [ ] `npm test -- tests/plugins-requeridos.test.mjs tests/hooks.test.mjs` en verde; commit.
 
-### Task 2: Manifiesto y marketplace
-**Files:** Modify `plugin/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `plantillas/repo-proyecto/.claude/settings.json`; Test `tests/manifiestos.test.mjs`
+### Task 2: Manifiesto sin dependencias y plantilla
+**Files:** Modify `plantillas/repo-proyecto/.claude/settings.json`; Test `tests/manifiestos.test.mjs`
 **Interfaces — Consumes:** `PLUGINS_NUCLEO`.
-- [ ] Test rojo: `plugin.json.dependencies` (como `name@marketplace`) == `PLUGINS_NUCLEO`; `marketplace.json.allowCrossMarketplaceDependenciesOn` == `["superpowers-marketplace","claude-plugins-official"]`; `enabledPlugins` de la plantilla incluye cada núcleo en `true`.
-- [ ] Editar los tres JSON; `claude plugin validate ./plugin` (si el CLI está) sin errores.
+- [ ] Test rojo: `plugin.json` no tiene `dependencies` (guarda de la opción C); `enabledPlugins` de la plantilla incluye cada núcleo en `true`.
+- [ ] Editar la plantilla.
 - [ ] Tests en verde; commit.
 
 ### Task 3: Alta obligatoria con comandos

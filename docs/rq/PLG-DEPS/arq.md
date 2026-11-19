@@ -6,13 +6,13 @@
 | Opción | Pro | Contra |
 |---|---|---|
 | A. Los 8 en `dependencies` | Se instalan todos solos | Proyecto sin TS/UI carga plugins que no usa (PLG-REQ); si falla uno, se apaga el plugin con las compuertas de PROD |
-| B. Núcleo en `dependencies` + stack por alta y compuerta (**elegida**) | Instalación sola de lo universal; lo de stack según el proyecto; mensaje claro en vez de plugin apagado | Dos mecanismos que mantener (una sola fuente de la lista en código) |
-| C. Sólo alta + compuerta | Nunca apaga el plugin | Nada se instala solo |
+| B. Núcleo en `dependencies` + stack por alta y compuerta | Instalación sola de lo universal; lo de stack según el proyecto; mensaje claro en vez de plugin apagado | Dos mecanismos que mantener (una sola fuente de la lista en código) |
+| C. Sólo alta + compuerta (**elegida**) | Nunca apaga el plugin ni sus compuertas de PROD; el faltante se ve con su comando | Nada se instala solo: el alta da los comandos y el agente los corre con OK |
 
-**Decisión.** B, con la opción 3 de la organización en PLG-DEPS-ORG.
+**Decisión.** C (usuario, 19/11): con B, una cuenta a la que le falte un núcleo pierde el plugin entero, incluidas las compuertas de PROD (la doc: "the install completes without the dependency and your plugin then fails to load"). La instalación sola queda para la organización (managed settings, PLG-DEPS-ORG).
 
-**Atributos de calidad.** Seguridad: sólo dos marketplaces permitidos, ambos ya en uso. Disponibilidad: el riesgo de "plugin apagado" se limita al núcleo, que se instala solo. DX: un comando por faltante.
+**Atributos de calidad.** Seguridad: las compuertas de PROD nunca dependen de otro plugin. Disponibilidad: el plugin carga siempre. DX: un comando por faltante, que el agente corre con OK.
 
-**Riesgos.** Una versión rota en un marketplace ajeno llega sola (mitigación posible: rangos de versión cuando publiquen tags). La compuerta depende de leer `installed_plugins.json`: ante error, avisa y no bloquea.
+**Riesgos.** Una cuenta nueva tiene que pasar por el alta antes de editar (la compuerta lo frena con el comando). La compuerta depende de leer `installed_plugins.json`: ante error, avisa y no bloquea.
 
 **ADR.** No amerita uno nuevo: no cambia el stack ni una decisión vigente; queda registrado en este arq.md.

@@ -62,14 +62,14 @@ export async function handler(entrada, { dirLin = dirLineamientos() } = {}) {
     // Sin proyecto.yml se clasifica con las reglas generales; un proyecto.yml inválido lanza.
     const proyecto = proyectoRegistrado(repo.proyectoId, dirLin, repo.raiz);
     r = await conTranscript(entrada, ({ textosUsuario, skills, skillsContexto }) =>
-      evaluarEdicion({ raiz: repo.raiz, proyecto, rutaArchivo: abs, ctx: { textosUsuario, skills, skillsContexto } }),
+      evaluarEdicion({ raiz: repo.raiz, proyecto, rutaArchivo: abs, ctx: { textosUsuario, skills, skillsContexto, verPlugins: true } }),
     );
   } else if (comandoDeShell(tool, input) !== null) {
     const comando = comandoDeShell(tool, input);
     if (comando === '') return null;
     // PLG-CLOUD: las escrituras por Bash pasan por la compuerta de edición, que necesita las skills del contexto.
     r = await conTranscript(entrada, ({ textosUsuario, skills, skillsContexto }) =>
-      evaluarBash({ comando, cwd, ctx: { textosUsuario, skills, skillsContexto }, dirLin }),
+      evaluarBash({ comando, cwd, ctx: { textosUsuario, skills, skillsContexto, verPlugins: true }, dirLin }),
     );
   } else if (typeof tool === 'string' && tool.startsWith('mcp__')) {
     let { proyecto, raiz, estado, rqs } = resolverMcp({ cwd, toolInput: input, dirLin, toolName: tool });
