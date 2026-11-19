@@ -16,13 +16,17 @@ tests:
   fecha: '2026-11-19T12:19:20.866Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: true
+  fecha: '2026-11-19T12:19:38.799Z'
+  nota: '3 pasadas: revisor-rq (aviso sin revisión: corregido), code-reviewer (resultados del PR, gh api amplio, forks/Dependabot, token: corregidos; nombres de entradas de la acción a confirmar en la prueba en vivo), pr-test-analyzer (comillas, ramas del repo, Lovable, --forzar: tests sumados). Prueba en vivo: paso manual. Suite 732/732, E2E ok.'
+  head: 393ff32d5a1b71f0cc5370574047053862e05446
 circuito: []
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T12:19:20.868Z'
+actualizado: '2026-11-19T12:19:38.802Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -101,7 +105,7 @@ ejecucion:
   fecha: '2026-11-19T11:48:52.123Z'
 e2e:
   ok: true
-  fecha: '2026-11-19T12:13:52.293Z'
+  fecha: '2026-11-19T12:19:31.454Z'
   comando: npm run test:e2e
-  head: 2243a5ca6528b959dbcd55a5921fe834a078577a
+  head: 393ff32d5a1b71f0cc5370574047053862e05446
   completo: true
