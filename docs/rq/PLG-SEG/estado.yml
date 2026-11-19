@@ -17,7 +17,7 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:53:54.646Z'
+actualizado: '2026-11-19T11:54:13.927Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -64,6 +64,22 @@ skills:
     sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
     fecha: '2026-11-19T11:52:36.770Z'
     via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 1
+    fecha: '2026-11-19T11:54:11.459Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 1
+    fecha: '2026-11-19T11:54:11.462Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 1
+    fecha: '2026-11-19T11:54:11.522Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: superpowers:receiving-code-review
+    etapa: 1
+    fecha: '2026-11-19T11:54:13.925Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
 clasificacion_confirmada:
   frase: Apruebo todos los RQ.
   fecha: '2026-11-19T11:48:46.474Z'
