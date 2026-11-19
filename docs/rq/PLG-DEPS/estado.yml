@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: arquitectonico
 clasificacion_pendiente: false
 tarea: Los plugins requeridos se instalan solos y sin ellos no se trabaja
-etapa: 0
+etapa: 6
 autonomia: null
 aprobaciones:
   - etapa: 1
@@ -24,12 +24,15 @@ revision:
   fecha: '2026-11-19T12:35:05.830Z'
   nota: '3 pasadas: code-reviewer (archivo ilegible u otro formato ya no bloquea), pr-test-analyzer (tests por el hook real, Bash, synced y corrupto sumados), revisor-rq (cableado del hook probado; plantilla fuera por decisión del usuario: «En PLG-DEPS, la plantilla queda para PLG-PLANT.»). Suite 735/735, E2E ok.'
   head: addd37d10120925b4c6f75b5cef26730e2241a75
-circuito: []
+circuito:
+  - paso: push:lineamientos-dev-claude-bacg
+    fecha: '2026-11-19T13:44:30.261Z'
+    evidencia: 'merge a main: bacgroup/lineamientos-dev-claude-bacg#18 (11d7eff)'
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T13:44:03.990Z'
+actualizado: '2026-11-19T13:44:30.378Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -112,3 +115,5 @@ e2e:
   comando: npm run test:e2e
   head: 66c925b033fe3cf7b96e325e93625a7c9f59ef76
   completo: true
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
