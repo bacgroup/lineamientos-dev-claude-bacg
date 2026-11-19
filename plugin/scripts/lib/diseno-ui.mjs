@@ -26,8 +26,11 @@ function mockupsEnDisco(raiz, codigo) {
   }
 }
 
-/** Lo que le falta a ## Diseño para un cambio de UI con reglas 4.4 ([] si está completo). */
-export function faltasDisenoUi(raiz, codigo) {
+/**
+ * Lo que le falta a ## Diseño para un cambio de UI con reglas 4.4 ([] si está completo). `sinMockup` (PLG-MOCK): el
+ * usuario decidió que el cambio no necesita mockup (`saltar mockup`); journey, referencias y paridad se siguen pidiendo.
+ */
+export function faltasDisenoUi(raiz, codigo, { sinMockup = false } = {}) {
   const spec = leerSpec(raiz, codigo);
   const dir = `docs/rq/${codigo}`;
   const falta = [];
@@ -36,7 +39,7 @@ export function faltasDisenoUi(raiz, codigo) {
     falta.push('### Journey: el recorrido del usuario paso a paso (rol, pantalla, decisión y datos), 3 pasos o más');
   }
   const mockups = subseccion(spec, 'Mockups');
-  if (!mockups || !(RE_FIGMA.test(mockups.join('\n')) || mockupsEnDisco(raiz, codigo))) {
+  if (!sinMockup && (!mockups || !(RE_FIGMA.test(mockups.join('\n')) || mockupsEnDisco(raiz, codigo)))) {
     falta.push(`### Mockups: un mockup navegable del journey en ${dir}/mockups/ (HTML, PNG o SVG) o el link de Figma`);
   }
   const refs = subseccion(spec, 'Referencias le[ií]das');
