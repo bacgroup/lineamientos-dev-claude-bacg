@@ -22,7 +22,7 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:51:41.813Z'
+actualizado: '2026-11-19T11:52:29.777Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -49,7 +49,29 @@ skills:
     sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
     fecha: '2026-11-19T11:49:51.132Z'
     via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 2
+    fecha: '2026-11-19T11:52:15.203Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 2
+    fecha: '2026-11-19T11:52:29.722Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 2
+    fecha: '2026-11-19T11:52:29.750Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 2
+    fecha: '2026-11-19T11:52:29.770Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
 clasificacion_confirmada:
   frase: Apruebo todos los RQ.
   fecha: '2026-11-19T11:48:33.212Z'
   via: lote
+e2e:
+  ok: true
+  fecha: '2026-11-19T11:52:06.652Z'
+  comando: npm run test:e2e
+  head: 4169077f54d2985b2017fcfa15d94a8680969234
+  completo: true

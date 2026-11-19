@@ -1,0 +1,22 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: Con `saltar mockup` registrado con frase del usuario, la compuerta deja editar UI sin `### Mockups` y sigue pidiendo `### Journey`, `### Referencias leídas` y `### Paridad` → tests/journey-mockups.test.mjs.
+    archivos:
+      - plugin/scripts/lib/diseno-ui.mjs
+      - plugin/scripts/lib/compuerta-edicion.mjs
+    test: 'tests/journey-mockups.test.mjs · PLG-MOCK: con saltar mockup la compuerta deja editar UI sin mockup; sin journey, sigue negando'
+    estado: hecho
+  - id: S-2
+    texto: Sin el salto, el aviso de la compuerta ofrece la pregunta del mockup además de la de cambio menor → mismo archivo.
+    archivos:
+      - plugin/scripts/lib/compuerta-edicion.mjs
+    test: 'tests/journey-mockups.test.mjs · PLG-MOCK: sin el salto, el aviso por falta de mockup ofrece preguntar si hace falta (saltar mockup)'
+    estado: hecho
+  - id: S-3
+    texto: '`saltar mockup` sin frase del usuario se niega como cualquier salto → tests de saltos existentes.'
+    archivos:
+      - plugin/scripts/rq.mjs
+    test: 'tests/journey-mockups.test.mjs · PLG-MOCK: rq.mjs saltar acepta la compuerta mockup sólo con frase del usuario'
+    estado: hecho
