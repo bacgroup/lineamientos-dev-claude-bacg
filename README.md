@@ -17,7 +17,8 @@ Después de instalar el plugin, abrí Claude Code en un repo del proyecto y corr
 | 2 | GitHub CLI autenticado (`gh auth login`) | Sí |
 | 3 | Copia de los lineamientos en esta PC | Sí |
 | 4 | Lineamientos al día | Recomendado |
-| 5 | Plugins complementarios | Recomendado |
+| 5 | Plugins requeridos (núcleo y los del stack del proyecto) | Sí |
+| 5c | MCP recomendados (codebase-memory-mcp, context7) | Recomendado |
 | 6 | Sesión abierta en un repo de un proyecto registrado | Sí |
 | 7 | Repos del proyecto clonados uno junto al otro | Recomendado |
 | 8 | Tests del proyecto en esta PC (`~/.claude/bacg-dev.json`) | Sí |
@@ -53,21 +54,19 @@ Mientras falte un paso obligatorio, el arranque de sesión lo avisa y `rq.mjs ab
    2. `~/.claude/bacg-dev.json` con `{"lineamientosDir": "<ruta>"}`;
    3. la ruta por defecto de arriba.
 
-4. Instalar los plugins requeridos:
+4. Instalar los plugins requeridos. El núcleo, en todo proyecto:
 
    ```
-   /plugin marketplace add obra/superpowers-marketplace
-   /plugin install superpowers@superpowers-marketplace
-   /plugin install frontend-design@claude-plugins-official
-   /plugin install security-guidance@claude-plugins-official
-   /plugin install claude-security@claude-plugins-official
-   /plugin install pr-review-toolkit@claude-plugins-official
-   /plugin install feature-dev@claude-plugins-official
-   /plugin install typescript-lsp@claude-plugins-official
-   /plugin install claude-md-management@claude-plugins-official
+   claude plugin marketplace add obra/superpowers-marketplace
+   claude plugin install superpowers@superpowers-marketplace
+   claude plugin install pr-review-toolkit@claude-plugins-official
+   claude plugin install security-guidance@claude-plugins-official
+   claude plugin install claude-security@claude-plugins-official
+   claude plugin install feature-dev@claude-plugins-official
+   claude plugin install claude-md-management@claude-plugins-official
    ```
 
-   Si falta alguno, el hook `SessionStart` lo avisa al arrancar la sesión en un repo registrado y te da el comando para instalarlo.
+   Por stack: `frontend-design@claude-plugins-official` si el proyecto declara `ui.patrones`, y `typescript-lsp@claude-plugins-official` si el repo usa TypeScript. El alta (`/bacg-alta`) dice cuáles faltan en esta PC y da los comandos exactos. Sin ellos, la compuerta de edición no deja editar código (salvo `rq.mjs saltar plugins` con la frase del usuario). No van como dependencias del manifiesto a propósito: si faltara una, Claude Code no cargaría el plugin ni sus compuertas de PROD (PLG-DEPS).
 
 Otra cuenta de Claude en la misma PC (`CLAUDE_CONFIG_DIR`): se instala igual, en esa cuenta. La carpeta de lineamientos y `~/.claude/bacg-dev.json` se comparten. Para verificar las frases del usuario, el plugin anota en `~/.claude/bacg-dev/sesiones/` dónde guarda esa cuenta cada transcripción.
 
@@ -103,6 +102,7 @@ Opcional: `.bacg-lineamientos` en un repo (`proyecto: <id>`) manda sobre el remo
 3. Diseño y plan (etapa 1, en toda clasificación), con Superpowers como motor (`brainstorming` y `writing-plans`). Si toca pantallas, el diseño trae el journey del usuario, un mockup navegable estilo Figma, la referencia leída y la paridad. Contestás una sola vez con tus palabras ("Sí, dale" alcanza) y el agente registra todo lo que va hasta DEV con `rq.mjs ok`; si le das autonomía para trabajar solo, la autonomía total cubre todos los RQ de la sesión. PROD sigue pidiendo su OK aparte.
 4. Desarrollo con TDD y el plan ejecutado (`executing-plans` o `subagent-driven-development`): cada commit registra la suite en verde sobre lo que está en stage. Lo que marcás sobre lo entregado queda en una lista cerrada (`rq.mjs devolucion`), y al segundo punto sobre lo mismo el agente cambia de estrategia en lugar de iterar a ojo.
 5. Verificación: tests, E2E, verificación local si toca pantallas (390, 768 y 1280 con la referencia al lado) y una revisión de calidad en tres pasadas (`code-reviewer`, `pr-test-analyzer` y el agente propio `revisor-rq`), con la traza del spec al código y a los tests (`rq.mjs trazar`). Destraban push y merge; DEV/Preview antes de PROD.
+   Además, en GitHub, un revisor independiente (`rq.mjs revisor-pr` instala `.github/workflows/bacg-revisor.yml`) revisa cada PR, y los push de agentes sin el plugin, con las reglas del proyecto y el checklist de seguridad: comenta y sólo frena ante un crítico de seguridad. Necesita el secret `ANTHROPIC_API_KEY` y la protección de rama, que los hace un admin.
 6. PROD: tu OK en la sesión y los pasos de `circuito_prod` en orden; al cierre, `rq.mjs cerrar --resumen` deja changelog, log y backlog. `/bacg-estado` muestra dónde está el RQ.
 
 ## Tests

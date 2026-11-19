@@ -1,0 +1,118 @@
+codigo: PLG-PRREV
+tipo: rq
+clasificacion: arquitectonico
+clasificacion_pendiente: false
+tarea: Revisor automático independiente en PR y push
+etapa: 6
+autonomia: null
+aprobaciones:
+  - etapa: 1
+    frase: Apruebo todos los RQ.
+    fecha: '2026-11-19T11:48:52.032Z'
+    via: lote
+  - etapa: 5
+    frase: Doy el OK de PROD para los 5 RQ y actualiza dev-fullflow también con el script de pasaje o update estipulado
+    fecha: '2026-11-19T13:39:32.447Z'
+tests:
+  ok: true
+  arbol: 3813aafb89d29330f0889075e1ebf17d870734d9
+  fecha: '2026-11-19T13:45:22.793Z'
+  comandos:
+    - npm test
+revision:
+  ok: true
+  fecha: '2026-11-19T12:19:38.799Z'
+  nota: '3 pasadas: revisor-rq (aviso sin revisión: corregido), code-reviewer (resultados del PR, gh api amplio, forks/Dependabot, token: corregidos; nombres de entradas de la acción a confirmar en la prueba en vivo), pr-test-analyzer (comillas, ramas del repo, Lovable, --forzar: tests sumados). Prueba en vivo: paso manual. Suite 732/732, E2E ok.'
+  head: 393ff32d5a1b71f0cc5370574047053862e05446
+circuito:
+  - paso: push:lineamientos-dev-claude-bacg
+    fecha: '2026-11-19T13:44:37.504Z'
+saltos: []
+base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-19T13:45:59.096Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-18T23:37:04.273Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T12:08:00.084Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 2
+    fecha: '2026-11-19T12:14:07.876Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 2
+    fecha: '2026-11-19T12:14:07.879Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 2
+    fecha: '2026-11-19T12:14:07.913Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+clasificacion_confirmada:
+  frase: Apruebo todos los RQ.
+  fecha: '2026-11-19T11:48:52.032Z'
+  via: lote
+ejecucion:
+  modo: inline
+  frase: Ejecución en línea.
+  fecha: '2026-11-19T11:48:52.123Z'
+e2e:
+  ok: true
+  fecha: '2026-11-19T12:19:31.454Z'
+  comando: npm run test:e2e
+  head: 393ff32d5a1b71f0cc5370574047053862e05446
+  completo: true
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
