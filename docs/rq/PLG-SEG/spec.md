@@ -18,7 +18,7 @@ Fuera: evidencia exportable para auditoría, políticas de la organización, sep
   1. Control de acceso en el servidor (cada endpoint/acción valida rol y dueño del dato; nada confiado al front) → OWASP A01 · ISO 8.3 · SOC CC6.1
   2. Validación y codificación de entradas (consultas parametrizadas, sin `eval`/HTML crudo) → A03 · ISO 8.28
   3. Autenticación y sesiones (expiración, logout, sin tokens en URL ni en localStorage cuando hay alternativa) → A07 · ISO 8.5 · CC6.1
-  4. Secretos (remite a la sección Secretos) → A02 · ISO 8.24 · CC6.1
+  4. Secretos (remite a la sección Secretos) → A02, A07 · ISO 5.17, 8.24 · CC6.1
   5. Datos personales y logs (sin PII, tokens ni contraseñas en logs ni mensajes de error) → A09 · ISO 8.11, 8.12, 8.15 · CC6.7
   6. Errores (mensajes genéricos al usuario, detalle sólo en el log; sin errores tragados) → A05 · ISO 8.28
   7. Dependencias (versión fijada, sin paquetes abandonados o con CVE conocida; lockfile commiteado) → A06 · ISO 8.8 · CC7.1
