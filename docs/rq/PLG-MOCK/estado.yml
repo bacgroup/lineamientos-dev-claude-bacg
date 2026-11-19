@@ -16,13 +16,17 @@ tests:
   fecha: '2026-11-19T11:55:58.648Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: true
+  fecha: '2026-11-19T11:56:22.353Z'
+  nota: '3 pasadas: code-reviewer sin críticos ni importantes; revisor-rq marcó la tabla 2.1 de ciclo-rq (corregida); pr-test-analyzer: sumados tests CLI→compuerta, alcance del salto y salto de otro RQ. Menores corregidos. Suite 724/724 y E2E completo ok.'
+  head: 6e2f6211d6af5ae26d355f8955e2de681e2bf434
 circuito: []
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:55:58.650Z'
+actualizado: '2026-11-19T11:56:22.355Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -65,13 +69,17 @@ skills:
     etapa: 2
     fecha: '2026-11-19T11:52:29.770Z'
     sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+  - skill: superpowers:verification-before-completion
+    etapa: 2
+    fecha: '2026-11-19T11:56:16.838Z'
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
 clasificacion_confirmada:
   frase: Apruebo todos los RQ.
   fecha: '2026-11-19T11:48:33.212Z'
   via: lote
 e2e:
   ok: true
-  fecha: '2026-11-19T11:52:06.652Z'
+  fecha: '2026-11-19T11:56:15.663Z'
   comando: npm run test:e2e
-  head: 4169077f54d2985b2017fcfa15d94a8680969234
+  head: 6e2f6211d6af5ae26d355f8955e2de681e2bf434
   completo: true
