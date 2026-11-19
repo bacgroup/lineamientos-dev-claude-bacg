@@ -200,3 +200,15 @@ test('comandos /bacg-rq y /bacg-estado: description, invocan ciclo-rq y usan sub
     for (const s of usados(cuerpo)) assert.ok(reales.has(s), `/${c} usa "rq.mjs ${s}", que no existe`);
   }
 });
+
+test('PLG-SP: ciclo-rq hace de Superpowers la columna: demás skills cuando apliquen, pasadas en paralelo y por qué se reemplazan dos', () => {
+  const texto = leer(join(dirSkills, 'ciclo-rq', 'SKILL.md'));
+  assert.doesNotMatch(texto, /No hace falta invocar las que no tienen que ver/);
+  assert.match(texto, /Las dem[aá]s skills de Superpowers se usan siempre que su descripci[oó]n aplique/);
+  const s5 = texto.split(/^## 5\. /m)[1].split(/^## 6\. /m)[0];
+  assert.match(s5, /superpowers:dispatching-parallel-agents/);
+  const s22 = texto.split(/^### 2\.2 /m)[1].split(/^### 2\.3 /m)[0];
+  assert.match(s22, /compuertas de PROD/);
+  assert.match(s22, /e2e_rojos|E2E en rojo/);
+  assert.match(leer(join(raiz, 'plugin', 'general', 'proceso.md')), /Superpowers/);
+});

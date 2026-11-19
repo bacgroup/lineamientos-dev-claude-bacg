@@ -1131,3 +1131,19 @@ test('arranque: inicio sin RQ, reanudación con RQ y no escribe nada', async () 
   assert.match(rean.out, /R-1/);
   assert.equal((await correr(raiz, ['arranque', 'x'])).code, 2);
 });
+
+// --- PLG-SP: un E2E en rojo se depura con método ---
+
+test('PLG-SP: verificar en rojo suma e2e_rojos y, con reglas 4.4, la revisión exige systematic-debugging', async () => {
+  const { exigencias } = await import('../plugin/scripts/lib/requisitos.mjs');
+  const raiz = repoDemo();
+  const lin = lineamientosCon({ e2e: 'node -e "process.exit(2)"' });
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_ALTA: '1' });
+  await correr(raiz, ['verificar'], { BACG_LINEAMIENTOS_DIR: lin });
+  await correr(raiz, ['verificar'], { BACG_LINEAMIENTOS_DIR: lin });
+  const e = cargarEstado(raiz, 'R-1');
+  assert.equal(e.e2e_rojos, 2);
+  const pide = (estado) => exigencias(estado).some((x) => x.skill === 'superpowers:systematic-debugging' && x.etapa === 3);
+  assert.equal(pide({ ...e, reglas: 44 }), true);
+  assert.equal(pide({ ...e, reglas: 44, e2e_rojos: 0 }), false, 'sin rojos, en un RQ no se exige');
+});

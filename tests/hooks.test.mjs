@@ -692,3 +692,10 @@ test('session-start en carpeta padre con dos repos, uno con RQ activo → arranq
   assert.match(ctx, /- repo-dos: /);
   assert.match(ctx, /Dónde nos quedamos: RQ R-T1/);
 });
+
+test('PLG-SP: el arranque pide invocar toda skill de Superpowers que aplique (la tabla es el mínimo)', async () => {
+  const { REGLA_SKILLS } = await import('../plugin/scripts/lib/hooks/session-start.mjs');
+  assert.match(REGLA_SKILLS, /toda skill de Superpowers cuya descripci[oó]n aplique/);
+  assert.match(REGLA_SKILLS, /m[ií]nimo/);
+  assert.doesNotMatch(REGLA_SKILLS, /no apliques la regla de using-superpowers/);
+});

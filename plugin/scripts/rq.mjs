@@ -1228,6 +1228,7 @@ function verificar(repo, elegido, args, env, io) {
   const ok = r.status === 0;
   if (!ok) io.stdout.write(`${resumenFalla(`${r.stdout ?? ''}\n${r.stderr ?? ''}`, 80, { id: `e2e-${rq}` })}\n`);
   estado.e2e = { ok, fecha: ahora(), comando: cmd, head: commitHead(raiz), completo };
+  if (!ok) estado.e2e_rojos = (Number(estado.e2e_rojos) || 0) + 1; // PLG-SP: la revisión pedirá systematic-debugging
   guardar(raiz, estado);
   const alcance = completo ? 'suite completa' : `${specs.length} spec(s) del RQ; antes de PROD: $RQ verificar --completo`;
   io.stdout.write(`E2E de ${rq} ${ok ? 'ok' : 'falló'} (${alcance}${url ? `, app ${url}` : ''}).\n`);

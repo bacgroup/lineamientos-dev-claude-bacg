@@ -218,6 +218,8 @@ function exigencias44(estado) {
   }
   l.push({ etapa: VERIFICACION, skill: 'superpowers:requesting-code-review' }, { etapa: VERIFICACION, skill: 'superpowers:verification-before-completion' });
   if (Number(estado?.revisiones_bloqueantes) > 0) l.push({ etapa: VERIFICACION, skill: 'superpowers:receiving-code-review' });
+  // PLG-SP: un E2E en rojo se depura con método antes de la revisión (en BUG ya se exige desde el desarrollo).
+  if (!bug && Number(estado?.e2e_rojos) > 0) l.push({ etapa: VERIFICACION, skill: 'superpowers:systematic-debugging' });
   for (const skill of PASADAS_REVISION) l.push({ etapa: VERIFICACION, skill, pasada: true });
   l.push({ etapa: PROD, revision: true });
   return l;
