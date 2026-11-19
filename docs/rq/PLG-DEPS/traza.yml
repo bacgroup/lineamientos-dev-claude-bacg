@@ -8,7 +8,7 @@ items:
       - tests/manifiestos.test.mjs
     test: 'tests/manifiestos.test.mjs · PLG-DEPS: plugin.json no declara dependencies'
     estado: parcial
-    motivo: la plantilla de settings no se pudo editar (la compuerta la toma como otro proyecto por su .bacg-lineamientos); queda en PLG-PLANT
+    motivo: 'Manifiesto sin dependencies: hecho. La plantilla de settings queda fuera por decisión del usuario: «En PLG-DEPS, la plantilla queda para PLG-PLANT.»'
   - id: S-2
     texto: El alta marca `plugins` como obligatorio en falta si falta uno y su remedio son los comandos `claude plugin install …` exactos; `abrir` se frena (patrón existente) → tests/alta.test.mjs.
     archivos:
