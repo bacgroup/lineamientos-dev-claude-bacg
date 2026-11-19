@@ -15,8 +15,8 @@ aprobaciones:
     fecha: '2026-11-19T13:39:27.356Z'
 tests:
   ok: true
-  arbol: 17c65d08ea59b9bca64356fa0ec96abbd7b40240
-  fecha: '2026-11-19T12:17:17.298Z'
+  arbol: d9a8a8658fb48702616e0907b45cf7394ca118dd
+  fecha: '2026-11-19T13:44:03.987Z'
   comandos:
     - npm test
 revision:
@@ -29,7 +29,7 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T13:39:27.361Z'
+actualizado: '2026-11-19T13:44:03.990Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
