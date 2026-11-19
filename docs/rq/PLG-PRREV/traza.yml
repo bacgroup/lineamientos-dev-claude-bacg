@@ -1,0 +1,31 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: '`$RQ revisor-pr` escribe `.github/workflows/bacg-revisor.yml` con `pull_request` hacia `ramas_solo_pr` + `ramas_prod` del repo y `push` a esas ramas → tests/revisor-pr.test.mjs.'
+    archivos:
+      - plugin/scripts/lib/revisor-pr.mjs
+      - plugin/plantillas/bacg-revisor.yml
+      - plugin/scripts/rq.mjs
+    test: 'tests/revisor-pr.test.mjs · el workflow corre en PR y push a las ramas de DEV y PROD del repo (+ rq.mjs revisor-pr instala el workflow)'
+    estado: hecho
+  - id: S-2
+    texto: 'El workflow no contiene ninguna clave: sólo `${{ secrets.ANTHROPIC_API_KEY }}` → mismo test.'
+    archivos:
+      - plugin/plantillas/bacg-revisor.yml
+    test: 'tests/revisor-pr.test.mjs · el workflow no lleva ninguna clave, sólo el secret'
+    estado: hecho
+  - id: S-3
+    texto: La skill nombra `reglas.md`, los ADR vigentes, el canon de UI y el checklist de `general/seguridad.md` (PLG-SEG), y define "crítico" → test de contenido.
+    archivos:
+      - plugin/skills/revision-pr/SKILL.md
+    test: 'tests/revision-pr.test.mjs · revisa con las reglas del proyecto y el checklist; sólo un crítico 1 a 5 con evidencia pone rojo'
+    estado: hecho
+  - id: S-4
+    texto: 'En vivo (paso manual, necesita el secret en un repo): un PR de prueba con un error a propósito recibe el comentario; un push de Lovable que sólo toca `.lovable/**` también → `manual:prueba-revisor-en-repo` con la evidencia (link al PR y al run).'
+    archivos:
+      - plugin/plantillas/bacg-revisor.yml
+      - plugin/skills/revision-pr/SKILL.md
+    test: 'manual:prueba-revisor-en-repo (necesita el secret ANTHROPIC_API_KEY en un repo de prueba)'
+    estado: parcial
+    motivo: prueba en vivo pendiente; paso manual del circuito, lo hace un admin con el secret

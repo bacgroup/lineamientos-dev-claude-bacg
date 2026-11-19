@@ -22,7 +22,7 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T12:13:33.299Z'
+actualizado: '2026-11-19T12:13:52.300Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -87,3 +87,9 @@ ejecucion:
   modo: inline
   frase: Ejecución en línea.
   fecha: '2026-11-19T11:48:52.123Z'
+e2e:
+  ok: true
+  fecha: '2026-11-19T12:13:52.293Z'
+  comando: npm run test:e2e
+  head: 2243a5ca6528b959dbcd55a5921fe834a078577a
+  completo: true
