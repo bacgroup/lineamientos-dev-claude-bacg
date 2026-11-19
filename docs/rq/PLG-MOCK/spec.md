@@ -16,7 +16,7 @@ Fuera: el journey, las referencias, la paridad y las capturas de la verificació
 
 ## Diseño
 - **Nuevo salto `mockup`** en la lista de compuertas de `rq.mjs` (`$RQ saltar mockup "<frase>" "<motivo>"`), con la misma validación de frase que los demás saltos (texto literal del usuario en la sesión, un uso por frase).
-- **Compuerta:** `faltasDisenoUi` recibe el estado y no exige `### Mockups` si hay salto `mockup` válido. Lo demás de `## Diseño` se sigue exigiendo. El mensaje de la compuerta, cuando falta el mockup, suma una pista: "si el cambio es técnico o chico, preguntale al usuario si hace falta mockup; con su respuesta: `$RQ saltar mockup …`".
+- **Compuerta:** `faltasDisenoUi(raiz, codigo, { sinMockup })` no exige `### Mockups` si hay salto `mockup` válido. Lo demás de `## Diseño` se sigue exigiendo. El mensaje de la compuerta, cuando falta el mockup, suma una pista: "si el cambio es técnico o chico, preguntale al usuario si hace falta mockup; con su respuesta: `$RQ saltar mockup …`".
 - **Cuándo se pregunta (skills):** en el paso 4 de `diseno-frontend` y en la sección 4 de `ciclo-rq`: si el RQ es mayormente técnico o de backend con un retoque de pantalla, o el cambio en la pantalla es chico (sin pantalla nueva ni cambio de flujo), el agente **pregunta** en el chat, con texto, si hace falta mockup, con una línea de por qué cree que no. El usuario decide. A diferencia del cambio menor, ante la duda se pregunta (no se omite la pregunta). Con pantalla nueva o flujo nuevo no se ofrece.
 - `### Mockups` queda con "no aplica — decidido por el usuario: «<frase>»" para que el spec lo muestre; la compuerta mira el salto, no el texto.
 - Versión del plugin: menor (4.7.0) junto con los demás RQ de la tanda, changelog al cerrar.
