@@ -52,3 +52,11 @@ test('descripciones de skills, comandos y manifiestos sin etiquetas XML', () => 
     if (desc) assert.doesNotMatch(String(desc), etiqueta, `${ruta}: la description tiene una etiqueta XML (usar {x} en vez de <x>)`);
   }
 });
+
+// PLG-DEPS (opción C): sin `dependencies` en el manifiesto. Si faltara una, Claude Code no cargaría el plugin y se
+// irían sus compuertas de PROD; los requeridos los exigen el alta y la compuerta de edición.
+test('PLG-DEPS: plugin.json no declara dependencies', () => {
+  const manifiesto = JSON.parse(readFileSync(join(raiz, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'));
+  assert.equal(manifiesto.dependencies, undefined, 'revisá docs/rq/PLG-DEPS/arq.md antes de agregar dependencies');
+});
+
