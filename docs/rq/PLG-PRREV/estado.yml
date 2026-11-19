@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: arquitectonico
 clasificacion_pendiente: false
 tarea: Revisor automático independiente en PR y push
-etapa: 0
+etapa: 6
 autonomia: null
 aprobaciones:
   - etapa: 1
@@ -31,7 +31,7 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T13:45:22.796Z'
+actualizado: '2026-11-19T13:45:59.096Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -114,3 +114,5 @@ e2e:
   comando: npm run test:e2e
   head: 393ff32d5a1b71f0cc5370574047053862e05446
   completo: true
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
