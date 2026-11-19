@@ -17,7 +17,7 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:53:43.606Z'
+actualizado: '2026-11-19T11:53:54.646Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -68,3 +68,9 @@ clasificacion_confirmada:
   frase: Apruebo todos los RQ.
   fecha: '2026-11-19T11:48:46.474Z'
   via: lote
+e2e:
+  ok: true
+  fecha: '2026-11-19T11:53:54.641Z'
+  comando: npm run test:e2e
+  head: b7eaaf94b7560b929a938ca19951e8b91b20c804
+  completo: true
