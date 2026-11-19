@@ -10,19 +10,44 @@ aprobaciones:
     frase: Apruebo todos los RQ.
     fecha: '2026-11-19T11:48:33.212Z'
     via: lote
-tests: null
+tests:
+  ok: true
+  arbol: d146f61d019951060c8223aa337c69017f82e879
+  fecha: '2026-11-19T11:51:41.811Z'
+  comandos:
+    - npm test
 revision: null
 circuito: []
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:48:33.213Z'
+actualizado: '2026-11-19T11:51:41.813Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
     sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
     fecha: '2026-11-18T23:36:29.003Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:49:51.132Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:49:51.132Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:49:51.132Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:49:51.132Z'
     via: sesion
 clasificacion_confirmada:
   frase: Apruebo todos los RQ.

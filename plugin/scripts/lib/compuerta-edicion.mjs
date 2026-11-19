@@ -48,6 +48,7 @@ function seccionDiseno(raiz, codigo) {
 
 // Cambio menor (un texto, un ícono, un espaciado puntual, sin componentes ni pantallas nuevas): el agente le pregunta
 // al usuario en el chat, con palabras, si omite el refuerzo; un botón no queda como frase del usuario.
+const PISTA_MOCKUP = ' Si el cambio es técnico o chico (sin pantalla ni flujo nuevos), preguntale al usuario en el chat si hace falta mockup; si dice que no, con su respuesta: $RQ saltar mockup "<su frase>" "<motivo>".';
 const PISTA_MENOR = ' Si el cambio es menor, preguntale al usuario en el chat (texto, no botones) si omite el refuerzo; con su respuesta: $RQ saltar ui "<su frase>" "<motivo>".';
 
 /**
@@ -158,10 +159,11 @@ export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
         continue;
       }
       if (r44 && !menor) {
-        const faltaDiseno = faltasDisenoUi(raiz, codigo);
+        const faltaDiseno = faltasDisenoUi(raiz, codigo, { sinMockup: saltoValido(estado, 'mockup') });
         if (faltaDiseno.length) {
+          const pistaMockup = faltaDiseno.some((f) => f.startsWith('### Mockups')) ? PISTA_MOCKUP : '';
           ultimo = ultimo ?? deny(
-            `Cambio de UI: antes de editar, ## Diseño de docs/rq/${codigo}/spec.md necesita la evidencia del diseño (diseno-frontend): ${faltaDiseno.join('; ')}.${PISTA_MENOR}`,
+            `Cambio de UI: antes de editar, ## Diseño de docs/rq/${codigo}/spec.md necesita la evidencia del diseño (diseno-frontend): ${faltaDiseno.join('; ')}.${pistaMockup}${PISTA_MENOR}`,
           );
           continue;
         }

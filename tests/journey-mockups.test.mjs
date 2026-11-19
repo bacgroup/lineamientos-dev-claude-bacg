@@ -148,3 +148,61 @@ test('## Diseño: un bloque de código con # adentro no corta la sección; ##Tar
   const sinEspacio = '# R-1\n\n## Diseño\nalgo\n\n##Tareas\n' + DISENO_COMPLETO.replace('# R-1\n\n## Diseño\n', '');
   assert.ok(faltasDisenoUi(repo(sinEspacio), 'R-1').length >= 3);
 });
+
+// ---------- PLG-MOCK: el mockup se pregunta en cambios técnicos o chicos ----------
+
+function conSalto(raiz, compuerta, frase = 'no hace falta mockup') {
+  const p = path.join(raiz, 'docs', 'rq', 'R-1', 'estado.yml');
+  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/saltos: \[\]/, `saltos:\n  - compuerta: ${compuerta}\n    frase: ${frase}\n    motivo: cambio técnico\n    fecha: '2026-11-19T00:00:00Z'`));
+  return raiz;
+}
+
+test('PLG-MOCK: faltasDisenoUi con sinMockup no pide ### Mockups y sigue pidiendo lo demás', () => {
+  const sinNada = repo('# R-1\n\n## Diseño\nalgo\n', { mockup: false });
+  const falta = faltasDisenoUi(sinNada, 'R-1', { sinMockup: true }).join(' ');
+  assert.doesNotMatch(falta, /Mockups/);
+  assert.match(falta, /Journey/);
+  assert.match(falta, /Referencias le/);
+  assert.match(falta, /Paridad/);
+  assert.deepEqual(faltasDisenoUi(repo(DISENO_COMPLETO, { mockup: false }), 'R-1', { sinMockup: true }), []);
+});
+
+test('PLG-MOCK: con saltar mockup la compuerta deja editar UI sin mockup; sin journey, sigue negando', () => {
+  const ctx = { textosUsuario: [], skills: SKILLS_UI, skillsContexto: SKILLS_UI };
+  const sinMockup = conSalto(repo(DISENO_COMPLETO, { mockup: false }), 'mockup');
+  assert.equal(editar(sinMockup, ctx).decision, 'allow');
+  const sinJourney = conSalto(repo(DISENO_COMPLETO.replace(/### Journey[\s\S]*?### Mockups/, '### Mockups'), { mockup: false }), 'mockup');
+  const r = editar(sinJourney, ctx);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /Journey/);
+  assert.doesNotMatch(r.motivo, /### Mockups/);
+});
+
+test('PLG-MOCK: sin el salto, el aviso por falta de mockup ofrece preguntar si hace falta (saltar mockup)', () => {
+  const ctx = { textosUsuario: [], skills: SKILLS_UI, skillsContexto: SKILLS_UI };
+  const r = editar(repo(DISENO_COMPLETO, { mockup: false }), ctx);
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /\$RQ saltar mockup "<su frase>" "<motivo>"/);
+  assert.match(r.motivo, /saltar ui/, 'la pista de cambio menor sigue');
+  const conMockupYSinParidad = editar(repo(DISENO_COMPLETO.replace(/### Paridad[\s\S]*$/, '')), ctx);
+  assert.doesNotMatch(conMockupYSinParidad.motivo, /saltar mockup/, 'la pista sólo aparece cuando falta el mockup');
+});
+
+test('PLG-MOCK: rq.mjs saltar acepta la compuerta mockup sólo con frase del usuario', async () => {
+  const raiz = repo(DISENO_COMPLETO, { mockup: false });
+  fs.writeFileSync(path.join(raiz, '.bacg-lineamientos'), 'proyecto: erp\n');
+  const sesion = sesionDePrueba('no, el mockup no hace falta');
+  const correr = async (frase) => {
+    let out = ''; let err = '';
+    const code = await main(['saltar', 'mockup', frase, 'cambio técnico'], {
+      cwd: raiz, env: { ...process.env, ...sesion.env }, home: sesion.home,
+      stdout: { write: (x) => { out += x; } }, stderr: { write: (x) => { err += x; } },
+    });
+    return { code, out, err };
+  };
+  const mala = await correr('el agente decide que no');
+  assert.notEqual(mala.code, 0);
+  const buena = await correr('no, el mockup no hace falta');
+  assert.equal(buena.code, 0, buena.err);
+  assert.match(buena.out, /Salto de la compuerta mockup registrado/);
+});
