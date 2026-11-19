@@ -208,7 +208,11 @@ test('PLG-SP: ciclo-rq hace de Superpowers la columna: demás skills cuando apli
   const s5 = texto.split(/^## 5\. /m)[1].split(/^## 6\. /m)[0];
   assert.match(s5, /superpowers:dispatching-parallel-agents/);
   const s22 = texto.split(/^### 2\.2 /m)[1].split(/^### 2\.3 /m)[0];
-  assert.match(s22, /compuertas de PROD/);
-  assert.match(s22, /e2e_rojos|E2E en rojo/);
-  assert.match(leer(join(raiz, 'plugin', 'general', 'proceso.md')), /Superpowers/);
+  assert.match(s22, /mergea o pushea sin conocer las compuertas de PROD/);
+  assert.match(s22, /using-git-worktrees[^\n]*checkout principal/);
+  assert.doesNotMatch(s22, /único reemplazo/);
+  assert.match(s5, /e2e_rojos/);
+  assert.match(s5, /reglas 4\.4/);
+  assert.match(texto.split(/\r?\n/).slice(0, 12).join(' '), /E2E en rojo/, 'la intro nombra el caso del E2E en rojo');
+  assert.match(leer(join(raiz, 'plugin', 'general', 'proceso.md')), /Superpowers es la columna del ciclo/);
 });

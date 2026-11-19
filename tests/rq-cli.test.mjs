@@ -1147,3 +1147,15 @@ test('PLG-SP: verificar en rojo suma e2e_rojos y, con reglas 4.4, la revisión e
   assert.equal(pide({ ...e, reglas: 44 }), true);
   assert.equal(pide({ ...e, reglas: 44, e2e_rojos: 0 }), false, 'sin rojos, en un RQ no se exige');
 });
+
+test('PLG-SP: un verificar en verde no suma rojos; en un BUG la exigencia no se duplica', async () => {
+  const { exigencias } = await import('../plugin/scripts/lib/requisitos.mjs');
+  const raiz = repoDemo();
+  const lin = lineamientosCon({ e2e: 'node -e "0"' });
+  await correr(raiz, ['abrir', 'R-1', '--tipo', 'rq', '--clasificacion', 'bounded'], { BACG_LINEAMIENTOS_DIR: lin, BACG_DEV_SIN_ALTA: '1' });
+  await correr(raiz, ['verificar'], { BACG_LINEAMIENTOS_DIR: lin });
+  assert.ok(!cargarEstado(raiz, 'R-1').e2e_rojos);
+  const sd = exigencias({ tipo: 'bug', reglas: 44, clasificacion: 'bounded', e2e_rojos: 2 }).filter((x) => x.skill === 'superpowers:systematic-debugging');
+  assert.equal(sd.length, 1);
+  assert.equal(sd[0].etapa, 2);
+});

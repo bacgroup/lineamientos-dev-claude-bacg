@@ -11,7 +11,7 @@ Fuera: `finishing-a-development-branch` y `using-git-worktrees` siguen reemplaza
 ## ARQ: no aplica — cambio de reglas de proceso y una exigencia más en la CLI
 ## Criterio de aceptación → flujo E2E que lo prueba
 1. El arranque dice que toda skill de Superpowers que aplique se invoca y que la tabla es el mínimo → tests/hooks.test.mjs.
-2. Un RQ con un `verificar` en rojo exige `superpowers:systematic-debugging` para la revisión ok; sin rojos, no → tests/etapas.test.mjs.
+2. Un RQ con un `verificar` en rojo exige `superpowers:systematic-debugging` para la revisión ok; sin rojos, no → tests/rq-cli.test.mjs y tests/revision-calidad.test.mjs.
 3. ciclo-rq nombra `dispatching-parallel-agents` para las pasadas de la sección 5 y explica por qué se reemplazan las dos skills de entrega → test de contenido.
 
 ## Diseño

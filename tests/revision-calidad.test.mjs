@@ -174,3 +174,25 @@ test('skills importar anota una pasada corrida otra vez después de la revisión
   const fechas = cargarEstado(raiz, 'R-1').skills.filter((x) => x.skill === 'pr-review-toolkit:code-reviewer').map((x) => x.fecha);
   assert.ok(fechas.includes('2026-11-16T12:00:00.000Z'), fechas.join(', '));
 });
+
+// ---------- PLG-SP: tras un E2E en rojo, la revisión ok exige systematic-debugging ----------
+
+test('PLG-SP: con un E2E en rojo, revision ok se niega sin systematic-debugging; con la skill, o sin rojos, pasa', async () => {
+  const preparar = async (rojos) => {
+    const raiz = await rqListoParaRevisar();
+    const e = cargarEstado(raiz, 'R-1');
+    e.skills = [...e.skills, ...PASADAS_REVISION.map((skill) => ({ skill, etapa: 3, fecha: '2026-11-19T00:00:00.000Z' }))];
+    e.e2e_rojos = rojos;
+    guardarEstado(raiz, e);
+    return raiz;
+  };
+  const conRojo = await preparar(1);
+  const negada = await correr(conRojo, ['revision', 'ok', 'sin depurar']);
+  assert.notEqual(negada.code, 0);
+  assert.match(negada.err, /superpowers:systematic-debugging/);
+  const e = cargarEstado(conRojo, 'R-1');
+  e.skills.push({ skill: 'superpowers:systematic-debugging', etapa: 3 });
+  guardarEstado(conRojo, e);
+  assert.equal((await correr(conRojo, ['revision', 'ok', 'depurado'])).code, 0);
+  assert.equal((await correr(await preparar(0), ['revision', 'ok', 'sin rojos'])).code, 0);
+});
