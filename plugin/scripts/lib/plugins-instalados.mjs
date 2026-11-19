@@ -15,7 +15,8 @@ const leerJson = (f) => {
 };
 
 /**
- * { ids, nombres, tiene(id) } o null si no hay nada que leer (no se sabe qué está instalado). `tiene` acepta un id
+ * { ids, nombres, ilegible, tiene(id) } o null si no hay nada que leer (ilegible: installed_plugins.json existe y no se
+ * entiende) (no se sabe qué está instalado). `tiene` acepta un id
  * completo ("superpowers@superpowers-marketplace") y lo da por instalado si está ese id o un plugin sincronizado con
  * ese nombre (el marketplace de claude.ai no es el mismo).
  */
@@ -24,8 +25,11 @@ export function pluginsInstalados({ env = process.env, home = os.homedir() } = {
   const ids = new Set();
   const nombres = new Set();
   let leido = false;
-  const inst = leerJson(path.join(base, 'installed_plugins.json'));
-  if (inst) {
+  const archivo = path.join(base, 'installed_plugins.json');
+  const inst = leerJson(archivo);
+  // PLG-DEPS: si el archivo existe pero no se entiende (corrupto u otro formato), lo instalado no es confiable.
+  const ilegible = fs.existsSync(archivo) && !(inst && typeof inst.plugins === 'object' && inst.plugins !== null && !Array.isArray(inst.plugins));
+  if (inst && !ilegible) {
     leido = true;
     for (const id of Object.keys(inst.plugins ?? {})) {
       ids.add(id);
@@ -54,5 +58,5 @@ export function pluginsInstalados({ env = process.env, home = os.homedir() } = {
     }
   }
   if (!leido) return null;
-  return { ids, nombres, tiene: (id) => ids.has(id) || nombres.has(String(id).split('@')[0]) };
+  return { ids, nombres, ilegible, tiene: (id) => ids.has(id) || nombres.has(String(id).split('@')[0]) };
 }

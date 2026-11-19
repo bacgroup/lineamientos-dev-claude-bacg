@@ -103,3 +103,20 @@ test('un RQ activo de la 4.3 deja escribir por Bash como antes', () => {
   const raiz = repo({ reglas: null });
   assert.equal(evaluar(raiz, 'echo x > src/a.ts').decision, 'allow');
 });
+
+// PLG-DEPS: la escritura por Bash pasa por la compuerta de edición, también para los plugins requeridos.
+test('PLG-DEPS: escribir código por Bash con un plugin del núcleo faltante se niega; docs pasan', async () => {
+  const os = await import('node:os');
+  const { PLUGINS_NUCLEO } = await import('../plugin/scripts/lib/plugins-requeridos.mjs');
+  const raiz = repo({ aprobado: true });
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-bash-'));
+  fs.mkdirSync(path.join(home, '.claude', 'plugins'), { recursive: true });
+  const ids = PLUGINS_NUCLEO.filter((p) => !p.startsWith('feature-dev'));
+  fs.writeFileSync(path.join(home, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({ plugins: Object.fromEntries(ids.map((p) => [p, []])) }));
+  const ctx = { textosUsuario: [], home, env: {} };
+  const r = evaluarBash({ comando: 'echo x > src/a.ts', cwd: raiz, ctx });
+  assert.equal(r.decision, 'deny');
+  assert.match(r.motivo, /Escritura por Bash/);
+  assert.match(r.motivo, /feature-dev@claude-plugins-official/);
+  assert.notEqual(evaluarBash({ comando: 'echo x > docs/nota.md', cwd: raiz, ctx }).decision, 'deny');
+});

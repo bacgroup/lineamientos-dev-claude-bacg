@@ -17,7 +17,8 @@ Después de instalar el plugin, abrí Claude Code en un repo del proyecto y corr
 | 2 | GitHub CLI autenticado (`gh auth login`) | Sí |
 | 3 | Copia de los lineamientos en esta PC | Sí |
 | 4 | Lineamientos al día | Recomendado |
-| 5 | Plugins complementarios | Recomendado |
+| 5 | Plugins requeridos (núcleo y los del stack del proyecto) | Sí |
+| 5c | MCP recomendados (codebase-memory-mcp, context7) | Recomendado |
 | 6 | Sesión abierta en un repo de un proyecto registrado | Sí |
 | 7 | Repos del proyecto clonados uno junto al otro | Recomendado |
 | 8 | Tests del proyecto en esta PC (`~/.claude/bacg-dev.json`) | Sí |
@@ -53,21 +54,19 @@ Mientras falte un paso obligatorio, el arranque de sesión lo avisa y `rq.mjs ab
    2. `~/.claude/bacg-dev.json` con `{"lineamientosDir": "<ruta>"}`;
    3. la ruta por defecto de arriba.
 
-4. Instalar los plugins requeridos:
+4. Instalar los plugins requeridos. El núcleo, en todo proyecto:
 
    ```
-   /plugin marketplace add obra/superpowers-marketplace
-   /plugin install superpowers@superpowers-marketplace
-   /plugin install frontend-design@claude-plugins-official
-   /plugin install security-guidance@claude-plugins-official
-   /plugin install claude-security@claude-plugins-official
-   /plugin install pr-review-toolkit@claude-plugins-official
-   /plugin install feature-dev@claude-plugins-official
-   /plugin install typescript-lsp@claude-plugins-official
-   /plugin install claude-md-management@claude-plugins-official
+   claude plugin marketplace add obra/superpowers-marketplace
+   claude plugin install superpowers@superpowers-marketplace
+   claude plugin install pr-review-toolkit@claude-plugins-official
+   claude plugin install security-guidance@claude-plugins-official
+   claude plugin install claude-security@claude-plugins-official
+   claude plugin install feature-dev@claude-plugins-official
+   claude plugin install claude-md-management@claude-plugins-official
    ```
 
-   Si falta alguno, el hook `SessionStart` lo avisa al arrancar la sesión en un repo registrado y te da el comando para instalarlo.
+   Por stack: `frontend-design@claude-plugins-official` si el proyecto declara `ui.patrones`, y `typescript-lsp@claude-plugins-official` si el repo usa TypeScript. El alta (`/bacg-alta`) dice cuáles faltan en esta PC y da los comandos exactos. Sin ellos, la compuerta de edición no deja editar código (salvo `rq.mjs saltar plugins` con la frase del usuario). No van como dependencias del manifiesto a propósito: si faltara una, Claude Code no cargaría el plugin ni sus compuertas de PROD (PLG-DEPS).
 
 Otra cuenta de Claude en la misma PC (`CLAUDE_CONFIG_DIR`): se instala igual, en esa cuenta. La carpeta de lineamientos y `~/.claude/bacg-dev.json` se comparten. Para verificar las frases del usuario, el plugin anota en `~/.claude/bacg-dev/sesiones/` dónde guarda esa cuenta cada transcripción.
 
