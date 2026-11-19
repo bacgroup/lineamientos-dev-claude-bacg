@@ -193,6 +193,8 @@ Resultado: `docs/rq/<código>/arq.md` de una página (contexto, opciones y trade
 
 **Devoluciones del usuario** (todo lo que marca sobre lo entregado): cada punto va a la lista cerrada con `$RQ devolucion agregar "<punto>" --elemento <pantalla o componente>`, y se cierra con `$RQ devolucion <n> hecho|consultado|rechazado "<evidencia>"`. Un punto ambiguo se consulta antes de implementarlo. Las premisas del usuario ("cero texto") entran como puntos que no se cierran hasta el final. `$RQ devolucion` lista los puntos. Al segundo punto sobre el mismo elemento, la CLI corta la iteración: seguí su protocolo (captura con la referencia, causa raíz, pedido literal, mockups) y no hagas otra vuelta a ojo. Con puntos pendientes, la revisión no se da por ok.
 
+**Seguridad de aplicación:** `revisor-rq` aplica el `## Checklist de aplicaciones` de `general/seguridad.md` (OWASP, con ISO 27001 y SOC 2 como referencia) a lo que el diff toca; un hallazgo de los puntos 1 a 5 es crítico.
+
 Además, sólo si corresponde: `pr-review-toolkit:silent-failure-hunter` si el cambio toca manejo de errores o fallbacks (en un BUG que venía de un error tragado, siempre); `claude-security` si toca `sensible` (la revisión ok lo exige); en un proyecto con Odoo, `odoo-review` y `odoo-security` (sección 2.0.1); `engineering:debug` si un BUG cuesta reproducirlo. El resultado va a `$RQ revision ok|bloqueante "<nota>"`; con bloqueantes, se corrigen y se revisa sólo lo corregido.
 
 ## 6. Aprobaciones, commits y entrega

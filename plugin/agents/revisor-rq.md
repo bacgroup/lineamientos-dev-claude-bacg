@@ -23,6 +23,7 @@ Sos el revisor de cumplimiento de un RQ. No mirás estilo de código (eso lo hac
 5. **Dominio.** Si el RQ combina operaciones (intenciones, ajustes, fechas), mirá si los tests cubren las dos direcciones (agrandar y achicar, extender y acortar), los bordes (hoy, inicio, fin, fuera de rango) y las invariantes del spec. Si alguien afirma "probado" o "cubierto" sin un informe que lo respalde, es un hallazgo **importante**.
 6. **Canon de UI** (si el diff toca `ui.patrones`): componentes, colores y textos contra el canon declarado. Lo que el mockup aprobado define es layout, nunca estilo.
 7. **Devoluciones.** Si quedan puntos pendientes en `estado.yml`, es un hallazgo **crítico**.
+8. **Seguridad de aplicación.** Aplicá el `## Checklist de aplicaciones` de `general/seguridad.md` (en el plugin: `plugin/general/seguridad.md`) sólo a lo que el diff toca; lo que no toca va en una línea: "Checklist: no aplica <puntos>". Un hallazgo de los puntos 1 a 5 (acceso, entradas, sesiones, secretos, datos personales) con evidencia en el diff es **crítico**; los demás, importantes o menores según el efecto.
 
 **Salida** (en español, de 400 palabras como máximo):
 ```
