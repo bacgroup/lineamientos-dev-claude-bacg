@@ -34,7 +34,7 @@ const opts = (m, extra = {}) => ({ cwd: m.repo, home: m.home, dirLin: m.lin, env
 test('alta: en orden, sin tests en la PC bloquea con el JSON para declararlos', () => {
   const m = montar();
   const pasos = pasosAlta(opts(m));
-  assert.deepEqual(pasos.map((p) => p.id), ['node', 'gh', 'lineamientos', 'al-dia', 'plugins', 'repo', 'repos', 'tests', 'e2e', 'local']);
+  assert.deepEqual(pasos.map((p) => p.id), ['node', 'gh', 'lineamientos', 'al-dia', 'plugins', 'repo', 'repos', 'tests', 'e2e', 'local', 'revisor-pr']);
   const b = bloqueante(pasos);
   assert.equal(b.id, 'tests');
   assert.match(b.como, /"pf": \{\s+"tests"/);
@@ -121,4 +121,20 @@ test('alta: sin addons en ningún repo del proyecto no ofrece odoo-skills; con a
   fs.writeFileSync(path.join(m.repo, 'addons', 'x', '__manifest__.py'), '{}');
   limpiarCacheOdoo();
   assert.ok(pasosAlta(opts(m)).some((p) => p.id === 'odoo-skills'));
+});
+
+// ---------- PLG-PRREV: revisor independiente recomendado ----------
+
+test('PLG-PRREV: sin el workflow del revisor, el alta lo recomienda con el comando, el secret y la protección de rama', () => {
+  const m = montar();
+  const p = pasosAlta(opts(m)).find((x) => x.id === 'revisor-pr');
+  assert.ok(p, 'falta el paso revisor-pr');
+  assert.equal(p.obligatorio, false);
+  assert.equal(p.estado, 'aviso');
+  assert.match(p.como, /rq\.mjs" revisor-pr/);
+  assert.match(p.como, /ANTHROPIC_API_KEY/);
+  assert.match(p.como, /protecci[oó]n de la rama/);
+  fs.mkdirSync(path.join(m.repo, '.github', 'workflows'), { recursive: true });
+  fs.writeFileSync(path.join(m.repo, '.github', 'workflows', 'bacg-revisor.yml'), 'name: Revisor BACG\n');
+  assert.equal(pasosAlta(opts(m)).find((x) => x.id === 'revisor-pr').estado, 'ok');
 });

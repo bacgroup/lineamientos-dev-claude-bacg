@@ -267,6 +267,15 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
     detalle: ajustesLocales(repo.proyectoId, home) ? undefined : `sin entrada para ${repo.proyectoId}`,
     como: 'Ver el paso de tests.',
   });
+
+  // PLG-PRREV: revisor independiente en GitHub (segunda línea). Recomendado: necesita un secret y lo activa un admin.
+  const conRevisor = fs.existsSync(path.join(repo.raiz, '.github', 'workflows', 'bacg-revisor.yml'));
+  sumar({
+    id: 'revisor-pr', titulo: 'Revisor independiente en PR y push (GitHub)', obligatorio: false,
+    estado: conRevisor ? 'ok' : 'aviso',
+    detalle: conRevisor ? undefined : `${nombreRepo(repo.raiz)} sin .github/workflows/bacg-revisor.yml`,
+    como: `Corré \`node "${CLI}" revisor-pr\` y commitealo en un RQ. Después, un admin carga el secret ANTHROPIC_API_KEY en GitHub (mejor a nivel organización) y marca el check "revisar" como requerido en la protección de la rama.`,
+  });
   return pasos;
 }
 
