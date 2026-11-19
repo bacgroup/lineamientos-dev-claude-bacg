@@ -10,6 +10,9 @@ aprobaciones:
     frase: Apruebo todos los RQ.
     fecha: '2026-11-19T11:48:46.474Z'
     via: lote
+  - etapa: 5
+    frase: Doy el OK de PROD para los 5 RQ y actualiza dev-fullflow también con el script de pasaje o update estipulado
+    fecha: '2026-11-19T13:39:23.024Z'
 tests: null
 revision:
   ok: true
@@ -21,7 +24,7 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:58:21.794Z'
+actualizado: '2026-11-19T13:39:23.025Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
