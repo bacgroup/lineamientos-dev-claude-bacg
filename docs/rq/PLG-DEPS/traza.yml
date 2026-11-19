@@ -1,0 +1,32 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: '`plugin.json` no declara `dependencies` (el plugin carga aunque falte uno) y la plantilla de settings habilita los núcleo → tests/manifiestos.test.mjs.'
+    archivos:
+      - plugin/.claude-plugin/plugin.json
+      - tests/manifiestos.test.mjs
+    test: 'tests/manifiestos.test.mjs · PLG-DEPS: plugin.json no declara dependencies'
+    estado: parcial
+    motivo: la plantilla de settings no se pudo editar (la compuerta la toma como otro proyecto por su .bacg-lineamientos); queda en PLG-PLANT
+  - id: S-2
+    texto: El alta marca `plugins` como obligatorio en falta si falta uno y su remedio son los comandos `claude plugin install …` exactos; `abrir` se frena (patrón existente) → tests/alta.test.mjs.
+    archivos:
+      - plugin/scripts/lib/alta.mjs
+      - plugin/scripts/lib/plugins-requeridos.mjs
+    test: 'tests/alta.test.mjs · PLG-DEPS: si falta un plugin del núcleo, el paso plugins es obligatorio, bloquea y da el comando exacto'
+    estado: hecho
+  - id: S-3
+    texto: Con un plugin requerido faltante, la compuerta de edición niega editar código y nombra qué instalar; docs y `.md` siguen libres; si no se puede leer qué hay instalado, avisa y no bloquea → tests/compuerta-edicion.test.mjs.
+    archivos:
+      - plugin/scripts/lib/compuerta-edicion.mjs
+      - plugin/scripts/lib/hooks/pre-tool.mjs
+    test: 'tests/compuerta-edicion.test.mjs · PLG-DEPS: con un plugin del núcleo faltante, editar código se niega y nombra qué instalar (+ libres, sin lectura y salto plugins)'
+    estado: hecho
+  - id: S-4
+    texto: Cargado desde claude.ai (synced), cuenta los plugins sincronizados como instalados (ya lo hace `plugins-instalados.mjs`) → tests/alta-nube.test.mjs.
+    archivos:
+      - plugin/scripts/lib/plugins-instalados.mjs
+      - plugin/scripts/lib/plugins-requeridos.mjs
+    test: 'tests/alta-nube.test.mjs · plugins instalados: cuenta installed_plugins.json y los sincronizados de claude.ai'
+    estado: hecho
