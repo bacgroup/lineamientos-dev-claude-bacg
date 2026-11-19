@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { dirConfigClaude } from '../sesiones.mjs';
-import { pluginsInstalados } from '../plugins-instalados.mjs';
+import { PLUGINS_TODOS, pluginsRequeridos, faltantesRequeridos, comandosInstalar } from '../plugins-requeridos.mjs';
 import { cuentaActual } from '../github.mjs';
 import { spawnSync } from 'node:child_process';
 import { dirLineamientos, buscarRepo, carpetaProyecto } from '../config.mjs';
@@ -74,16 +74,8 @@ export const REGLA_SKILLS =
 
 const recortar = (texto, max) => (texto.length > max ? `${texto.slice(0, max)}\n[…recortado]` : texto);
 
-export const PLUGINS_REQUERIDOS = [
-  'superpowers@superpowers-marketplace',
-  'frontend-design@claude-plugins-official',
-  'security-guidance@claude-plugins-official',
-  'claude-security@claude-plugins-official',
-  'pr-review-toolkit@claude-plugins-official',
-  'feature-dev@claude-plugins-official',
-  'typescript-lsp@claude-plugins-official',
-  'claude-md-management@claude-plugins-official',
-];
+// PLG-DEPS: la lista vive en plugins-requeridos.mjs (núcleo y por stack); acá queda el nombre de siempre para la higiene.
+export const PLUGINS_REQUERIDOS = PLUGINS_TODOS;
 
 export { reposDebajo };
 
@@ -110,7 +102,7 @@ function resumenes(dirLin, proyectoId, raiz, pluginRoot) {
   return recortar(texto, MAX_RESUMENES);
 }
 
-function pluginsFaltantes(home, env) {
+function pluginsFaltantes(home, env, raiz, proyecto) {
   // Los plugins de la cuenta de Claude en uso: ~/.claude o, con otra cuenta, CLAUDE_CONFIG_DIR.
   // PLG-CLOUD: también los sincronizados desde claude.ai (plugins/synced/), que no figuran en installed_plugins.json.
   const archivo = path.join(dirConfigClaude({ env, home }), 'plugins', 'installed_plugins.json');
@@ -119,17 +111,13 @@ function pluginsFaltantes(home, env) {
     try {
       JSON.parse(texto);
     } catch {
-      return `No pude leer ${archivo}: verificá a mano los plugins requeridos (${PLUGINS_REQUERIDOS.join(', ')}).`;
+      return `No pude leer ${archivo}: verificá a mano los plugins requeridos (${pluginsRequeridos({ raiz, proyecto }).join(', ')}).`;
     }
   }
-  const instalados = pluginsInstalados({ env, home });
-  const faltan = PLUGINS_REQUERIDOS.filter((p) => !instalados?.tiene(p));
+  const faltan = faltantesRequeridos({ raiz, proyecto, env, home });
+  if (faltan === null) return `No pude leer qué plugins hay instalados: verificá a mano los requeridos (${pluginsRequeridos({ raiz, proyecto }).join(', ')}).`;
   if (faltan.length === 0) return null;
-  const lineas = faltan.map((p) => `/plugin install ${p}`);
-  if (faltan.includes('superpowers@superpowers-marketplace')) {
-    lineas.push('(si falta el marketplace de superpowers: /plugin marketplace add obra/superpowers-marketplace)');
-  }
-  return `Faltan plugins requeridos. Pedile al usuario que corra:\n${lineas.join('\n')}`;
+  return `Faltan plugins requeridos: sin ellos la compuerta no deja editar código. Con el OK del usuario, corré (o pedile que los active en claude.ai si usa los plugins de su cuenta):\n${comandosInstalar(faltan).join('\n')}`;
 }
 
 /**
@@ -264,7 +252,7 @@ export async function handler(
     // sin git o historial ilegible: sin aviso
   }
 
-  const faltan = pluginsFaltantes(home, env);
+  const faltan = pluginsFaltantes(home, env, repo.raiz, proyecto);
   if (faltan) partes.push(faltan);
   const hermanos = avisoHermanos(cwd, home, env);
   if (hermanos) partes.push(hermanos);

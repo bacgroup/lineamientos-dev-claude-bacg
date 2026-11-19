@@ -10,19 +10,74 @@ aprobaciones:
     frase: Apruebo todos los RQ.
     fecha: '2026-11-19T11:48:51.566Z'
     via: lote
-tests: null
+tests:
+  ok: true
+  arbol: ff92547f506378c8a42ec9d64d02d8e371c7c036
+  fecha: '2026-11-19T12:01:31.313Z'
+  comandos:
+    - npm test
 revision: null
 circuito: []
 saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-19T11:48:51.673Z'
+actualizado: '2026-11-19T12:01:31.315Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
     sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
     fecha: '2026-11-18T23:37:03.448Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 1
+    sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
+    fecha: '2026-11-19T11:58:24.643Z'
     via: sesion
 clasificacion_confirmada:
   frase: Apruebo todos los RQ.

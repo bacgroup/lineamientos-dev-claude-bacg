@@ -518,8 +518,10 @@ test('session-start en el demo: resumen, encuadre y plugins faltantes', () => {
   assert.match(ctx, /Resumen general \(fixture\)/);
   assert.match(ctx, /Demo \(fixture\)/);
   assert.match(ctx, /Falta el paso 3\./);
-  assert.match(ctx, /\/plugin install frontend-design@claude-plugins-official/);
-  assert.doesNotMatch(ctx, /\/plugin install superpowers@superpowers-marketplace/);
+  // PLG-DEPS: comandos de la CLI de Claude Code, sólo del núcleo y del stack del proyecto.
+  assert.match(ctx, /claude plugin install pr-review-toolkit@claude-plugins-official/);
+  assert.doesNotMatch(ctx, /claude plugin install superpowers@superpowers-marketplace/);
+  assert.match(ctx, /sin ellos la compuerta no deja editar código/);
 });
 
 test('session-start avisa si la copia de trabajo del plugin es más nueva que la instalada', () => {
