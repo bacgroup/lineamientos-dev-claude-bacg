@@ -1,11 +1,15 @@
 codigo: PLG-SP
 tipo: rq
 clasificacion: bounded
-clasificacion_pendiente: true
+clasificacion_pendiente: false
 tarea: Superpowers como columna vertebral (segunda pasada)
 etapa: 0
 autonomia: null
-aprobaciones: []
+aprobaciones:
+  - etapa: 1
+    frase: Apruebo todos los RQ.
+    fecha: '2026-11-19T11:48:52.245Z'
+    via: lote
 tests: null
 revision: null
 circuito: []
@@ -13,10 +17,14 @@ saltos: []
 base: 36345ecfc3e9a93e674c4bf3e4a7d23becc40c03
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-18T23:37:04.983Z'
+actualizado: '2026-11-19T11:48:52.247Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
     sesion: 5fe441e1-1b74-5d83-bad8-8d2ab689d496
     fecha: '2026-11-18T23:37:04.982Z'
     via: sesion
+clasificacion_confirmada:
+  frase: Apruebo todos los RQ.
+  fecha: '2026-11-19T11:48:52.245Z'
+  via: lote
