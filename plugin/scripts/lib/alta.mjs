@@ -12,7 +12,7 @@ import { dirConfigClaude } from './sesiones.mjs';
 import { spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, configEnRepo, dirLineamientos, nombreRepo, ajustesLocales } from './config.mjs';
 import { reposHermanos } from './multi-repo.mjs';
-import { PLUGINS_REQUERIDOS } from './hooks/session-start.mjs';
+import { PLUGINS_TODOS, pluginsRequeridos, comandosInstalar } from './plugins-requeridos.mjs';
 import { pluginsInstalados } from './plugins-instalados.mjs';
 import { cuentaActual } from './github.mjs';
 import { estadoSkillsOdoo, ramaSkills, usaOdoo, tieneAddons } from './odoo-skills.mjs';
@@ -83,6 +83,29 @@ function bloqueJson(id, tests) {
  * Pasos del alta para la sesión en `cwd`. Opciones para tests: env, home, dirLin, version (de Node), gh (función que
  * devuelve true si gh está autenticado), sinGh (omite el paso de gh).
  */
+// PLG-DEPS: MCP que nombran las reglas. Se buscan en ~/.claude.json (usuario y proyectos) y en .mcp.json del repo.
+const MCP_RECOMENDADOS = [
+  { nombre: 'codebase-memory-mcp', como: 'codebase-memory-mcp: instalalo según su README y sumalo con `claude mcp add codebase-memory-mcp …`' },
+  { nombre: 'context7', como: '`claude mcp add context7 -- npx -y @upstash/context7-mcp`' },
+];
+
+function mcpConfigurados(home, cwd) {
+  const nombres = new Set();
+  const sumarDe = (obj) => Object.keys(obj?.mcpServers ?? {}).forEach((n) => nombres.add(n));
+  const leerJson = (f) => {
+    try {
+      return JSON.parse(fs.readFileSync(f, 'utf8'));
+    } catch {
+      return null;
+    }
+  };
+  const usuario = leerJson(path.join(home, '.claude.json'));
+  sumarDe(usuario);
+  for (const p of Object.values(usuario?.projects ?? {})) sumarDe(p);
+  sumarDe(leerJson(path.join(cwd, '.mcp.json')));
+  return nombres;
+}
+
 export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.homedir(), dirLin, version = process.versions.node, gh, sinGh } = {}) {
   const lin = dirLin ?? dirLineamientos({ env, home });
   const pasos = [];
@@ -142,18 +165,29 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
 
   // 5. Plugins requeridos
   // PLG-CLOUD: también los sincronizados desde claude.ai (plugins/synced/), que no figuran en installed_plugins.json.
+  // PLG-DEPS: obligatorio (sin ellos la compuerta no deja editar código), con los comandos exactos. Núcleo y por stack
+  // según el proyecto del repo. Si no se puede leer lo instalado, avisa y no bloquea.
   const instalados = pluginsInstalados({ env, home });
-  const faltan = instalados ? PLUGINS_REQUERIDOS.filter((p) => !instalados.tiene(p)) : [];
+  let requeridos;
+  try {
+    const r = buscarRepo(cwd, { dirLin: lin });
+    requeridos = pluginsRequeridos({ raiz: r?.raiz ?? null, proyecto: r ? cargarProyecto(r.proyectoId, lin, r.raiz, { home }) : null });
+  } catch {
+    requeridos = pluginsRequeridos();
+  }
+  const faltan = instalados ? requeridos.filter((p) => !instalados.tiene(p)) : [];
   sumar({
-    id: 'plugins', titulo: 'Plugins complementarios', obligatorio: false,
-    estado: instalados === null ? 'aviso' : faltan.length ? 'aviso' : 'ok',
+    id: 'plugins', titulo: 'Plugins requeridos', obligatorio: instalados !== null,
+    estado: instalados === null ? 'aviso' : faltan.length ? 'falta' : 'ok',
     detalle: instalados === null ? 'no pude leer ~/.claude/plugins/installed_plugins.json ni los plugins sincronizados' : faltan.length ? `faltan: ${faltan.join(', ')}` : undefined,
-    como: faltan.length ? faltan.map((p) => `/plugin install ${p}`).join(' · ') : 'Verificalos con /plugin.',
+    como: faltan.length
+      ? `Con el OK del usuario, corré: ${comandosInstalar(faltan).join(' && ')}; después /reload-plugins y volvé a correr el alta. Si usás los plugins de tu cuenta de claude.ai (nube o Cowork), activalos ahí.`
+      : `Verificalos con /plugin (requeridos: ${requeridos.join(', ')}).`,
   });
 
   // 5b. Plugins que sobran en esta carpeta (PLG-CTX): los que no se usan acá. Los hermanos (otra derivación del mismo
   // ciclo, que comparte skills con este) y los requeridos nunca se proponen apagar.
-  const higiene = instalados === null ? null : higienePlugins({ cwd, env, home, requeridos: PLUGINS_REQUERIDOS });
+  const higiene = instalados === null ? null : higienePlugins({ cwd, env, home, requeridos: PLUGINS_TODOS });
   if (higiene) {
     const { candidatos, sesiones, archivo, tokens } = higiene;
     sumar({
@@ -170,6 +204,15 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
         : undefined,
     });
   }
+
+  // 5c. MCP recomendados (PLG-DEPS): ahorran tokens, no hacen a la calidad; no bloquean.
+  const mcps = mcpConfigurados(home, cwd);
+  const faltanMcp = MCP_RECOMENDADOS.filter((m) => !mcps.has(m.nombre));
+  sumar({
+    id: 'mcp', titulo: 'MCP recomendados', obligatorio: false, estado: faltanMcp.length ? 'aviso' : 'ok',
+    detalle: faltanMcp.length ? `faltan: ${faltanMcp.map((m) => m.nombre).join(', ')}` : undefined,
+    como: faltanMcp.length ? faltanMcp.map((m) => m.como).join(' · ') : 'Ya están configurados.',
+  });
 
   // 6. Repo de un proyecto
   if (!repo) {
