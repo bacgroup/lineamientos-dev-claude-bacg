@@ -128,7 +128,7 @@ export function evaluarEdicion({ raiz, proyecto, rutaArchivo, ctx }) {
   }
 
   const faltanPlugins = pluginsFaltantes(raiz, proyecto, ctx);
-  if (faltanPlugins.length && !codigos.some((c) => saltoDe(raiz, c, 'plugins'))) {
+  if (faltanPlugins.length && !codigos.some((c) => saltoDe(raiz, c, 'plugins') || saltoDe(raiz, c, 'edicion'))) {
     return deny(
       `Faltan plugins requeridos (${faltanPlugins.join(', ')}): sin ellos no se edita código (PLG-DEPS). Con el OK del usuario, corré: ${comandosInstalar(faltanPlugins).join(' && ')}; después /reload-plugins (si usa los plugins de su cuenta de claude.ai, que los active ahí). Si el usuario decide seguir sin ellos: ${cli()} saltar plugins "<su frase>" "<motivo>".`,
     );

@@ -45,7 +45,7 @@ export function pluginsRequeridos({ raiz = null, proyecto = null } = {}) {
 /** Requeridos que faltan, o null si no se puede leer qué hay instalado (entonces se avisa, nunca se bloquea). */
 export function faltantesRequeridos({ raiz = null, proyecto = null, env = process.env, home = os.homedir() } = {}) {
   const instalados = pluginsInstalados({ env, home });
-  if (!instalados) return null;
+  if (!instalados || instalados.ilegible) return null;
   return pluginsRequeridos({ raiz, proyecto }).filter((p) => !instalados.tiene(p));
 }
 

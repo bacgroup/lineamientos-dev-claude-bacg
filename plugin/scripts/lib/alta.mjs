@@ -79,10 +79,6 @@ function bloqueJson(id, tests) {
   return JSON.stringify({ proyectos: { [id]: { tests } } }, null, 2);
 }
 
-/**
- * Pasos del alta para la sesión en `cwd`. Opciones para tests: env, home, dirLin, version (de Node), gh (función que
- * devuelve true si gh está autenticado), sinGh (omite el paso de gh).
- */
 // PLG-DEPS: MCP que nombran las reglas. Se buscan en ~/.claude.json (usuario y proyectos) y en .mcp.json del repo.
 const MCP_RECOMENDADOS = [
   { nombre: 'codebase-memory-mcp', como: 'codebase-memory-mcp: instalalo según su README y sumalo con `claude mcp add codebase-memory-mcp …`' },
@@ -106,6 +102,10 @@ function mcpConfigurados(home, cwd) {
   return nombres;
 }
 
+/**
+ * Pasos del alta para la sesión en `cwd`. Opciones para tests: env, home, dirLin, version (de Node), gh (función que
+ * devuelve true si gh está autenticado), sinGh (omite el paso de gh).
+ */
 export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.homedir(), dirLin, version = process.versions.node, gh, sinGh } = {}) {
   const lin = dirLin ?? dirLineamientos({ env, home });
   const pasos = [];
@@ -175,11 +175,12 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
   } catch {
     requeridos = pluginsRequeridos();
   }
-  const faltan = instalados ? requeridos.filter((p) => !instalados.tiene(p)) : [];
+  const legible = instalados !== null && !instalados.ilegible;
+  const faltan = legible ? requeridos.filter((p) => !instalados.tiene(p)) : [];
   sumar({
-    id: 'plugins', titulo: 'Plugins requeridos', obligatorio: instalados !== null,
-    estado: instalados === null ? 'aviso' : faltan.length ? 'falta' : 'ok',
-    detalle: instalados === null ? 'no pude leer ~/.claude/plugins/installed_plugins.json ni los plugins sincronizados' : faltan.length ? `faltan: ${faltan.join(', ')}` : undefined,
+    id: 'plugins', titulo: 'Plugins requeridos', obligatorio: legible,
+    estado: !legible ? 'aviso' : faltan.length ? 'falta' : 'ok',
+    detalle: !legible ? 'no pude leer ~/.claude/plugins/installed_plugins.json ni los plugins sincronizados' : faltan.length ? `faltan: ${faltan.join(', ')}` : undefined,
     como: faltan.length
       ? `Con el OK del usuario, corré: ${comandosInstalar(faltan).join(' && ')}; después /reload-plugins y volvé a correr el alta. Si usás los plugins de tu cuenta de claude.ai (nube o Cowork), activalos ahí.`
       : `Verificalos con /plugin (requeridos: ${requeridos.join(', ')}).`,

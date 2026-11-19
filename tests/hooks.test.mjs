@@ -694,3 +694,24 @@ test('session-start en carpeta padre con dos repos, uno con RQ activo → arranq
   assert.match(ctx, /- repo-dos: /);
   assert.match(ctx, /Dónde nos quedamos: RQ R-T1/);
 });
+
+// ---------- PLG-DEPS: la compuerta mira los plugins requeridos por el hook real (Edit y escritura por Bash) ----------
+
+test('PLG-DEPS: pre-tool niega editar código (Edit) si falta un plugin del núcleo; con todos, deja', async () => {
+  const { PLUGINS_NUCLEO, PLUGINS_TODOS } = await import('../plugin/scripts/lib/plugins-requeridos.mjs');
+  const raiz = repoDemo({ 'src/app.ts': 'x' });
+  abrirRq(raiz, { etapa: 2, reglas: 44, aprobaciones: [{ etapa: 1, frase: 'apruebo el diseño', fecha: '2026-11-19T00:00:00Z' }] });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-T1', 'spec.md'), '# R-T1\n\n## Diseño\nx\n\n## Tareas\n1. x\n');
+  const conTodos = homeCon(PLUGINS_TODOS);
+  const envCon = (home) => ({ ...ENV, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: path.join(home, '.claude') });
+  const edit = { cwd: raiz, tool_name: 'Edit', tool_input: { file_path: path.join(raiz, 'src', 'app.ts') } };
+  const base = preTool(edit, envCon(conTodos));
+  assert.notEqual(decision(base), 'deny', base?.hookSpecificOutput?.permissionDecisionReason);
+
+  const sinFeature = envCon(homeCon(PLUGINS_NUCLEO.filter((p) => !p.startsWith('feature-dev'))));
+  const r = preTool(edit, sinFeature);
+  assert.equal(decision(r), 'deny');
+  assert.match(r.hookSpecificOutput.permissionDecisionReason, /claude plugin install feature-dev@claude-plugins-official/);
+
+  // La escritura por Bash se prueba en escritura-bash.test.mjs: el proyecto demo sigue con reglas 4.3.
+});

@@ -310,3 +310,9 @@ test('PLG-DEPS: con saltar plugins (frase del usuario) en el RQ activo, deja edi
   const raiz = repoConRq(base({ aprobaciones: [ap(1, FRASE)], saltos: [salto] }));
   assert.equal(evaluar(raiz, 'src/lib/calculo.ts', { home: sinFeatureDev(), env: {} }).decision, 'allow');
 });
+
+test('PLG-DEPS: saltar edicion (frase del usuario) también deja editar con un plugin faltante', () => {
+  const salto = { compuerta: 'edicion', frase: 'editá igual', motivo: 'urgente', fecha: '2026-11-19T00:00:00Z' };
+  const raiz = repoConRq(base({ aprobaciones: [ap(1, FRASE)], saltos: [salto] }));
+  assert.equal(evaluar(raiz, 'src/lib/calculo.ts', { home: sinFeatureDev(), env: {} }).decision, 'allow');
+});

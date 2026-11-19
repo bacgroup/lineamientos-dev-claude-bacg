@@ -67,3 +67,26 @@ test('PLG-DEPS: comandosInstalar suma el marketplace de superpowers sólo si fal
   assert.deepEqual(comandosInstalar(['feature-dev@claude-plugins-official']), ['claude plugin install feature-dev@claude-plugins-official']);
   assert.deepEqual(comandosInstalar([]), []);
 });
+
+test('PLG-DEPS: installed_plugins.json corrupto o con otro formato no bloquea, aunque haya plugins sincronizados', () => {
+  const conSynced = (contenido) => {
+    const home = tmp('home-roto-');
+    const base = path.join(home, '.claude', 'plugins');
+    fs.mkdirSync(path.join(base, 'synced', 'org_x', 'sp', '.claude-plugin'), { recursive: true });
+    fs.writeFileSync(path.join(base, 'synced', 'org_x', 'sp', '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'superpowers' }));
+    fs.writeFileSync(path.join(base, 'installed_plugins.json'), contenido);
+    return home;
+  };
+  assert.equal(faltantesRequeridos({ env: {}, home: conSynced('{roto') }), null);
+  assert.equal(faltantesRequeridos({ env: {}, home: conSynced('{"version":3,"installed":{}}') }), null);
+});
+
+test('PLG-DEPS: con todo el núcleo sincronizado desde claude.ai (sin installed_plugins.json) no falta nada', () => {
+  const home = tmp('home-synced-');
+  for (const id of PLUGINS_NUCLEO) {
+    const dir = path.join(home, '.claude', 'plugins', 'synced', 'org_x', id.split('@')[0], '.claude-plugin');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'plugin.json'), JSON.stringify({ name: id.split('@')[0] }));
+  }
+  assert.deepEqual(faltantesRequeridos({ env: {}, home }), []);
+});
