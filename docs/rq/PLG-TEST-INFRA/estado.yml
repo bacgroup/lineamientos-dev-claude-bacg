@@ -1,0 +1,26 @@
+codigo: PLG-TEST-INFRA
+tipo: rq
+clasificacion: bounded
+clasificacion_pendiente: true
+tarea: 'Commits sin rechazos falsos: reintento ante falla de infraestructura o timeout de tests, clase del rechazo en el log, aviso si tests.unit no usa {archivos} (PLG-TEST-REL) y pregunta de canon de UI al cierre'
+etapa: 0
+autonomia: null
+aprobaciones: []
+tests: null
+revision: null
+circuito: []
+saltos: []
+base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-23T01:08:24.995Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-23T01:08:22.212Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    fecha: '2026-11-23T01:08:24.993Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
