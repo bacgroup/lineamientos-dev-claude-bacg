@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.8.0: commits sin rechazos falsos y canon de UI al cierre (2026-11-23)
+
+**Origen:** RQ PLG-TEST-INFRA (análisis del 21/11: ~90 % de 42 commits rechazados en CRM fueron por tiempo, no por código).
+
+**Cambios:**
+- PLG-TEST-INFRA: el commit clasifica la falla de tests (`claseFalla`: rojo, timeout o infraestructura del runner). Si no es un test rojo, reintenta una vez el mismo comando; si pasa, sigue y lo anota en `tests.inestables`; si no, el mensaje dice la clase ("Falla de infraestructura del runner, no de tests" o "Tests que superan su tiempo dos veces seguidas"). `tests.rechazos` cuenta los rechazos por clase y el cierre los pasa a `docs/log/rq.jsonl` (`rechazos_tests`, `tests_inestables`). `BACG_DEV_SIN_REINTENTO=1` lo apaga.
+- PLG-TEST-REL: paso `tests-rel` del alta (no obligatorio) y aviso del arranque si `tests.unit` no usa `{archivos}`, con el comando de tests relacionados del runner (vitest related, jest --findRelatedTests, pytest con rutas).
+- PLG-CANON-CIERRE: `cerrar` de un RQ que tocó UI pide registrar si dejó un lineamiento nuevo para el canon: `rq.mjs canon no "<frase>"` o `rq.mjs canon documentado` (verifica que `ui.canon` cambió en el RQ).
+
 ## 4.7.0: calidad y seguridad como estándar (2026-11-19)
 
 **Origen:** RQ PLG-MOCK, PLG-SEG, PLG-DEPS, PLG-PRREV y PLG-SP (pedido del 18/11).

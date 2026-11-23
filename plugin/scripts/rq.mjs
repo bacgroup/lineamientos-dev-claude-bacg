@@ -91,6 +91,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   auditar [--cerrar "<nota>"]        (commits de Lovable sin revisar; --cerrar mueve la marca y lo anota en docs/log/rq.jsonl)
   estado                             (avisa si la rama está atrasada o si el RQ ya figura cerrado en origin/main)
   arranque                           (inicio o reanudación de la sesión: proyecto, repos, lo último trabajado o dónde quedó el RQ activo; sólo lee)
+  canon no "<frase>" | documentado   (al cerrar un RQ que tocó UI: si dejó un lineamiento nuevo para el canon de UI)
   cerrar [--resumen "<1-2 frases>"] [--alcance "<texto>"] [--sin-changelog]   (con --resumen: changelog, docs/log/rq.jsonl y commit de docs; --sin-changelog: sólo el log)
 `;
 
@@ -1821,6 +1822,9 @@ function trasPasoDeCerrado(repo, elegido, env, io) {
 
 // Cierra el RQ aunque queden pasos manuales o de PROD sin hacer: quedan como pendientes en estado.yml, en la
 // fila del backlog y en el log. Con --resumen escribe el changelog y el log y commitea los docs del cierre.
+/** Ruta del canon de UI del proyecto en el repo (ui.canon, relativo a .bacg-dev/), o null si no lo declara. */
+const rutaCanon = (proyecto) => (typeof proyecto?.ui?.canon === 'string' && proyecto.ui.canon ? path.posix.normalize(`.bacg-dev/${proyecto.ui.canon}`) : null);
+
 function cerrar(repo, elegido, args, env, io) {
   const { res, posicionales } = opciones(args, ['resumen', 'alcance'], ['sin-changelog']);
   if (posicionales.length) throw new ErrorUso();
@@ -1832,6 +1836,15 @@ function cerrar(repo, elegido, args, env, io) {
     proyecto = exigirProyecto(repo, env);
   } catch (e) {
     io.stderr.write(`Aviso: ${e.message} Sin proyecto no se calculan los pendientes del circuito.\n`);
+  }
+  // PLG-CANON-CIERRE: un RQ que tocó UI no cierra sin registrar si dejó un lineamiento nuevo para el canon.
+  if (!estado.canon && tocaUi(estado, raiz, proyecto, rutasDelRq(raiz, estado))) {
+    const ruta = rutaCanon(proyecto);
+    throw new ErrorCli(
+      `Antes de cerrar, preguntale al usuario: ¿este RQ decidió un lineamiento de UI nuevo que debe ir al canon${ruta ? ` (${ruta})` : ''}? ` +
+      `Si dice que sí, escribilo${ruta ? '' : ' (el proyecto no declara ui.canon: creá .bacg-dev/canon-ui.md y declaralo en ui.canon)'}, commitealo y registrá $RQ canon documentado. ` +
+      'Si dice que no: $RQ canon no "<frase del usuario>".',
+    );
   }
   const pend = pendientesDel(repo, estado, proyecto, env);
   // Un RQ abierto con una versión vieja no tiene estado.tarea: el título sale de la fila del backlog o del spec.
@@ -1936,7 +1949,7 @@ export async function main(
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar', 'backlog', 'revisor-pr'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar', 'backlog', 'revisor-pr', 'canon'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
@@ -1957,6 +1970,7 @@ export async function main(
     else if (sub === 'lote') uso(args[0] === 'aprobar' && n >= 3);
     else if (sub === 'skills') uso(args[0] === 'importar' && n === 1);
     else if (sub === 'activo') uso(args[0] === 'reparar' && n === 1);
+    else if (sub === 'canon') uso((args[0] === 'no' && n === 2) || (args[0] === 'documentado' && n === 1));
     else if (!['abrir', 'cerrar', 'verificar'].includes(sub)) uso(n === aridad[sub]);
 
     const repo = buscarRepo(cwd, { dirLin: dirLineamientos({ env }) });
@@ -2247,6 +2261,24 @@ export async function main(
         }
         for (const a of avisosActivo(raiz)) io.stdout.write(`${a}\n`);
         for (const c of cerrados) io.stdout.write(`Cerrado con pendientes: ${c.codigo} (falta: ${c.pendientes.join(', ')}; al hacerlos, $RQ paso … --rq ${c.codigo}).\n`);
+        break;
+      }
+      case 'canon': {
+        // PLG-CANON-CIERRE: la respuesta del usuario a "¿este RQ dejó un lineamiento de UI nuevo para el canon?".
+        const [decision, frase] = args;
+        const { estado } = activo(raiz, elegido);
+        if (decision === 'no') {
+          textoNoVacio(frase, 'La frase');
+          await verificarFrase(frase, verificacion, estado);
+          cambiarVinculado(repo, env, elegido, io, (s) => { s.canon = { decision: 'no', frase, fecha: ahora() }; return 'Canon: sin lineamiento de UI nuevo (registrado).'; });
+        } else if (decision === 'documentado') {
+          const ruta = rutaCanon(proyectoDe(repo, env));
+          if (!ruta) throw new ErrorCli('El proyecto no declara ui.canon: declará ui.canon en .bacg-dev/proyecto.yml (p. ej. canon-ui.md), escribí ahí el lineamiento y commitealo.');
+          if (!lista(rutasDelRq(raiz, estado)).includes(ruta)) throw new ErrorCli(`${ruta} no cambió en este RQ: escribí el lineamiento nuevo y commitealo antes de registrarlo.`);
+          cambiarVinculado(repo, env, elegido, io, (s) => { s.canon = { decision: 'documentado', ruta, fecha: ahora() }; return `Canon: lineamiento documentado en ${ruta}.`; });
+        } else {
+          throw new ErrorCli('Uso: canon no "<frase del usuario>" | canon documentado');
+        }
         break;
       }
       case 'cerrar':

@@ -232,6 +232,10 @@ La entrega es del agente, hasta el final. `$RQ entregar` dice qué falta (rama y
 
 ## 7. Cierre (un comando y un push)
 
+**Canon de UI.** Si el RQ tocó UI, antes de cerrar preguntale al usuario, con texto: "¿Este RQ decidió un lineamiento de UI nuevo que debe ir al canon?" (un color, un componente, un patrón que acordaron en las devoluciones o el mockup). Si dice que sí, escribilo en el canon del proyecto (`ui.canon` de `proyecto.yml`, dentro de `.bacg-dev/`; si no hay, crealo y declaralo), commitealo y registrá `$RQ canon documentado` (verifica que el canon cambió en el RQ). Si dice que no: `$RQ canon no "<su frase>"`. Sin una de las dos, `cerrar` no avanza.
+
+**Tests inestables.** El commit reintenta una vez lo que no es un test rojo (el runner cortó con todo en verde, o sólo hubo timeouts) y lo anota en `estado.yml` (`tests.inestables`, `tests.rechazos`); el cierre lo pasa a `docs/log/rq.jsonl`. Si el reintento también falla, el mensaje dice la clase (infraestructura o tiempo): no lo trates como un test rojo del código. `BACG_DEV_SIN_REINTENTO=1` lo apaga.
+
 `$RQ cerrar --resumen "<1-2 frases en lenguaje del usuario>" [--alcance "<Solo HQ | Replicar en sedes | …>"]` pasa el backlog a Hecho con los pendientes, agrega la entrada de 4 líneas al changelog `docs/log/changelog/AAAA-MM.md`, una línea a `docs/log/rq.jsonl` (log del proyecto) y hace un único commit `docs(<código>): cierre` sólo con esos docs. Si el changelog ya tiene una entrada del código, no agrega otra; `--sin-changelog` escribe sólo el log. Los commits del log son los que nombran el código. Después, `git push` (sólo docs: no necesita RQ). No hay relevo: para retomar alcanzan el arranque, el encuadre, `estado.yml` y `$RQ entregar`. Después del push, `/clear` antes del siguiente RQ.
 
 Si quedaron pasos manuales (publicar en Lovable, un sync a mano), el RQ se cierra igual y `$RQ estado` y el arranque lo recuerdan. Cuando se hacen: `$RQ paso <paso> --rq <código>` (o `paso hecho`); recalcula los pendientes, la fila del backlog y el log.
