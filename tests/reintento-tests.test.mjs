@@ -129,3 +129,26 @@ test('reintento: BACG_DEV_SIN_REINTENTO=1 lo apaga', async () => {
   assert.equal(r.code, 1);
   assert.equal(corridas(), 1);
 });
+
+test('cierre: la línea de docs/log/rq.jsonl lleva los rechazos por clase y los tests inestables', async () => {
+  const { env } = proyectoCon('rojo', 'timeout', 'verde');
+  const raiz = await rqAbierto(env);
+  await correr(raiz, ['registrar-tests'], env); // rojo: rechazo
+  await correr(raiz, ['registrar-tests'], env); // timeout y después verde: inestable
+  const r = await correr(raiz, ['cerrar', '--resumen', 'Listo.'], env);
+  assert.equal(r.code, 0, r.out + r.err);
+  const linea = JSON.parse(fs.readFileSync(path.join(raiz, 'docs', 'log', 'rq.jsonl'), 'utf8').trim().split('\n').at(-1));
+  assert.deepEqual(linea.rechazos_tests, { rojo: 1 });
+  assert.equal(linea.tests_inestables.length, 1);
+  assert.equal(linea.tests_inestables[0].clase, 'timeout');
+});
+
+test('cierre: sin rechazos ni inestables, la línea del log no suma esos campos', async () => {
+  const { env } = proyectoCon('verde');
+  const raiz = await rqAbierto(env);
+  await correr(raiz, ['registrar-tests'], env);
+  await correr(raiz, ['cerrar', '--resumen', 'Listo.'], env);
+  const linea = JSON.parse(fs.readFileSync(path.join(raiz, 'docs', 'log', 'rq.jsonl'), 'utf8').trim());
+  assert.equal('rechazos_tests' in linea, false);
+  assert.equal('tests_inestables' in linea, false);
+});

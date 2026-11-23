@@ -203,8 +203,11 @@ export async function handler(
   }
   partes.push(`CLI del RQ: node "${rutaCli(pluginRoot)}" (usá esta ruta exacta donde la skill ciclo-rq o una compuerta dicen $RQ).`);
   try {
-    const alta = lineaAlta(pasosAlta({ cwd: repo.raiz, env, home, dirLin, sinGh: true }));
+    const pasos = pasosAlta({ cwd: repo.raiz, env, home, dirLin, sinGh: true });
+    const alta = lineaAlta(pasos);
     if (alta) partes.push(alta);
+    const rel = pasos.find((p) => p.id === 'tests-rel' && p.estado === 'aviso');
+    if (rel) partes.push(`Aviso: ${rel.detalle}. ${rel.como}`);
   } catch {
     // el alta sólo orienta: si falla, el arranque sigue
   }

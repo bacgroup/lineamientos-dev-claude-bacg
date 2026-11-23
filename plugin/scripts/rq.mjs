@@ -1456,6 +1456,9 @@ function registrarCierre(repo, codigo, estado, proyecto, { resumen, alcance, sin
     fecha, codigo, tipo: estado.tipo, titulo, resumen, repo: nombreRepo(raiz), donde,
     commits: commits.slice(0, 50), e2e: estado.e2e ? estado.e2e.ok === true : null, pendientes: pend,
   };
+  // PLG-TEST-INFRA (G5): la clase de cada rechazo de tests y lo que pasó sólo al reintentar, para medir sin releer salidas.
+  if (estado.tests?.rechazos && Object.keys(estado.tests.rechazos).length) linea.rechazos_tests = estado.tests.rechazos;
+  if (estado.tests?.inestables?.length) linea.tests_inestables = estado.tests.inestables;
   fs.appendFileSync(log, `${JSON.stringify(linea)}\n`);
 
   // ACTIVO puede haber desaparecido (era el último RQ activo): un archivo trackeado que se borró también va al commit.

@@ -257,6 +257,20 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
     como: `Declará cómo corrés los tests en tu PC, en ~/.claude/bacg-dev.json (se suma a lo que ya tenga):\n${ejemplo}\n{archivos} = lo que está en stage; {specs} = los E2E del RQ.`,
   });
 
+  // PLG-TEST-REL: sin {archivos}, cada commit corre la suite entera (más lento y más expuesto a timeouts bajo carga).
+  if (unit) {
+    const relacionados = unit.includes('{archivos}');
+    const sugerido = comandoRelacionado(repo.raiz);
+    sumar({
+      id: 'tests-rel', titulo: 'Tests del commit: sólo los relacionados con lo que está en stage', obligatorio: false,
+      estado: relacionados ? 'ok' : 'aviso',
+      detalle: relacionados ? undefined : 'cada commit corre la suite entera (tests.unit no usa {archivos})',
+      como: sugerido
+        ? `Usá en tests.unit (proyecto.yml o ~/.claude/bacg-dev.json): "${sugerido}". La suite completa sigue en CI y en el E2E completo antes de PROD.`
+        : 'Sumá {archivos} a tests.unit con la opción de tu runner que corre sólo los tests relacionados con esas rutas. La suite completa sigue en CI.',
+    });
+  }
+
   // 9. El script de los tests existe
   if (unit) {
     const script = scriptDelComando(unit);
@@ -329,6 +343,21 @@ export const bloqueante = (pasos) => pasos.find((p) => p.obligatorio && p.estado
 const ICONO = { ok: '✅', falta: '❌', aviso: '⚠️', na: '·' };
 
 /** Texto del stepper: lista numerada y el próximo paso con qué hacer. */
+/** PLG-TEST-REL: comando de tests relacionados según el runner del repo (null si no se reconoce). */
+export function comandoRelacionado(raiz) {
+  let pkg = {};
+  try {
+    pkg = JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8'));
+  } catch {
+    // sin package.json legible: no es un proyecto de Node
+  }
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  if (deps.vitest) return 'npx vitest related --run {archivos}';
+  if (deps.jest) return 'npx jest --findRelatedTests {archivos}';
+  if (['pytest.ini', 'conftest.py', 'pyproject.toml', 'setup.cfg'].some((f) => fs.existsSync(path.join(raiz, f)))) return 'pytest {archivos}';
+  return null;
+}
+
 export function formatoAlta(pasos) {
   const listos = pasos.filter((p) => p.estado === 'ok' || p.estado === 'na').length;
   const lineas = [`Alta de lineamientos-dev-claude-bacg: ${listos}/${pasos.length} pasos listos`, ''];
