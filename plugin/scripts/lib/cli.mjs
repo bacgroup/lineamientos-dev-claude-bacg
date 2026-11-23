@@ -99,6 +99,26 @@ export function soloRojosConocidos(fallos, conocidos) {
   return fallos.every((f) => conocidos.some((c) => f.includes(c)));
 }
 
+// PLG-TEST-INFRA: errores del runner que no son de un test (el worker no contesta, un error fuera de los tests).
+const RE_INFRA = /\[vitest-worker\]|Unhandled (?:Error|Rejection)|onTaskUpdate|worker process has failed to exit|Worker exited unexpectedly|Channel closed/i;
+const RE_TIMEOUT = /Test timed out in \d+\s*ms|Exceeded timeout of \d+\s*ms/gi;
+// Resumen de vitest ("Tests  2 failed | 10 passed (12)") y de jest ("Tests:  1 failed, 9 passed, 10 total").
+const RE_RESUMEN = /^\s*Tests:?\s+(.*\d+\s+(?:passed|failed).*)$/;
+
+/**
+ * Clase de una falla de tests: 'infraestructura' (el resumen dice que no falló ningún test y hay un error del runner),
+ * 'timeout' (todos los tests fallados se cortaron por tiempo) o 'rojo' (todo lo demás: ante la duda, rojo).
+ */
+export function claseFalla(salida) {
+  const texto = String(salida ?? '').replace(RE_ANSI, '');
+  const resumenes = texto.split(/\r?\n/).map((l) => l.match(RE_RESUMEN)?.[1]).filter(Boolean);
+  if (resumenes.length === 0) return 'rojo';
+  const fallados = resumenes.reduce((n, r) => n + Number(r.match(/(\d+)\s+failed/)?.[1] ?? 0), 0);
+  if (fallados === 0) return RE_INFRA.test(texto) ? 'infraestructura' : 'rojo';
+  const timeouts = texto.match(RE_TIMEOUT)?.length ?? 0;
+  return timeouts >= fallados ? 'timeout' : 'rojo';
+}
+
 /**
  * Arma el comando con los archivos en stage: `{archivos}` se reemplaza por las rutas entre comillas dobles.
  * Devuelve null si el comando pide archivos y no hay ninguno (no hay nada relacionado que correr).

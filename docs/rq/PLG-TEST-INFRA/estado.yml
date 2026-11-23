@@ -1,19 +1,34 @@
 codigo: PLG-TEST-INFRA
 tipo: rq
 clasificacion: bounded
-clasificacion_pendiente: true
+clasificacion_pendiente: false
 tarea: 'Commits sin rechazos falsos: reintento ante falla de infraestructura o timeout de tests, clase del rechazo en el log, aviso si tests.unit no usa {archivos} (PLG-TEST-REL) y pregunta de canon de UI al cierre'
 etapa: 0
-autonomia: null
-aprobaciones: []
-tests: null
+autonomia:
+  hasta: 4
+  frase: Avanza
+  fecha: '2026-11-23T01:13:15.280Z'
+  via: ok
+  grupo: ok-2026-11-23T01:13:15.280Z
+aprobaciones:
+  - etapa: 1
+    frase: Avanza
+    fecha: '2026-11-23T01:13:15.280Z'
+    via: ok
+    grupo: ok-2026-11-23T01:13:15.280Z
+tests:
+  ok: true
+  arbol: 6147bf4e8c9a680f92991dd939fb8dfe8b213222
+  fecha: '2026-11-23T01:15:57.758Z'
+  comandos:
+    - npm test
 revision: null
 circuito: []
 saltos: []
 base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-23T01:08:24.995Z'
+actualizado: '2026-11-23T01:15:57.760Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -24,3 +39,26 @@ skills:
     etapa: 0
     fecha: '2026-11-23T01:08:24.993Z'
     sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:writing-plans
+    etapa: 1
+    fecha: '2026-11-23T01:13:17.368Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:test-driven-development
+    etapa: 1
+    fecha: '2026-11-23T01:13:19.625Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:executing-plans
+    etapa: 1
+    fecha: '2026-11-23T01:13:21.554Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+clasificacion_confirmada:
+  frase: Avanza
+  fecha: '2026-11-23T01:13:15.280Z'
+  via: ok
+  grupo: ok-2026-11-23T01:13:15.280Z
+ejecucion:
+  modo: inline
+  frase: Avanza
+  fecha: '2026-11-23T01:13:15.280Z'
+  via: ok
+  grupo: ok-2026-11-23T01:13:15.280Z

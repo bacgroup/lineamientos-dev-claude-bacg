@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
-import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
+import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, claseFalla, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
 import { faltaParaEtapa, pasadasSinRepetir, PASADAS_REVISION, nombreSkill as nombreSkillDe, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
@@ -934,7 +934,14 @@ function exigirDesarrollo(estado, raiz, proyecto) {
  * Corre los tests de commit sobre lo que está en stage y los registra en estado.tests. Si todo sale bien imprime una
  * línea; si falla, la cola de la salida. No guarda el estado (lo guarda quien llama). Devuelve el código de salida.
  */
-function correrTests(raiz, estado, proyecto, io, { silencioso = false } = {}) {
+// PLG-TEST-INFRA: mensajes del rechazo según la clase de la falla (claseFalla) cuando el reintento tampoco pasó.
+const MSG_CLASE = {
+  infraestructura: 'Falla de infraestructura del runner, no de tests (todos pasaron dos veces y el runner cortó con error). Bajá la carga de la PC (E2E, servidores) o corré sólo los tests relacionados.',
+  timeout: 'Tests que superan su tiempo dos veces seguidas: revisá el límite del test (testTimeout) o la carga de la PC.',
+};
+const PISTA_RELACIONADOS = 'Pista: con {archivos} en tests.unit el commit corre sólo los tests relacionados con lo que está en stage (vitest: npx vitest related --run {archivos}; jest: npx jest --findRelatedTests {archivos}).';
+
+function correrTests(raiz, estado, proyecto, io, { silencioso = false, env = process.env } = {}) {
   const comandos = comandosTests(proyecto);
   if (comandos.length === 0) {
     throw new ErrorCli(`El proyecto no declara comandos de tests en proyecto.yml. ${PISTA_SIN_TESTS}`);
@@ -944,26 +951,52 @@ function correrTests(raiz, estado, proyecto, io, { silencioso = false } = {}) {
   const conocidos = rojosConocidos(proyecto);
   const corridos = [];
   const rojos = [];
+  const inestables = [];
+  let rechazo = null;
   let codigo = 0;
   for (const base of comandos) {
     const cmd = conArchivos(rutasEn(base, raiz, proyecto), archivos);
     if (cmd === null) continue;
     corridos.push(cmd);
-    const r = spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const correr = () => spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    let r = correr();
     if (r.error) io.stderr.write(`No pude ejecutar "${cmd}": ${r.error.message}\n`);
     if (r.status === 0) continue;
-    const salidaTest = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
-    const fallos = fallosDe(salidaTest);
+    let salidaTest = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
+    let fallos = fallosDe(salidaTest);
     if (soloRojosConocidos(fallos, conocidos)) {
       rojos.push(...fallos);
       continue;
     }
+    // PLG-TEST-INFRA: lo que no es un test rojo (el runner cortó con todo en verde, o sólo hubo timeouts) se
+    // reintenta una vez; si pasa, queda anotado como inestable.
+    let clase = claseFalla(salidaTest);
+    if (clase !== 'rojo' && !r.error && env.BACG_DEV_SIN_REINTENTO !== '1') {
+      io.stdout.write(`Falla de ${clase === 'timeout' ? 'tiempo (timeout)' : 'infraestructura del runner'}, no de un test rojo: reintento una vez "${cmd}".\n`);
+      const primera = fallos;
+      r = correr();
+      if (r.status === 0) {
+        inestables.push({ fecha: ahora(), clase, comando: cmd, ...(primera.length ? { tests: primera } : {}) });
+        continue;
+      }
+      salidaTest = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
+      fallos = fallosDe(salidaTest);
+      clase = claseFalla(salidaTest);
+    }
     io.stdout.write(`${resumenFalla(salidaTest, 60, { id: `tests-${estado.codigo}` })}\n`);
+    if (MSG_CLASE[clase]) io.stdout.write(`${MSG_CLASE[clase]}${/\{archivos\}/.test(base) ? '' : ` ${PISTA_RELACIONADOS}`}\n`);
+    rechazo = clase;
     codigo = r.status ?? 1;
     break;
   }
+  const previos = estado.tests ?? {};
   estado.tests = { ok: codigo === 0, arbol, fecha: ahora(), comandos: corridos };
   if (rojos.length) estado.tests.rojos_conocidos = [...new Set(rojos)];
+  const todosInestables = [...(previos.inestables ?? []), ...inestables];
+  if (todosInestables.length) estado.tests.inestables = todosInestables.slice(-20);
+  const rechazos = { ...(previos.rechazos ?? {}) };
+  if (rechazo) rechazos[rechazo] = (rechazos[rechazo] ?? 0) + 1;
+  if (Object.keys(rechazos).length) estado.tests.rechazos = rechazos;
   const extra = rojos.length ? `, ${new Set(rojos).size} rojo(s) conocido(s)` : '';
   if (silencioso && codigo === 0) return 0; // commit resume los tests en su propia línea
   if (corridos.length === 0) io.stdout.write('Sin archivos de producto en stage: no corrió ningún test.\n');
@@ -982,7 +1015,7 @@ function registrarTests(repo, elegido, env, io) {
     throw new ErrorCli('Hay cambios sin stagear en archivos trackeados: usá $RQ commit "<mensaje>" <rutas> (los deja aparte mientras corren los tests) o hacé git add antes.');
   }
   if (enStageDeProducto(raiz, proyecto).length) exigirDesarrollo(estado, raiz, proyecto);
-  const r = correrTests(raiz, estado, proyecto, io);
+  const r = correrTests(raiz, estado, proyecto, io, { env });
   guardar(raiz, estado);
   stagearPropiosDeLaCli(raiz, estado.codigo);
   return r;
@@ -1052,7 +1085,7 @@ function commit(repo, elegido, args, env, io) {
     }
     let r;
     try {
-      r = correrTests(raiz, estado, proyecto, io, { silencioso: true });
+      r = correrTests(raiz, estado, proyecto, io, { silencioso: true, env });
     } finally {
       if (aparte) {
         const pop = spawnSync('git', ['stash', 'pop', '-q', '--index'], { cwd: raiz, encoding: 'utf8' });
