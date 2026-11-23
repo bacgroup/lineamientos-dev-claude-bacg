@@ -99,24 +99,50 @@ export function soloRojosConocidos(fallos, conocidos) {
   return fallos.every((f) => conocidos.some((c) => f.includes(c)));
 }
 
-// PLG-TEST-INFRA: errores del runner que no son de un test (el worker no contesta, un error fuera de los tests).
-const RE_INFRA = /\[vitest-worker\]|Unhandled (?:Error|Rejection)|onTaskUpdate|worker process has failed to exit|Worker exited unexpectedly|Channel closed/i;
-const RE_TIMEOUT = /Test timed out in \d+\s*ms|Exceeded timeout of \d+\s*ms/gi;
+// PLG-TEST-INFRA: el runner perdió la comunicación con un worker (no es un error de un test ni del producto). El aviso
+// de jest "A worker process has failed to exit" no cuenta: son handles abiertos, no un corte del runner.
+const RE_INFRA = /\[vitest-worker\]|Timeout calling "onTaskUpdate"|Worker exited unexpectedly|Channel closed/i;
+// Un error que vitest atribuye a un archivo de test o al código que corre: es del producto.
+const RE_ERROR_PROPIO = /This error originated in .*test file/i;
+const RE_TIMEOUT = /Test timed out in \d+\s*ms|Exceeded timeout of \d+\s*ms/i;
 // Resumen de vitest ("Tests  2 failed | 10 passed (12)") y de jest ("Tests:  1 failed, 9 passed, 10 total").
 const RE_RESUMEN = /^\s*Tests:?\s+(.*\d+\s+(?:passed|failed).*)$/;
+// Archivos o suites que fallaron (no cargan, no compilan): vitest "Test Files  1 failed", jest "Test Suites: 1 failed".
+const RE_ARCHIVOS_FALLADOS = /^\s*Test (?:Files|Suites):?\s+.*?(\d+)\s+failed/;
+// Línea que nombra un test fallado: vitest "FAIL  a.test.ts > caso" o "× caso 12ms", jest "● Suite › caso".
+const RE_TEST_FALLADO = /^\s*(?:FAIL\s|×|✗|●)\s*(.+?)\s*$/;
+
+/** Nombre corto de un test (último tramo, sin la duración) para no contar dos veces el mismo en dos reportes. */
+const nombreCorto = (t) => t.split(/\s+[>›]\s+/).pop().replace(/\s+\d+\s*ms$/, '').trim();
 
 /**
- * Clase de una falla de tests: 'infraestructura' (el resumen dice que no falló ningún test y hay un error del runner),
- * 'timeout' (todos los tests fallados se cortaron por tiempo) o 'rojo' (todo lo demás: ante la duda, rojo).
+ * Clase de una falla de tests: 'infraestructura' (el resumen dice que no falló ningún test ni archivo y el runner perdió
+ * un worker), 'timeout' (todos los tests fallados se cortaron por tiempo) o 'rojo' (todo lo demás: ante la duda, rojo).
+ * Los timeouts se cuentan por test distinto: vitest y jest repiten cada fallo en un segundo reporte.
  */
 export function claseFalla(salida) {
-  const texto = String(salida ?? '').replace(RE_ANSI, '');
-  const resumenes = texto.split(/\r?\n/).map((l) => l.match(RE_RESUMEN)?.[1]).filter(Boolean);
-  if (resumenes.length === 0) return 'rojo';
-  const fallados = resumenes.reduce((n, r) => n + Number(r.match(/(\d+)\s+failed/)?.[1] ?? 0), 0);
-  if (fallados === 0) return RE_INFRA.test(texto) ? 'infraestructura' : 'rojo';
-  const timeouts = texto.match(RE_TIMEOUT)?.length ?? 0;
-  return timeouts >= fallados ? 'timeout' : 'rojo';
+  const lineas = String(salida ?? '').replace(RE_ANSI, '').split(/\r?\n/);
+  let fallados = 0;
+  let conResumen = false;
+  let ultimo = null;
+  const conTimeout = new Set();
+  for (const l of lineas) {
+    const archivos = l.match(RE_ARCHIVOS_FALLADOS);
+    if (archivos && Number(archivos[1]) > 0) return 'rojo';
+    const resumen = l.match(RE_RESUMEN);
+    if (resumen) {
+      conResumen = true;
+      fallados += Number(resumen[1].match(/(\d+)\s+failed/)?.[1] ?? 0);
+      continue;
+    }
+    const t = l.match(RE_TEST_FALLADO);
+    if (t) ultimo = nombreCorto(t[1]);
+    else if (RE_TIMEOUT.test(l)) conTimeout.add(ultimo ?? `#${conTimeout.size}`);
+  }
+  if (!conResumen) return 'rojo';
+  const texto = lineas.join('\n');
+  if (fallados === 0) return RE_INFRA.test(texto) && !RE_ERROR_PROPIO.test(texto) ? 'infraestructura' : 'rojo';
+  return conTimeout.size >= fallados ? 'timeout' : 'rojo';
 }
 
 /**

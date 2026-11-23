@@ -17,10 +17,10 @@ import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAnte
 import { upsertFila, upsertEnArchivo, fusionarEnArchivo, columnasDe, crearConEncabezadoDe, rutaBacklog, rutaCentral, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
 import { tipoArchivo } from './lib/rutas.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
-import { seccionAgents, escribirAgents } from './lib/agents.mjs';
+import { rutaCanon, seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
-import { pasosAlta, formatoAlta, bloqueante, scriptDelComando } from './lib/alta.mjs';
+import { pasosAlta, formatoAlta, bloqueante, scriptDelComando, comandoRelacionado } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
 import { ordenDeRamas } from './lib/promocion.mjs';
 import { textoArranque } from './lib/arranque.mjs';
@@ -931,17 +931,20 @@ function exigirDesarrollo(estado, raiz, proyecto) {
   if (!EN_LINEA_POR_DEFECTO.includes(estado.clasificacion) && !estado.ejecucion && !hayCommitDeCodigo(raiz, estado.codigo, estado, proyecto)) throw new ErrorCli(MSG_EJECUCION);
 }
 
-/**
- * Corre los tests de commit sobre lo que está en stage y los registra en estado.tests. Si todo sale bien imprime una
- * línea; si falla, la cola de la salida. No guarda el estado (lo guarda quien llama). Devuelve el código de salida.
- */
 // PLG-TEST-INFRA: mensajes del rechazo según la clase de la falla (claseFalla) cuando el reintento tampoco pasó.
 const MSG_CLASE = {
   infraestructura: 'Falla de infraestructura del runner, no de tests (todos pasaron dos veces y el runner cortó con error). Bajá la carga de la PC (E2E, servidores) o corré sólo los tests relacionados.',
   timeout: 'Tests que superan su tiempo dos veces seguidas: revisá el límite del test (testTimeout) o la carga de la PC.',
 };
-const PISTA_RELACIONADOS = 'Pista: con {archivos} en tests.unit el commit corre sólo los tests relacionados con lo que está en stage (vitest: npx vitest related --run {archivos}; jest: npx jest --findRelatedTests {archivos}).';
+const pistaRelacionados = (raiz) => {
+  const sugerido = comandoRelacionado(raiz);
+  return `Pista: con {archivos} en tests.unit el commit corre sólo los tests relacionados con lo que está en stage${sugerido ? ` (${sugerido})` : ' (con la opción de tu runner que corre los tests de esas rutas)'}.`;
+};
 
+/**
+ * Corre los tests de commit sobre lo que está en stage y los registra en estado.tests. Si todo sale bien imprime una
+ * línea; si falla, la cola de la salida. No guarda el estado (lo guarda quien llama). Devuelve el código de salida.
+ */
 function correrTests(raiz, estado, proyecto, io, { silencioso = false, env = process.env } = {}) {
   const comandos = comandosTests(proyecto);
   if (comandos.length === 0) {
@@ -976,16 +979,23 @@ function correrTests(raiz, estado, proyecto, io, { silencioso = false, env = pro
       io.stdout.write(`Falla de ${clase === 'timeout' ? 'tiempo (timeout)' : 'infraestructura del runner'}, no de un test rojo: reintento una vez "${cmd}".\n`);
       const primera = fallos;
       r = correr();
+      if (r.error) io.stderr.write(`No pude ejecutar "${cmd}" (reintento): ${r.error.message}\n`);
+      const inestable = { fecha: ahora(), clase, comando: cmd, ...(primera.length ? { tests: primera } : {}) };
       if (r.status === 0) {
-        inestables.push({ fecha: ahora(), clase, comando: cmd, ...(primera.length ? { tests: primera } : {}) });
+        inestables.push(inestable);
         continue;
       }
       salidaTest = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
       fallos = fallosDe(salidaTest);
+      if (soloRojosConocidos(fallos, conocidos)) {
+        inestables.push(inestable);
+        rojos.push(...fallos);
+        continue;
+      }
       clase = claseFalla(salidaTest);
     }
     io.stdout.write(`${resumenFalla(salidaTest, 60, { id: `tests-${estado.codigo}` })}\n`);
-    if (MSG_CLASE[clase]) io.stdout.write(`${MSG_CLASE[clase]}${/\{archivos\}/.test(base) ? '' : ` ${PISTA_RELACIONADOS}`}\n`);
+    if (MSG_CLASE[clase]) io.stdout.write(`${MSG_CLASE[clase]}${/\{archivos\}/.test(base) ? '' : ` ${pistaRelacionados(raiz)}`}\n`);
     rechazo = clase;
     codigo = r.status ?? 1;
     break;
@@ -1822,9 +1832,6 @@ function trasPasoDeCerrado(repo, elegido, env, io) {
 
 // Cierra el RQ aunque queden pasos manuales o de PROD sin hacer: quedan como pendientes en estado.yml, en la
 // fila del backlog y en el log. Con --resumen escribe el changelog y el log y commitea los docs del cierre.
-/** Ruta del canon de UI del proyecto en el repo (ui.canon, relativo a .bacg-dev/), o null si no lo declara. */
-const rutaCanon = (proyecto) => (typeof proyecto?.ui?.canon === 'string' && proyecto.ui.canon ? path.posix.normalize(`.bacg-dev/${proyecto.ui.canon}`) : null);
-
 function cerrar(repo, elegido, args, env, io) {
   const { res, posicionales } = opciones(args, ['resumen', 'alcance'], ['sin-changelog']);
   if (posicionales.length) throw new ErrorUso();
@@ -1838,7 +1845,9 @@ function cerrar(repo, elegido, args, env, io) {
     io.stderr.write(`Aviso: ${e.message} Sin proyecto no se calculan los pendientes del circuito.\n`);
   }
   // PLG-CANON-CIERRE: un RQ que tocó UI no cierra sin registrar si dejó un lineamiento nuevo para el canon.
-  if (!estado.canon && tocaUi(estado, raiz, proyecto, rutasDelRq(raiz, estado))) {
+  // Falla cerrada: si no se pueden leer las rutas del RQ o el proyecto, se pregunta igual.
+  const rutasCierre = rutasDelRq(raiz, estado);
+  if (!estado.canon && (rutasCierre === null || !proyecto || tocaUi(estado, raiz, proyecto, rutasCierre))) {
     const ruta = rutaCanon(proyecto);
     throw new ErrorCli(
       `Antes de cerrar, preguntale al usuario: ¿este RQ decidió un lineamiento de UI nuevo que debe ir al canon${ruta ? ` (${ruta})` : ''}? ` +
@@ -2274,7 +2283,12 @@ export async function main(
         } else if (decision === 'documentado') {
           const ruta = rutaCanon(proyectoDe(repo, env));
           if (!ruta) throw new ErrorCli('El proyecto no declara ui.canon: declará ui.canon en .bacg-dev/proyecto.yml (p. ej. canon-ui.md), escribí ahí el lineamiento y commitealo.');
-          if (!lista(rutasDelRq(raiz, estado)).includes(ruta)) throw new ErrorCli(`${ruta} no cambió en este RQ: escribí el lineamiento nuevo y commitealo antes de registrarlo.`);
+          // Sólo cuenta lo commiteado en la rama del RQ: un cambio sin commitear no queda en el canon de nadie.
+          const sinCommit = spawnSync('git', ['status', '--porcelain', '--', ruta], { cwd: raiz, encoding: 'utf8' });
+          if (sinCommit.status !== 0 || sinCommit.stdout.trim()) throw new ErrorCli(`${ruta} tiene cambios sin commitear: commitealos antes de registrar el canon.`);
+          const base = typeof estado.base === 'string' && estado.base ? estado.base : null;
+          const cambio = base ? spawnSync('git', ['diff', '--name-only', `${base}..HEAD`, '--', ruta], { cwd: raiz, encoding: 'utf8' }) : null;
+          if (!cambio || cambio.status !== 0 || !cambio.stdout.trim()) throw new ErrorCli(`${ruta} no cambió en este RQ: escribí el lineamiento nuevo y commitealo antes de registrarlo.`);
           cambiarVinculado(repo, env, elegido, io, (s) => { s.canon = { decision: 'documentado', ruta, fecha: ahora() }; return `Canon: lineamiento documentado en ${ruta}.`; });
         } else {
           throw new ErrorCli('Uso: canon no "<frase del usuario>" | canon documentado');

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { main } from '../plugin/scripts/rq.mjs';
-import { cargarEstado } from '../plugin/scripts/lib/estado.mjs';
+import { cargarEstado, guardarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { crearRepoTemporal, sesionDePrueba, fraseDe } from './helpers.mjs';
 
 const SESION = sesionDePrueba();
@@ -30,7 +30,7 @@ const git = (cwd, ...a) => execFileSync('git', a, { cwd, encoding: 'utf8' }).tri
 
 /** Repo con la configuración en .bacg-dev/ y un RQ abierto; `ui` marca el encuadre con Toca: UI [x]. */
 async function rqDe({ ui = true, canon = 'canon-ui.md' } = {}) {
-  const yml = `id: demo\nnombre: Demo\n${canon ? `ui:\n  canon: ${canon}\n` : ''}`;
+  const yml = `id: demo\nnombre: Demo\nui:\n  patrones: ["src/pantallas/**"]\n${canon ? `  canon: ${canon}\n` : ''}`;
   const archivos = { '.bacg-dev/proyecto.yml': yml };
   if (canon) archivos[`.bacg-dev/${canon}`] = '# Canon\n';
   const raiz = crearRepoTemporal({ proyectoId: 'demo', archivos });
@@ -53,6 +53,7 @@ test('canon no "<frase>": registra la respuesta del usuario y cerrar sigue', asy
   const frase = 'No, no hay nada nuevo para el canon';
   let r = await correr(raiz, ['canon', 'no', frase]);
   assert.equal(r.code, 1, 'una frase que el usuario no escribió no vale');
+  assert.match(r.err, /no aparece en lo que escribió el usuario/);
   SESION.dijo(frase);
   r = await correr(raiz, ['canon', 'no', frase]);
   assert.equal(r.code, 0, r.err);
@@ -90,4 +91,33 @@ test('canon: un RQ que no tocó UI cierra sin preguntar', async () => {
   const raiz = await rqDe({ ui: false });
   const r = await correr(raiz, ['cerrar']);
   assert.equal(r.code, 0, r.err);
+});
+
+test('canon documentado: un cambio del canon sin commitear no alcanza', async () => {
+  const raiz = await rqDe();
+  fs.appendFileSync(path.join(raiz, '.bacg-dev', 'canon-ui.md'), '- Regla sin commitear.\n');
+  const r = await correr(raiz, ['canon', 'documentado']);
+  assert.equal(r.code, 1);
+  assert.match(r.err, /sin commitear/);
+});
+
+test('canon: el disparo también sale de los archivos de ui.patrones en los commits del RQ', async () => {
+  const raiz = await rqDe({ ui: false });
+  fs.mkdirSync(path.join(raiz, 'src', 'pantallas'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'pantallas', 'Lista.tsx'), 'x');
+  git(raiz, 'add', 'src/pantallas/Lista.tsx');
+  git(raiz, 'commit', '-q', '-m', 'feat(R-1): lista');
+  const r = await correr(raiz, ['cerrar']);
+  assert.equal(r.code, 1);
+  assert.match(r.err + r.out, /lineamiento de UI nuevo/);
+});
+
+test('canon: si no se puede saber qué tocó el RQ (sin base ni upstream), pregunta igual (falla cerrada)', async () => {
+  const raiz = await rqDe({ ui: false });
+  const e = cargarEstado(raiz, 'R-1');
+  delete e.base;
+  guardarEstado(raiz, e);
+  const r = await correr(raiz, ['cerrar']);
+  assert.equal(r.code, 1);
+  assert.match(r.err + r.out, /lineamiento de UI nuevo/);
 });

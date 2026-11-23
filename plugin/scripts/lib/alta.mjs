@@ -342,7 +342,6 @@ export const bloqueante = (pasos) => pasos.find((p) => p.obligatorio && p.estado
 
 const ICONO = { ok: '✅', falta: '❌', aviso: '⚠️', na: '·' };
 
-/** Texto del stepper: lista numerada y el próximo paso con qué hacer. */
 /** PLG-TEST-REL: comando de tests relacionados según el runner del repo (null si no se reconoce). */
 export function comandoRelacionado(raiz) {
   let pkg = {};
@@ -354,10 +353,11 @@ export function comandoRelacionado(raiz) {
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   if (deps.vitest) return 'npx vitest related --run {archivos}';
   if (deps.jest) return 'npx jest --findRelatedTests {archivos}';
-  if (['pytest.ini', 'conftest.py', 'pyproject.toml', 'setup.cfg'].some((f) => fs.existsSync(path.join(raiz, f)))) return 'pytest {archivos}';
+  // pytest no tiene equivalente: con las fuentes en stage no corre sus tests (sale 5, "no tests ran").
   return null;
 }
 
+/** Texto del stepper: lista numerada y el próximo paso con qué hacer. */
 export function formatoAlta(pasos) {
   const listos = pasos.filter((p) => p.estado === 'ok' || p.estado === 'na').length;
   const lineas = [`Alta de lineamientos-dev-claude-bacg: ${listos}/${pasos.length} pasos listos`, ''];

@@ -195,13 +195,14 @@ test('PLG-TEST-REL: tests.unit sin {archivos} → aviso no obligatorio con el co
   assert.equal(pasos.findIndex((x) => x.id === 'tests-rel'), pasos.findIndex((x) => x.id === 'tests') + 1, 'va después del paso de tests');
 });
 
-test('PLG-TEST-REL: con jest sugiere --findRelatedTests; con pytest, las rutas; sin stack reconocido, sin comando', () => {
+test('PLG-TEST-REL: con jest sugiere --findRelatedTests; con pytest o sin stack reconocido, sin comando', () => {
   const m = montar({ unit: 'npm test' });
   fs.writeFileSync(path.join(m.repo, 'package.json'), JSON.stringify({ devDependencies: { jest: '^29.0.0' } }));
   assert.match(pasosAlta(opts(m)).find((x) => x.id === 'tests-rel').como, /npx jest --findRelatedTests \{archivos\}/);
   const m2 = montar({ unit: 'pytest' });
   fs.writeFileSync(path.join(m2.repo, 'pytest.ini'), '[pytest]\n');
-  assert.match(pasosAlta(opts(m2)).find((x) => x.id === 'tests-rel').como, /pytest \{archivos\}/);
+  // pytest con las fuentes en stage no corre sus tests (sale 5, "no tests ran"): no hay equivalente a "related".
+  assert.doesNotMatch(pasosAlta(opts(m2)).find((x) => x.id === 'tests-rel').como, /pytest \{archivos\}/);
   const m3 = montar({ unit: 'make test' });
   const como = pasosAlta(opts(m3)).find((x) => x.id === 'tests-rel').como;
   assert.doesNotMatch(como, /npx|pytest/);
@@ -212,6 +213,14 @@ test('PLG-TEST-REL: con {archivos} el paso está ok; sin comando de tests no apa
   const ok = montar({ unit: 'npx vitest related --run {archivos}' });
   assert.equal(pasosAlta(opts(ok)).find((x) => x.id === 'tests-rel').estado, 'ok');
   assert.equal(pasosAlta(opts(montar())).some((x) => x.id === 'tests-rel'), false);
+});
+
+test('PLG-TEST-REL: con {archivos} el arranque no muestra el aviso', async () => {
+  const m = montar();
+  fs.mkdirSync(path.join(m.home, '.claude'));
+  fs.writeFileSync(path.join(m.home, '.claude', 'bacg-dev.json'), JSON.stringify({ proyectos: { pf: { tests: { unit: 'npx vitest related --run {archivos}' } } } }));
+  const r = await sessionStart({ cwd: m.repo }, { dirLin: m.lin, home: m.home, pluginRoot: null, env: { BACG_DEV_SIN_GH: '1' } });
+  assert.doesNotMatch(r?.hookSpecificOutput?.additionalContext ?? '', /cada commit corre la suite entera/);
 });
 
 test('PLG-TEST-REL: el arranque muestra el aviso aunque el alta esté completa', async () => {

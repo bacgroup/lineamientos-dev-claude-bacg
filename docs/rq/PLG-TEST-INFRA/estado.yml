@@ -18,17 +18,21 @@ aprobaciones:
     grupo: ok-2026-11-23T01:13:15.280Z
 tests:
   ok: true
-  arbol: 0981390de67baf564115d9ea0283a0937cadb98b
-  fecha: '2026-11-23T01:21:46.968Z'
+  arbol: e93729792d260ee8a4c45db76b5727bce9664d4c
+  fecha: '2026-11-23T01:28:49.959Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: false
+  fecha: '2026-11-23T01:24:24.610Z'
+  nota: 'claseFalla: timeouts duplicados y Test Files/Suites fallados mal clasificados; Unhandled de producto como infraestructura; canon documentado acepta cambios sin commit; cerrar no falla cerrado sin rutas; pytest sugerido no corre relacionados; rutaCanon duplicado; canon fuera del E2E'
+  head: 5e9ab480043e780d7e160c911ab58a03de976f13
 circuito: []
 saltos: []
 base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-23T01:21:46.970Z'
+actualizado: '2026-11-23T01:28:49.961Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -51,6 +55,26 @@ skills:
     etapa: 1
     fecha: '2026-11-23T01:13:21.554Z'
     sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:requesting-code-review
+    etapa: 2
+    fecha: '2026-11-23T01:22:17.077Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 2
+    fecha: '2026-11-23T01:22:34.281Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 2
+    fecha: '2026-11-23T01:22:34.296Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 2
+    fecha: '2026-11-23T01:22:34.289Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:receiving-code-review
+    etapa: 2
+    fecha: '2026-11-23T01:24:24.923Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
 clasificacion_confirmada:
   frase: Avanza
   fecha: '2026-11-23T01:13:15.280Z'
@@ -62,3 +86,10 @@ ejecucion:
   fecha: '2026-11-23T01:13:15.280Z'
   via: ok
   grupo: ok-2026-11-23T01:13:15.280Z
+e2e:
+  ok: true
+  fecha: '2026-11-23T01:22:02.912Z'
+  comando: npm run test:e2e
+  head: 5e9ab480043e780d7e160c911ab58a03de976f13
+  completo: true
+revisiones_bloqueantes: 1

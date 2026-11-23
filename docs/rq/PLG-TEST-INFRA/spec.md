@@ -34,9 +34,11 @@ Fuera: G3 (PLG-TEST-LOCK) y los cambios del proyecto CRM (P1-P3).
 - C — subir los timeouts desde el plugin. Descartado: es configuración del proyecto (P2), no del plugin.
 
 ### Clasificación de la falla (lib/cli.mjs, `claseFalla(salida)`)
-- `infraestructura`: el resumen del runner dice que no falló ningún test (vitest `Tests  N passed`, jest `Tests: N passed`)
-  y hay un error del runner (`[vitest-worker]`, `Unhandled Error`, `onTaskUpdate`, `A worker process has failed to exit`).
-- `timeout`: hay fallos y todos vienen de `Test timed out in <n>ms` / `Exceeded timeout of <n> ms`.
+- `infraestructura`: el resumen dice que no falló ningún test ni archivo (vitest `Test Files`/`Tests`, jest `Test Suites:`/`Tests:`)
+  y el runner perdió un worker (`[vitest-worker]`, `Timeout calling "onTaskUpdate"`, `Channel closed`); un error que vitest
+  atribuye a un archivo de test ("This error originated in") es rojo.
+- `timeout`: hay fallos y todos vienen de `Test timed out in <n>ms` / `Exceeded timeout of <n> ms`, contados por test distinto
+  (vitest y jest repiten cada fallo en un segundo reporte).
 - `rojo`: cualquier otro caso (falla cerrada: ante la duda, rojo).
 
 ### Comportamiento en `correrTests` (rq.mjs)
@@ -49,19 +51,19 @@ Fuera: G3 (PLG-TEST-LOCK) y los cambios del proyecto CRM (P1-P3).
 - Las variables `BACG_DEV_SIN_REINTENTO=1` apagan el reintento (para CI o para quien lo prefiera).
 
 ### Log (G5)
-`registrarCierre` agrega `rechazos_tests` e `inestables` a la línea de docs/log/rq.jsonl cuando existen.
+`registrarCierre` agrega `rechazos_tests` y `tests_inestables` a la línea de docs/log/rq.jsonl cuando existen.
 
 ### Aviso de tests relacionados (PLG-TEST-REL, lib/alta.mjs)
 Paso no obligatorio `tests-rel`: si `tests.unit` (o el de la PC) no tiene `{archivos}`, estado `aviso`:
 "Cada commit corre la suite entera" + comando sugerido según el repo (vitest → `npx vitest related --run {archivos}`,
-jest → `npx jest --findRelatedTests {archivos}`, pytest → `pytest {archivos}`; si no se reconoce, sin sugerencia).
+jest → `npx jest --findRelatedTests {archivos}`; pytest no tiene equivalente y, como cualquier runner no reconocido, va sin sugerencia).
 Se ve en `$RQ alta` y en la línea del alta del arranque.
 
 ### Canon de UI al cierre (PLG-CANON-CIERRE)
 - Si el RQ tocó UI (archivos de `ui.patrones` en sus commits o `Toca: UI [x]`) y el proyecto declara `ui.canon`,
   `cerrar` frena con: "¿Este RQ decidió un lineamiento de UI nuevo que debe ir al canon (<ruta>)?".
 - Se responde con `$RQ canon no "<frase del usuario>"` o `$RQ canon documentado` (verifica que el archivo del canon
-  cambió en la rama del RQ). Sin `ui.canon` declarado, pregunta igual y sugiere crearlo.
+  cambió en commits de la rama del RQ y no tiene cambios sin commitear). Sin `ui.canon` declarado, pregunta igual y sugiere crearlo.
 - ciclo-rq sección 7: antes de `cerrar`, preguntarle al usuario y, si dice que sí, escribir el lineamiento en el canon.
 
 ### Port a dev-fullflow
