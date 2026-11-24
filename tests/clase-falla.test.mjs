@@ -110,3 +110,56 @@ test('claseFalla: un Unhandled Rejection del código del producto con todo en ve
   const s = '      Tests  10 passed (10)\n⎯⎯ Unhandled Rejection ⎯⎯\nTypeError: x is undefined\n ❯ src/api/leads.ts:42:7\nThis error originated in "src/api/leads.test.ts" test file.';
   assert.equal(claseFalla(s), 'rojo');
 });
+
+// Re-revisión: salidas completas (con Test Files / Test Suites), como las imprimen vitest y jest de verdad.
+test('claseFalla: vitest completo con un solo timeout (Test Files 1 failed) → timeout', () => {
+  const s = [
+    ' ❯ src/a.test.ts (5 tests | 1 failed) 5012ms',
+    '   × Inbox > lento 5003ms',
+    '     → Test timed out in 5000ms.',
+    '⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯',
+    ' FAIL  src/a.test.ts > Inbox > lento',
+    'Error: Test timed out in 5000ms.',
+    ' Test Files  1 failed | 9 passed (10)',
+    '      Tests  1 failed | 40 passed (41)',
+  ].join('\n');
+  assert.equal(claseFalla(s), 'timeout');
+});
+
+test('claseFalla: jest completo con un solo timeout (Test Suites 1 failed) → timeout', () => {
+  const s = [
+    'FAIL src/lista.test.js',
+    '  ● Lista › carga',
+    '',
+    '    thrown: "Exceeded timeout of 5000 ms for a test."',
+    '',
+    'Test Suites: 1 failed, 9 passed, 10 total',
+    'Tests:       1 failed, 40 passed, 41 total',
+  ].join('\n');
+  assert.equal(claseFalla(s), 'timeout');
+});
+
+test('claseFalla: un archivo que no carga junto a timeouts → rojo', () => {
+  const vitest = [
+    '⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯',
+    ' FAIL  src/roto.test.ts [ src/roto.test.ts ]',
+    "SyntaxError: Unexpected token ')'",
+    '⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯',
+    ' FAIL  src/a.test.ts > lento',
+    'Error: Test timed out in 5000ms.',
+    ' Test Files  2 failed | 8 passed (10)',
+    '      Tests  1 failed | 40 passed (41)',
+  ].join('\n');
+  assert.equal(claseFalla(vitest), 'rojo');
+  const jest = [
+    'FAIL src/roto.test.js',
+    '  ● Test suite failed to run',
+    '    SyntaxError: Unexpected token',
+    'FAIL src/lista.test.js',
+    '  ● Lista › carga',
+    '    thrown: "Exceeded timeout of 5000 ms for a test."',
+    'Test Suites: 2 failed, 8 passed, 10 total',
+    'Tests:       1 failed, 40 passed, 41 total',
+  ].join('\n');
+  assert.equal(claseFalla(jest), 'rojo');
+});

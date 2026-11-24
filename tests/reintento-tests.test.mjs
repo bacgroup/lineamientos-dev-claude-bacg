@@ -191,13 +191,17 @@ test('reintento: si el comando ya usa {archivos}, el rechazo no sugiere la pista
 });
 
 test('reintento: si el reintento falla sólo con rojos conocidos, cuenta como ok', async () => {
-  const { env } = proyectoConVarios([['timeout', 'rojoViejo']]);
+  const { env, corridas } = proyectoConVarios([['timeout', 'rojoViejo']]);
   const yml = path.join(env.BACG_LINEAMIENTOS_DIR, 'proyectos', 'demo', 'proyecto.yml');
   fs.writeFileSync(yml, fs.readFileSync(yml, 'utf8').replace('tests:\n', 'tests:\n  rojos_conocidos: ["src/viejo.test.ts"]\n'));
   const raiz = await rqAbierto(env);
   const r = await correr(raiz, ['registrar-tests'], env);
   assert.equal(r.code, 0, r.out + r.err);
-  assert.equal(cargarEstado(raiz, 'R-1').tests.ok, true);
+  assert.equal(corridas(), 2, 'se reintentó');
+  const t = cargarEstado(raiz, 'R-1').tests;
+  assert.equal(t.ok, true);
+  assert.equal(t.inestables[0].clase, 'timeout');
+  assert.deepEqual(t.rojos_conocidos, ['src/viejo.test.ts > caso']);
 });
 
 test('reintento: con dos comandos, el primero inestable y el segundo rojo → rechazo rojo y el inestable se conserva', async () => {

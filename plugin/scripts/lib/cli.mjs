@@ -107,8 +107,11 @@ const RE_ERROR_PROPIO = /This error originated in .*test file/i;
 const RE_TIMEOUT = /Test timed out in \d+\s*ms|Exceeded timeout of \d+\s*ms/i;
 // Resumen de vitest ("Tests  2 failed | 10 passed (12)") y de jest ("Tests:  1 failed, 9 passed, 10 total").
 const RE_RESUMEN = /^\s*Tests:?\s+(.*\d+\s+(?:passed|failed).*)$/;
-// Archivos o suites que fallaron (no cargan, no compilan): vitest "Test Files  1 failed", jest "Test Suites: 1 failed".
+// Archivos o suites con fallos: vitest "Test Files  1 failed", jest "Test Suites: 1 failed". Cuentan también los que
+// fallan por un test (un timeout), así que sólo dicen "no cargó" cuando el resumen de tests no tiene ningún fallado.
 const RE_ARCHIVOS_FALLADOS = /^\s*Test (?:Files|Suites):?\s+.*?(\d+)\s+failed/;
+// Un archivo de test que no carga o no compila, aunque haya otros fallos: vitest "Failed Suites", jest "Test suite failed to run".
+const RE_SUITE_ROTA = /Failed Suites \d+|Test suite failed to run/i;
 // Línea que nombra un test fallado: vitest "FAIL  a.test.ts > caso" o "× caso 12ms", jest "● Suite › caso".
 const RE_TEST_FALLADO = /^\s*(?:FAIL\s|×|✗|●)\s*(.+?)\s*$/;
 
@@ -123,12 +126,17 @@ const nombreCorto = (t) => t.split(/\s+[>›]\s+/).pop().replace(/\s+\d+\s*ms$/,
 export function claseFalla(salida) {
   const lineas = String(salida ?? '').replace(RE_ANSI, '').split(/\r?\n/);
   let fallados = 0;
+  let archivosFallados = 0;
   let conResumen = false;
   let ultimo = null;
   const conTimeout = new Set();
   for (const l of lineas) {
+    if (RE_SUITE_ROTA.test(l)) return 'rojo';
     const archivos = l.match(RE_ARCHIVOS_FALLADOS);
-    if (archivos && Number(archivos[1]) > 0) return 'rojo';
+    if (archivos) {
+      archivosFallados += Number(archivos[1]);
+      continue;
+    }
     const resumen = l.match(RE_RESUMEN);
     if (resumen) {
       conResumen = true;
@@ -141,7 +149,7 @@ export function claseFalla(salida) {
   }
   if (!conResumen) return 'rojo';
   const texto = lineas.join('\n');
-  if (fallados === 0) return RE_INFRA.test(texto) && !RE_ERROR_PROPIO.test(texto) ? 'infraestructura' : 'rojo';
+  if (fallados === 0) return archivosFallados === 0 && RE_INFRA.test(texto) && !RE_ERROR_PROPIO.test(texto) ? 'infraestructura' : 'rojo';
   return conTimeout.size >= fallados ? 'timeout' : 'rojo';
 }
 
