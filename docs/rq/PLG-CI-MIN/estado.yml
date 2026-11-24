@@ -14,6 +14,9 @@ aprobaciones:
     frase: Apruebo el orden y las tres decisiones, avanzá
     fecha: '2026-11-24T14:31:20.458Z'
     via: sesion
+  - etapa: 5
+    frase: Doy OK de PROD, mergeá el PR y cerrá los RQ
+    fecha: '2026-11-24T15:56:55.917Z'
 tests:
   ok: true
   arbol: 929efedb6c049b4fb9c358375470a1bd195af0b9
@@ -30,7 +33,7 @@ saltos: []
 base: 7614f02fc43e7825d074e0188d52de5b57be3981
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:56:41.507Z'
+actualizado: '2026-11-24T15:56:55.919Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0

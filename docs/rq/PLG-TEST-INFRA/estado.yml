@@ -16,6 +16,9 @@ aprobaciones:
     fecha: '2026-11-23T01:13:15.280Z'
     via: ok
     grupo: ok-2026-11-23T01:13:15.280Z
+  - etapa: 5
+    frase: Doy OK de PROD, mergeá el PR y cerrá los RQ
+    fecha: '2026-11-24T15:56:55.493Z'
 tests:
   ok: true
   arbol: 16f0eef9cbda8781499dede68d172666e5ddea77
@@ -32,7 +35,7 @@ saltos: []
 base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:19:29.889Z'
+actualizado: '2026-11-24T15:56:55.496Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
