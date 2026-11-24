@@ -1,0 +1,89 @@
+codigo: PLG-CI-MIN
+tipo: rq
+clasificacion: bounded
+clasificacion_pendiente: false
+tarea: 'Que el ciclo no queme minutos de GitHub Actions: [skip ci] en commits de sólo docs, un solo push de docs al cierre, guía de filtros de CI y aviso en el arranque'
+etapa: 0
+autonomia:
+  hasta: 4
+  frase: Apruebo el orden y las tres decisiones, avanzá
+  fecha: '2026-11-24T14:31:00.444Z'
+  via: sesion
+aprobaciones:
+  - etapa: 1
+    frase: Apruebo el orden y las tres decisiones, avanzá
+    fecha: '2026-11-24T14:31:20.458Z'
+    via: sesion
+tests:
+  ok: true
+  arbol: fabe6cd8f763f2c9b7a0a4d681f4feb4ad7b7188
+  fecha: '2026-11-24T14:35:42.144Z'
+  comandos:
+    - npm test
+revision: null
+circuito: []
+saltos: []
+base: 7614f02fc43e7825d074e0188d52de5b57be3981
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-24T14:35:42.146Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:31:00.396Z'
+    via: sesion
+clasificacion_confirmada:
+  frase: Apruebo el orden y las tres decisiones, avanzá
+  fecha: '2026-11-24T14:31:00.444Z'
+  via: sesion

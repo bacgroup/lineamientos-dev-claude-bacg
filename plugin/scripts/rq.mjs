@@ -16,6 +16,7 @@ import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, r
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, upsertEnArchivo, fusionarEnArchivo, columnasDe, crearConEncabezadoDe, rutaBacklog, rutaCentral, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
 import { tipoArchivo, globARegExp } from './lib/rutas.mjs';
+import { saltarCi, soloDocs, conSkipCi } from './lib/ci.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { rutaCanon, seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
@@ -1164,7 +1165,9 @@ function commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, en
   guardar(raiz, estado);
   const propios = [`docs/rq/${codigo}/estado.yml`, 'docs/rq/ACTIVO'].filter((p) => fs.existsSync(path.join(raiz, p)));
   spawnSync('git', ['add', '--', ...propios], { cwd: raiz });
-  const msg = conCodigo(mensaje, codigo);
+  const conCod = conCodigo(mensaje, codigo);
+  // PLG-CI-MIN: un commit de sólo docs no corre el CI (salvo ci.skip_docs: false).
+  const msg = saltarCi(proyecto) && soloDocs(nombresEnStage(raiz)) ? conSkipCi(conCod) : conCod;
   const c = spawnSync('git', ['commit', '-q', '-m', msg], { cwd: raiz, encoding: 'utf8' });
   if (c.status !== 0) throw new ErrorCli(`git commit falló: ${String(c.stderr || c.stdout).trim()}`);
   const hash = salida(raiz, ['rev-parse', '--short', 'HEAD']);
@@ -1558,14 +1561,16 @@ function registrarCierre(repo, codigo, estado, proyecto, { resumen, alcance, sin
   const trackeado = (p) => spawnSync('git', ['ls-files', '--error-unmatch', '--', p], { cwd: raiz, stdio: 'ignore' }).status === 0;
   const rutas = [`docs/rq/${codigo}`, 'docs/rq/ACTIVO', 'docs/log', 'docs/backlog.md']
     .filter((p) => fs.existsSync(path.join(raiz, p)) || trackeado(p));
+  // PLG-CI-MIN: el cierre sólo trae docs: no corre el CI (salvo ci.skip_docs: false).
+  const mensajeCierre = saltarCi(proyecto) ? conSkipCi(`docs(${codigo}): cierre`) : `docs(${codigo}): cierre`;
   const add = spawnSync('git', ['add', '-A', '--', ...rutas], { cwd: raiz, encoding: 'utf8' });
   const commit = add.status === 0
-    ? spawnSync('git', ['commit', '-q', '-m', `docs(${codigo}): cierre`, '--', ...rutas], { cwd: raiz, encoding: 'utf8' })
+    ? spawnSync('git', ['commit', '-q', '-m', mensajeCierre, '--', ...rutas], { cwd: raiz, encoding: 'utf8' })
     : add;
   io.stdout.write(`Changelog: ${avisoChangelog}. Log: docs/log/rq.jsonl.\n`);
   io.stdout.write(
     commit.status === 0
-      ? `Commit de cierre: docs(${codigo}): cierre. Falta el push (sólo docs: no necesita RQ).\n`
+      ? `Commit de cierre: ${mensajeCierre}. Falta el push (sólo docs: no necesita RQ; si hay otros commits de docs sin subir, viajan en este mismo push).\n`
       : `Aviso: no pude commitear los docs del cierre (${String(commit.stderr || commit.stdout).trim()}). Commitealos a mano.\n`,
   );
 }
