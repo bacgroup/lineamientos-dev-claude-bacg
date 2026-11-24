@@ -21,16 +21,16 @@ tests:
   comandos:
     - npm test
 revision:
-  ok: false
-  fecha: '2026-11-24T14:42:59.287Z'
-  nota: no-aplica de merge-prs-sync falla abierto y sin test del rechazo; commit de sólo tests sin stash; stage no se restaura con tests rojos; push con refspec explícito mal atribuido
-  head: f018fa437c0cb7a26c1a614705a0d5d05e0cf0a5
+  ok: true
+  fecha: '2026-11-24T14:56:41.368Z'
+  nota: 'Revisión integral (3 pasadas) + re-revisión acotada (3 pasadas): bloqueantes corregidos en 213ceeb y badcd31 ([skip ci] contra ramas de destino, con tests en rojo antes del arreglo), huecos de tests cubiertos en 499d4c3 con mutantes verificados; trazas alineadas. Suite en verde y E2E completo ok. Diferidos: stage parcial (git add -p) no se restaura; RE_TEST duplicado en ci.mjs/auditoria/rq.mjs; nombre de variable armado con join en marcarNoAplica.'
+  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
 circuito: []
 saltos: []
 base: 06fe671b0cc4352c16dec10e2269ff43501d806f
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:42:59.289Z'
+actualizado: '2026-11-24T14:56:41.371Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -87,8 +87,29 @@ skills:
     sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
     fecha: '2026-11-24T14:23:43.744Z'
     via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-24T14:50:05.061Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    fecha: '2026-11-24T14:50:10.461Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    fecha: '2026-11-24T14:50:14.617Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
 clasificacion_confirmada:
   frase: Apruebo el orden y las tres decisiones, avanzá
   fecha: '2026-11-24T14:23:43.786Z'
   via: sesion
 revisiones_bloqueantes: 1
+e2e:
+  ok: true
+  fecha: '2026-11-24T14:55:46.177Z'
+  comando: npm run test:e2e
+  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
+  completo: true

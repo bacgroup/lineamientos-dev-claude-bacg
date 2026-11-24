@@ -21,16 +21,16 @@ tests:
   comandos:
     - npm test
 revision:
-  ok: false
-  fecha: '2026-11-24T14:42:59.373Z'
-  nota: falta el aviso de {specs} en estado; e2e_mapa con string se ignora; etapa 5 sin test
-  head: f018fa437c0cb7a26c1a614705a0d5d05e0cf0a5
+  ok: true
+  fecha: '2026-11-24T14:56:41.233Z'
+  nota: 'Revisión integral (3 pasadas) + re-revisión acotada (3 pasadas): bloqueantes corregidos en 213ceeb y badcd31 ([skip ci] contra ramas de destino, con tests en rojo antes del arreglo), huecos de tests cubiertos en 499d4c3 con mutantes verificados; trazas alineadas. Suite en verde y E2E completo ok. Diferidos: stage parcial (git add -p) no se restaura; RE_TEST duplicado en ci.mjs/auditoria/rq.mjs; nombre de variable armado con join en marcarNoAplica.'
+  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
 circuito: []
 saltos: []
 base: ea567f24d108bba8557ee953c3f6ba7e76072693
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:42:59.375Z'
+actualizado: '2026-11-24T14:56:41.236Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -87,8 +87,29 @@ skills:
     sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
     fecha: '2026-11-24T14:19:00.054Z'
     via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-24T14:50:05.061Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    fecha: '2026-11-24T14:50:10.461Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    fecha: '2026-11-24T14:50:14.617Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
 clasificacion_confirmada:
   frase: Apruebo el orden y las tres decisiones, avanzá
   fecha: '2026-11-24T14:19:29.904Z'
   via: sesion
 revisiones_bloqueantes: 1
+e2e:
+  ok: true
+  fecha: '2026-11-24T14:55:30.601Z'
+  comando: npm run test:e2e
+  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
+  completo: true

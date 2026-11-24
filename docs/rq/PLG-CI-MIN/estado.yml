@@ -21,16 +21,16 @@ tests:
   comandos:
     - npm test
 revision:
-  ok: false
-  fecha: '2026-11-24T14:42:59.211Z'
-  nota: '[skip ci] en la punta del push saltea el CI de código que viaja; docs que lee la suite marcados; .md fuera de docs/ marcados'
-  head: f018fa437c0cb7a26c1a614705a0d5d05e0cf0a5
+  ok: true
+  fecha: '2026-11-24T14:56:41.504Z'
+  nota: 'Revisión integral (3 pasadas) + re-revisión acotada (3 pasadas): bloqueantes corregidos en 213ceeb y badcd31 ([skip ci] contra ramas de destino, con tests en rojo antes del arreglo), huecos de tests cubiertos en 499d4c3 con mutantes verificados; trazas alineadas. Suite en verde y E2E completo ok. Diferidos: stage parcial (git add -p) no se restaura; RE_TEST duplicado en ci.mjs/auditoria/rq.mjs; nombre de variable armado con join en marcarNoAplica.'
+  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
 circuito: []
 saltos: []
 base: 7614f02fc43e7825d074e0188d52de5b57be3981
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:55:14.720Z'
+actualizado: '2026-11-24T14:56:41.507Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -116,3 +116,9 @@ clasificacion_confirmada:
   fecha: '2026-11-24T14:31:00.444Z'
   via: sesion
 revisiones_bloqueantes: 1
+e2e:
+  ok: true
+  fecha: '2026-11-24T14:56:02.133Z'
+  comando: npm run test:e2e
+  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
+  completo: true

@@ -2,7 +2,7 @@
 # Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
 items:
   - id: S-1
-    texto: El commit de `cerrar` y el de `$RQ commit` con sólo docs llevan `[skip ci]` si todo lo que falta subir también es de docs; con código sin subir, sin remoto o con `ci.skip_docs: false`, no. Un SQL en `docs/` o un `.md` de `.bacg-dev/` no son docs.
+    texto: 'El commit de `cerrar` y el de `$RQ commit` con sólo docs llevan `[skip ci]` si todo lo que falta subir también es de docs; con código sin subir, sin remoto o con `ci.skip_docs: false`, no. Un SQL en `docs/` o un `.md` de `.bacg-dev/` no son docs.'
     archivos: [plugin/scripts/lib/ci.mjs, plugin/scripts/rq.mjs]
     test: 'tests/ci-min.test.mjs › soloDocs; cerrar con [skip ci] y con skip_docs false; commit de sólo docs vs. tests; con código sin subir debajo; sin upstream ni remoto; commit con skip_docs false'
     estado: hecho
