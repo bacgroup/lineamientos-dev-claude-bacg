@@ -1,65 +1,79 @@
-# 0001. Localización Argentina sobre l10n_ar de Odoo CE + módulos CE de ADHOC, vendorizados en powerfy-l10n
+# 0001. Localización Argentina con módulos propios sobre l10n_ar de Odoo CE, con OCA/ADHOC sólo como referencia
 
-- Fecha: 2026-11-24
+- Fecha: 2026-11-24 (revisión 2 del mismo día)
 - RQ: PF-L10N-AR
-- Estado: propuesta
+- Estado: propuesta. Pasa a `aceptada` cuando la POC en homologación de ARCA funcione y el usuario apruebe el spec.
 
 ## Contexto
 
-BACG necesita vender PowerFy (Odoo 18 CE) en Argentina, y PowerFy no tiene hoy facturación electrónica con ARCA (ex AFIP) ni en el backend ni en el POS. La pregunta era: ¿sobre qué módulos se construye la interfaz con ARCA? El pedido original era partir de OCA.
+BACG necesita vender PowerFy (Odoo 18 CE) en Argentina. PowerFy no tiene hoy localización fiscal ni facturación electrónica con ARCA (ex AFIP), ni en el backend ni en el POS. El usuario pidió partir de OCA, tomar lo publicado por ADHOC como referencia y **no depender de sus módulos**.
 
-Qué hay disponible en la rama 18.0 (relevado el 2026-11-24):
+Qué hay disponible (relevado el 2026-11-24, clonando las ramas):
 
 | Fuente | Qué trae | Licencia | Estado |
 |---|---|---|---|
-| Odoo CE (`odoo/odoo`, addons) | `l10n_ar` (plan de cuentas, responsabilidades frente al IVA, tipos de comprobante, PDF con QR y leyenda de la Ley 27.743 de transparencia fiscal), `l10n_ar_withholding` (retenciones en pagos), `l10n_ar_pos` (tipo de documento y responsabilidad en el POS), `l10n_ar_website_sale`, `l10n_latam_check` | LGPL-3 | Mantenido por Odoo |
-| Odoo Enterprise | `l10n_ar_edi` (factura electrónica con ARCA). En CE no existe: la URL del manifiesto en 18.0 devuelve 404 | Propietaria | Sólo con suscripción EE |
-| `OCA/l10n-argentina` 18.0 | **Vacío:** no tiene ningún módulo, sólo el scaffold. Último commit: 2025-02-02 | AGPL-3 | No es viable |
-| `ingadhoc/odoo-argentina-ce` 18.0 | `l10n_ar_afipws` (certificados, WSAA, padrón), `l10n_ar_afipws_fe` (WSFE, WSFEX, WSBFE y WSMTXCA, CAE, ya incluye `CondicionIVAReceptor` de la RG 5616), `l10n_ar_pos_afipws_fe` (23 líneas: factura el pedido del POS), `l10n_ar_reports` | AGPL-3 | Activo (último commit: 2026-11-18). Autores: ADHOC, Moldeo y "OCA" en el manifiesto. **Sin tests** |
-| `ingadhoc/odoo-argentina` 18.0 | `l10n_ar_ux`, `l10n_ar_tax` (percepciones e IIBB, depende de `account_payment_pro` y `l10n_latam_check_ux` de otros repos de ADHOC), `l10n_ar_purchase`, `l10n_ar_bank` | AGPL-3 | Activo (2026-11-24) |
-| `ingadhoc/odoo-argentina-ee` 18.0 | Libro IVA digital, SIRE, ARBA y otros | AGPL/LGPL | **Requiere EE** (`account_reports`, `l10n_ar_edi`): no aplica |
+| Odoo CE (`odoo/odoo` 18.0) | `l10n_ar` (plan de cuentas, responsabilidades frente al IVA, tipos de comprobante, PDF con QR y leyenda de la Ley 27.743), `l10n_ar_withholding`, `l10n_ar_pos`, `l10n_ar_website_sale`, `l10n_latam_check` | LGPL-3 | Mantenido por Odoo. Se usa como base. |
+| Odoo Enterprise | `l10n_ar_edi` (factura electrónica). No está en CE: el manifiesto en 18.0 devuelve 404. | Propietaria | No aplica. |
+| `OCA/l10n-argentina` | **18.0, 17.0 y 15.0 vacías.** La última versión con módulos es la **16.0**: `l10n_ar_afipws`, `l10n_ar_afipws_fe` y `l10n_ar_bank`. La 14.0 suma `l10n_ar_ledger` (Libro IVA Digital), `l10n_ar_partner` y `l10n_ar_invoice_report`. | AGPL-3 | Sin tests y sin POS. Es el mismo linaje que ADHOC, que figura como coautor. |
+| `ingadhoc/odoo-argentina-ce` 18.0 | Conexión con ARCA, factura electrónica (WSFE, WSFEX, WSBFE y WSMTXCA, `CondicionIVAReceptor` de la RG 5616), factura desde el POS y reportes | AGPL-3 | Activo (2026-11-18). Sin tests. El CAEA aparece sólo como campo, sin el flujo. |
+| `ingadhoc/odoo-argentina` 18.0 | `l10n_ar_tax` (percepciones, IIBB, padrones) y `l10n_ar_ux` | AGPL-3 | Activo. Arrastra otros repos de ADHOC. |
+| `ingadhoc/odoo-argentina-ee` 18.0 | Libro IVA Digital, SIRE, ARBA | AGPL/LGPL | Requiere EE. Sirve sólo como referencia funcional. |
+| `pyafipws` (fork `ingadhoc@odoo18`) | Cliente Python de los WS de ARCA (WSAA, WSFEv1, padrón, etc.) | **LGPL-3+** | Se puede usar como librería sin cambiar la licencia de PowerFy. |
 
-Restricciones que pesan:
+Restricciones:
 
-- PowerFy es CE y su modelo comercial no admite exigir una licencia EE por cliente.
-- La librería que habla con ARCA es `pyafipws`. Los repos de ADHOC la instalan desde forks de GitHub sin versión fija (`filoquin/pyafipws@py3k` y `ingadhoc/pyafipws@odoo18`), y además necesita `M2Crypto` y `pyOpenSSL`, que suman librerías de sistema a la imagen.
+- PowerFy es CE y no puede exigir una licencia EE por cliente.
+- **Licencia:** OCA y ADHOC son AGPL-3. Copiar su código dentro de módulos de PowerFy convierte esos módulos en obra derivada AGPL-3: hay que mantener la licencia y los créditos, y ofrecer el código fuente a los usuarios por red (SaaS). Leerlos para entender el protocolo y los casos de ARCA no tiene esa consecuencia.
 - Cada cliente tiene su certificado y su clave de ARCA, que son secretos.
-- Ya existe un patrón para Centroamérica en `powerfy-l10n` (serie `vitt_l10n_*`, ver PF-L10N-CA).
+- Ya existe un patrón en `powerfy-l10n` (`vitt_l10n_*` para Centroamérica).
 
 ## Opciones
 
-1. **`l10n_ar` de CE + módulos CE de ADHOC (`odoo-argentina-ce` y una selección de `odoo-argentina`), vendorizados en `powerfy-l10n` con commit fijo.**
-   - Pros: cubre factura electrónica en el backend y en el POS ya en 18.0. Activo y usado en Argentina. Lo más barato para llegar a vender.
-   - Contras: es AGPL-3. No trae tests. `pyafipws` llega desde un fork personal. La contingencia del POS sin conexión con CAEA sólo existe como campo, sin el flujo de pedido y rendición. El libro IVA digital, SIRE y ARBA de ADHOC requieren EE, así que esos reportes hay que construirlos.
-2. **Odoo Enterprise `l10n_ar_edi`.**
-   - Pros: soporte oficial y completo.
-   - Contras: rompe el modelo CE de PowerFy, cuesta una licencia por usuario y obliga a migrar la base a EE.
-3. **OCA `l10n-argentina`.**
-   - Contras: vacío en 18.0. Habría que portar módulos viejos, que es lo mismo que la opción 1 pero sin mantenedor.
-4. **Desarrollo propio contra los WS de ARCA, sobre `pyafipws` o con SOAP directo.**
-   - Pros: control total, licencia propia.
-   - Contras: el costo más alto, y BACG quedaría sola siguiendo cada cambio normativo de ARCA (RG 5616, Ley 27.743, etc.).
-5. **Proveedor SaaS de facturación electrónica** (API de terceros), con un conector PowerFy.
-   - Pros: poco desarrollo, el proveedor absorbe los cambios normativos.
-   - Contras: costo por comprobante, dependencia de un tercero, datos fiscales fuera de PowerFy y un POS que depende de dos servicios externos.
+1. **Instalar los módulos CE de ADHOC vendorizados** (revisión 1 de este ADR).
+   - Pros: lo más rápido.
+   - Contras: dependencia de terceros que el usuario descartó. AGPL en el producto. Sin tests. Libro IVA y SIRE requieren EE.
+2. **Módulos propios `powerfy_l10n_ar_*` sobre `l10n_ar` de CE**, implementados desde las especificaciones oficiales de ARCA, usando OCA (16.0 y 14.0) y ADHOC (18.0) **sólo como referencia funcional, sin copiar código**, y `pyafipws` como librería (LGPL).
+   - Pros: código y licencia propios, tests propios, alcance a medida (POS, CAEA, Libro IVA y SIRE sobre CE).
+   - Contras: el costo más alto. BACG sigue sola los cambios normativos.
+3. **Portar el código AGPL de OCA/ADHOC a módulos de PowerFy** (copia con modificaciones).
+   - Pros: arranque rápido.
+   - Contras: esos módulos quedan AGPL-3, con obligación de publicar el código a los clientes SaaS. Además se hereda deuda sin tests.
+4. **Odoo Enterprise `l10n_ar_edi`.**
+   - Contras: rompe el modelo CE.
+5. **Proveedor SaaS de facturación electrónica.**
+   - Pros: poco desarrollo.
+   - Contras: costo por comprobante, dependencia de un tercero y POS con doble dependencia externa.
 
 ## Decisión
 
-Opción 1. Es la única que llega a facturación electrónica en el backend y en el POS sobre CE sin licencia EE y con un mantenedor activo. Las brechas (tests, reportes de IVA, CAEA en el POS, librería fijada) las cubre BACG en módulos `powerfy_l10n_ar_*` propios, sin modificar los de ADHOC. La opción 5 queda como plan B si la opción 1 no pasa la homologación con ARCA.
+Opción 2. Cumple el pedido de no depender de ADHOC y deja a PowerFy con código y licencia propios. La regla es **referencia sí, copia no**: el equipo lee OCA y ADHOC para entender casos y validaciones, pero escribe el código desde los manuales de ARCA. Si legal confirma que PowerFy puede publicar estos módulos como AGPL-3, se habilita la opción 3 en un ADR que reemplace a este. La opción 5 queda como plan B si la POC no homologa.
+
+**Alcance de la v1** (definido por el usuario el 24/11):
+
+| Orden | Módulo propio (nombre tentativo) | Qué hace | Referencia |
+|---|---|---|---|
+| 0 | POC | WSAA y WSFEv1 en homologación: factura A/B/C y nota de crédito desde el backend y el POS | Manual WSFEv1 de ARCA, `l10n_ar_afipws_fe` |
+| 1 | `powerfy_l10n_ar_ws` | Certificados por compañía, WSAA (token y firma con caché), padrón (consulta de CUIT) y ambiente homologación/producción | `l10n_ar_afipws` |
+| 2 | `powerfy_l10n_ar_fe` | CAE para A, B, C, M, E (WSFEX), FCE MiPyME, NC y ND, RG 5616 y QR. Reintento idempotente: antes de emitir se consulta el último comprobante autorizado | `l10n_ar_afipws_fe` |
+| 3 | `powerfy_l10n_ar_pos` | Factura del ticket con CAE sobre `l10n_ar_pos`, y **CAEA**: pedido quincenal, emisión sin conexión y rendición (informar los comprobantes y los períodos sin movimiento) | `l10n_ar_pos_afipws_fe` y el manual del CAEA |
+| 4 | `powerfy_l10n_ar_iva` | Libro IVA Digital (archivos de ventas, compras y alícuotas) y SIRE (retenciones y percepciones de IVA) sobre CE | `l10n_ar_ledger` (OCA 14.0), `l10n_ar_txt_sire` (EE) |
+| 5 | `powerfy_l10n_ar_iibb` | Percepciones y retenciones de IIBB, padrones (ARBA/AGIP), Convenio Multilateral y la retención en pagos sobre `l10n_ar_withholding` de CE | `l10n_ar_tax` |
 
 ## Consecuencias
 
-- **Se vuelve más fácil:** facturar con CAE (A, B, C, M y E de exportación) y notas de crédito y débito desde el backend, y facturar el pedido del POS. Además se reusan `l10n_ar` y `l10n_ar_pos` de CE.
-- **Se vuelve más difícil o hay que construir:**
-  - Tests propios del circuito con ARCA en homologación, porque ADHOC no los trae.
-  - Libro IVA digital, Mis Comprobantes y SIRE sobre CE.
-  - Flujo CAEA de contingencia para el POS sin conexión.
-  - Revisar si `l10n_ar_tax` (IIBB y percepciones) vale lo que arrastra: tres repos más de ADHOC.
-- **Licencia:** AGPL-3. Si se modifica un módulo de ADHOC y se ofrece por red, hay que publicar esos cambios. Por eso nada se modifica en los módulos de ADHOC y todo va en los módulos propios. [A validar con legal] si PowerFy los ofrece como SaaS.
-- **Seguridad:** el certificado y la clave de ARCA de cada cliente nunca van al repo. Se cargan por instancia desde el wizard de `l10n_ar_afipws`, con acceso restringido a un rol de `powerfy_roles`. El ambiente (homologación o producción) se controla con `afip.ws.env.type`: DEV y DEMO siempre en homologación.
+- **Se vuelve más fácil:** sin dependencia de ADHOC. Licencia y versionado propios. Tests desde el día uno (la referencia no los trae). Libro IVA y SIRE sobre CE, que hoy nadie ofrece abierto en la 18.0.
+- **Se vuelve más difícil:**
+  - Es la opción de mayor esfuerzo: v1 de seis piezas, donde IIBB y CAEA son las más complejas.
+  - Hay que seguir las RG de ARCA y de las provincias: hace falta un responsable funcional de normativa.
+  - La regla "sin copia" hay que poder demostrarla: el código se escribe desde la especificación y en la revisión de cada PR se chequea que no haya bloques copiados de OCA ni de ADHOC.
+- **Seguridad:**
+  - Certificado y clave de ARCA por compañía, nunca en el repo. Acceso sólo con un rol de `powerfy_roles`.
+  - DEV y DEMO siempre en homologación, con una compuerta que impida emitir en producción desde esos ambientes.
 - **Despliegue:**
-  - Agregar `pyafipws` (fork propio en `bacgroup`, con commit fijo), `M2Crypto` y `pyOpenSSL` al Dockerfile de `powerfy-docker`.
-  - Sumar los módulos a `TEST_MODULES` y `TEST_TAGS`.
-  - Actualizar ADHOC con un merge controlado por RQ, no con un *pull* automático.
-- **Mantenimiento:** se sigue la rama 18.0 de ADHOC, y su 19.0 ya existe para cuando PowerFy migre.
-- **Cómo se revierte:** se desinstalan los módulos AR. Los comprobantes ya emitidos conservan su CAE en `account.move`. La migración a la opción 2 o a la 5 se escribiría como un ADR que reemplaza a este.
+  - `pyafipws` en un fork propio de `bacgroup`, con commit fijo, sin modificarlo (si se modifica, esos cambios se publican por LGPL). También `pyOpenSSL` y `M2Crypto`, o `cryptography`, en el Dockerfile.
+  - Módulos nuevos en `TEST_MODULES` y `TEST_TAGS`.
+  - Los tests contra ARCA en homologación se separan de los unitarios, porque dependen de la red y del certificado.
+- **Cómo se revierte:** los comprobantes emitidos guardan su CAE o CAEA en `account.move`. Cambiar de opción es un ADR nuevo que reemplaza a este.
+- **Pendiente:**
+  - Decisión legal sobre la licencia de los módulos PowerFy (propietaria o AGPL), que habilita o no la opción 3.
+  - Confirmar con un contador las RG vigentes al momento del desarrollo.
