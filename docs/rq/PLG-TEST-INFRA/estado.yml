@@ -32,7 +32,7 @@ saltos: []
 base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-23T01:28:49.961Z'
+actualizado: '2026-11-23T01:29:29.647Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -75,6 +75,22 @@ skills:
     etapa: 2
     fecha: '2026-11-23T01:24:24.923Z'
     sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:verification-before-completion
+    etapa: 2
+    fecha: '2026-11-23T01:29:09.565Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 2
+    fecha: '2026-11-23T01:29:29.561Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 2
+    fecha: '2026-11-23T01:29:29.615Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 2
+    fecha: '2026-11-23T01:29:29.618Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
 clasificacion_confirmada:
   frase: Avanza
   fecha: '2026-11-23T01:13:15.280Z'
@@ -88,8 +104,8 @@ ejecucion:
   grupo: ok-2026-11-23T01:13:15.280Z
 e2e:
   ok: true
-  fecha: '2026-11-23T01:22:02.912Z'
+  fecha: '2026-11-23T01:29:07.651Z'
   comando: npm run test:e2e
-  head: 5e9ab480043e780d7e160c911ab58a03de976f13
+  head: 457393aa2cb05cb4908cb95c599c7941720abe34
   completo: true
 revisiones_bloqueantes: 1
