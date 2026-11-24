@@ -1,6 +1,6 @@
 # 0001. Localización Argentina con módulos propios sobre l10n_ar de Odoo CE, con OCA/ADHOC sólo como referencia
 
-- Fecha: 2026-11-24 (revisión 2 del mismo día)
+- Fecha: 2026-11-24 (revisión 3 del mismo día: cliente propio de los WS con `zeep` + `cryptography`, que ya trae la imagen de Odoo 18, en lugar de `pyafipws`; módulos `vitt_l10n_ar_*` con el patrón VITT. Ver `powerfy-l10n/docs/rq/PF-L10N-AR/arq.md`)
 - RQ: PF-L10N-AR
 - Estado: propuesta. Pasa a `aceptada` cuando la POC en homologación de ARCA funcione y el usuario apruebe el spec.
 
@@ -32,7 +32,7 @@ Restricciones:
 1. **Instalar los módulos CE de ADHOC vendorizados** (revisión 1 de este ADR).
    - Pros: lo más rápido.
    - Contras: dependencia de terceros que el usuario descartó. AGPL en el producto. Sin tests. Libro IVA y SIRE requieren EE.
-2. **Módulos propios `powerfy_l10n_ar_*` sobre `l10n_ar` de CE**, implementados desde las especificaciones oficiales de ARCA, usando OCA (16.0 y 14.0) y ADHOC (18.0) **sólo como referencia funcional, sin copiar código**, y `pyafipws` como librería (LGPL).
+2. **Módulos propios `vitt_l10n_ar_*` sobre `l10n_ar` de CE**, implementados desde las especificaciones oficiales de ARCA, usando OCA (16.0 y 14.0) y ADHOC (18.0) **sólo como referencia funcional, sin copiar código**, y un cliente propio de los WS con `zeep` + `cryptography` (revisión 3; antes, `pyafipws` como librería).
    - Pros: código y licencia propios, tests propios, alcance a medida (POS, CAEA, Libro IVA y SIRE sobre CE).
    - Contras: el costo más alto. BACG sigue sola los cambios normativos.
 3. **Portar el código AGPL de OCA/ADHOC a módulos de PowerFy** (copia con modificaciones).
@@ -53,11 +53,11 @@ Opción 2. Cumple el pedido de no depender de ADHOC y deja a PowerFy con código
 | Orden | Módulo propio (nombre tentativo) | Qué hace | Referencia |
 |---|---|---|---|
 | 0 | POC | WSAA y WSFEv1 en homologación: factura A/B/C y nota de crédito desde el backend y el POS | Manual WSFEv1 de ARCA, `l10n_ar_afipws_fe` |
-| 1 | `powerfy_l10n_ar_ws` | Certificados por compañía, WSAA (token y firma con caché), padrón (consulta de CUIT) y ambiente homologación/producción | `l10n_ar_afipws` |
-| 2 | `powerfy_l10n_ar_fe` | CAE para A, B, C, M, E (WSFEX), FCE MiPyME, NC y ND, RG 5616 y QR. Reintento idempotente: antes de emitir se consulta el último comprobante autorizado | `l10n_ar_afipws_fe` |
-| 3 | `powerfy_l10n_ar_pos` | Factura del ticket con CAE sobre `l10n_ar_pos`, y **CAEA**: pedido quincenal, emisión sin conexión y rendición (informar los comprobantes y los períodos sin movimiento) | `l10n_ar_pos_afipws_fe` y el manual del CAEA |
-| 4 | `powerfy_l10n_ar_iva` | Libro IVA Digital (archivos de ventas, compras y alícuotas) y SIRE (retenciones y percepciones de IVA) sobre CE | `l10n_ar_ledger` (OCA 14.0), `l10n_ar_txt_sire` (EE) |
-| 5 | `powerfy_l10n_ar_iibb` | Percepciones y retenciones de IIBB, padrones (ARBA/AGIP), Convenio Multilateral y la retención en pagos sobre `l10n_ar_withholding` de CE | `l10n_ar_tax` |
+| 1 | `vitt_l10n_ar_ws` | Certificados por compañía, WSAA (token y firma con caché), padrón (consulta de CUIT) y ambiente homologación/producción | `l10n_ar_afipws` |
+| 2 | `vitt_l10n_ar_fe` | CAE para A, B, C, M, E (WSFEX), FCE MiPyME, NC y ND, RG 5616 y QR. Reintento idempotente: antes de emitir se consulta el último comprobante autorizado | `l10n_ar_afipws_fe` |
+| 3 | `vitt_l10n_ar_pos` | Factura del ticket con CAE sobre `l10n_ar_pos`, y **CAEA**: pedido quincenal, emisión sin conexión y rendición (informar los comprobantes y los períodos sin movimiento) | `l10n_ar_pos_afipws_fe` y el manual del CAEA |
+| 4 | `vitt_l10n_ar_iva` | Libro IVA Digital (archivos de ventas, compras y alícuotas) y SIRE (retenciones y percepciones de IVA) sobre CE | `l10n_ar_ledger` (OCA 14.0), `l10n_ar_txt_sire` (EE) |
+| 5 | `vitt_l10n_ar_iibb` | Percepciones y retenciones de IIBB, padrones (ARBA/AGIP), Convenio Multilateral y la retención en pagos sobre `l10n_ar_withholding` de CE | `l10n_ar_tax` |
 
 ## Consecuencias
 
@@ -70,7 +70,7 @@ Opción 2. Cumple el pedido de no depender de ADHOC y deja a PowerFy con código
   - Certificado y clave de ARCA por compañía, nunca en el repo. Acceso sólo con un rol de `powerfy_roles`.
   - DEV y DEMO siempre en homologación, con una compuerta que impida emitir en producción desde esos ambientes.
 - **Despliegue:**
-  - `pyafipws` en un fork propio de `bacgroup`, con commit fijo, sin modificarlo (si se modifica, esos cambios se publican por LGPL). También `pyOpenSSL` y `M2Crypto`, o `cryptography`, en el Dockerfile.
+  - Sin dependencias nuevas: el cliente de los WS se escribe con `zeep` y `cryptography`, que ya trae la imagen de Odoo 18 (revisión 3). `pyafipws` queda sólo como referencia del protocolo; no se modifica el Dockerfile.
   - Módulos nuevos en `TEST_MODULES` y `TEST_TAGS`.
   - Los tests contra ARCA en homologación se separan de los unitarios, porque dependen de la red y del certificado.
 - **Cómo se revierte:** los comprobantes emitidos guardan su CAE o CAEA en `account.move`. Cambiar de opción es un ADR nuevo que reemplaza a este.
