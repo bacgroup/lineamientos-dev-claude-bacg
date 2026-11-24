@@ -23,16 +23,16 @@ tests:
   comandos:
     - npm test
 revision:
-  ok: false
-  fecha: '2026-11-23T01:24:24.610Z'
-  nota: 'claseFalla: timeouts duplicados y Test Files/Suites fallados mal clasificados; Unhandled de producto como infraestructura; canon documentado acepta cambios sin commit; cerrar no falla cerrado sin rutas; pytest sugerido no corre relacionados; rutaCanon duplicado; canon fuera del E2E'
-  head: 5e9ab480043e780d7e160c911ab58a03de976f13
+  ok: true
+  fecha: '2026-11-24T14:18:37.879Z'
+  nota: 'Segunda vuelta: revisor-rq ok sin bloqueantes; code-reviewer marcó un crítico (Test Files/Suites fallados anulaban la clase timeout) corregido en 1d82f90 con fixtures completas de vitest y jest en rojo antes del arreglo; pr-test-analyzer: huecos cubiertos en 1ac0cb4, verificados con mutantes. Suite 805/805 y E2E completo ok sobre 1ac0cb4.'
+  head: 1ac0cb4078ef8f930f842fae2a89659ce2b85467
 circuito: []
 saltos: []
 base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:18:19.799Z'
+actualizado: '2026-11-24T14:18:37.885Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -104,8 +104,8 @@ ejecucion:
   grupo: ok-2026-11-23T01:13:15.280Z
 e2e:
   ok: true
-  fecha: '2026-11-23T01:29:07.651Z'
+  fecha: '2026-11-24T14:18:32.561Z'
   comando: npm run test:e2e
-  head: 457393aa2cb05cb4908cb95c599c7941720abe34
+  head: 1ac0cb4078ef8f930f842fae2a89659ce2b85467
   completo: true
 revisiones_bloqueantes: 1
