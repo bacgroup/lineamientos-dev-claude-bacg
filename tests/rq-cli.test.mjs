@@ -635,14 +635,12 @@ test('paso no-aplica en un RQ sin base: la toma del merge-base con el upstream y
   assert.match(r.err, /El RQ no tiene base y la rama no tiene upstream: no puedo ver qué se va a publicar/);
 });
 
-test('paso no-aplica: push:, merge-prs-sync:, sin motivo o fuera del circuito se rechazan', async () => {
+test('paso no-aplica: push:, sin motivo o fuera del circuito se rechazan (merge-prs-sync: va en fric2.test.mjs)', async () => {
   const raiz = repoDemo();
   await abrirR1(raiz);
-  for (const p of ['push:demo-app', 'merge-prs-sync:sede']) {
-    const r = await correr(raiz, ['paso', 'no-aplica', p, 'motivo'], envNA());
-    assert.equal(r.code, 1, p);
-    assert.match(r.err, /Los pasos push: y merge-prs-sync: no se pueden marcar como no aplica\./, p);
-  }
+  const rp = await correr(raiz, ['paso', 'no-aplica', 'push:demo-app', 'motivo'], envNA());
+  assert.equal(rp.code, 1);
+  assert.match(rp.err, /Un paso push: no se puede marcar como no aplica/);
   let r = await correr(raiz, ['paso', 'no-aplica', 'sql:ref1', '  '], envNA());
   assert.equal(r.code, 1);
   assert.match(r.err, /El motivo no puede estar vacío\./);

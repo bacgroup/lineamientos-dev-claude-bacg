@@ -1,0 +1,138 @@
+codigo: PLG-E2E-ALC
+tipo: rq
+clasificacion: bounded
+clasificacion_pendiente: false
+tarea: 'E2E con alcance: aviso si tests.e2e no usa {specs}, verificar dice si corrió la suite completa y cuánto tardó, --completo una sola vez antes de PROD (e2e_completos) y tests.e2e_mapa opcional'
+etapa: 6
+autonomia:
+  hasta: 4
+  frase: Apruebo el orden y las tres decisiones, avanzá
+  fecha: '2026-11-24T14:19:29.904Z'
+  via: sesion
+aprobaciones:
+  - etapa: 1
+    frase: Apruebo el orden y las tres decisiones, avanzá
+    fecha: '2026-11-24T14:19:29.904Z'
+    via: sesion
+  - etapa: 5
+    frase: Doy OK de PROD, mergeá el PR y cerrá los RQ
+    fecha: '2026-11-24T15:56:55.654Z'
+tests:
+  ok: true
+  arbol: 204edc6b94bd0b31bde67bf8fbf0f136064526ae
+  fecha: '2026-11-24T14:23:34.556Z'
+  comandos:
+    - npm test
+revision:
+  ok: true
+  fecha: '2026-11-24T15:58:03.719Z'
+  nota: 'Re-revisión de 3d4d29b (nombre literal de BACG_DEV_SIN_GH en marcarNoAplica, para la derivación a dev-fullflow): calidad, tests y spec ok; aserción reforzada en a0942af. Suite y E2E en verde.'
+  head: a0942af84194847806d8554ab41499760a63f123
+circuito:
+  - paso: push:lineamientos-dev-claude-bacg
+    fecha: '2026-11-24T15:59:01.144Z'
+    evidencia: 'PR #24 mergeado en main (19a513c) y cierres subidos (dc23ab1)'
+saltos: []
+base: ea567f24d108bba8557ee953c3f6ba7e76072693
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-24T15:59:01.249Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-24T14:50:05.061Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    fecha: '2026-11-24T14:50:10.461Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    fecha: '2026-11-24T14:50:14.617Z'
+    etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-24T15:57:08.868Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    fecha: '2026-11-24T15:57:11.665Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    fecha: '2026-11-24T15:57:14.971Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+clasificacion_confirmada:
+  frase: Apruebo el orden y las tres decisiones, avanzá
+  fecha: '2026-11-24T14:19:29.904Z'
+  via: sesion
+revisiones_bloqueantes: 1
+e2e:
+  ok: true
+  fecha: '2026-11-24T14:55:30.601Z'
+  comando: npm run test:e2e
+  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
+  completo: true
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { leerTranscript, normalizar, fraseDelUsuario } from '../plugin/scripts/lib/transcript.mjs';
+import { leerTranscript, normalizar, fraseDelUsuario, vecesQueLoDijo } from '../plugin/scripts/lib/transcript.mjs';
 
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'transcripts');
 const f = (n) => path.join(FIX, n);
@@ -107,4 +107,15 @@ test('mensaje tipeado a mitad de un turno (queued_command humano) cuenta; el de 
   ].join('\n') + '\n');
   const t = await leerTranscript(ruta);
   assert.deepEqual(t.textosUsuario, ['Confirmo Acotado'], 'la queue-operation no duplica el mensaje');
+});
+
+// PLG-FRIC2 (2.1): las decisiones dadas en una lista se reconocen sin el marcador.
+test('vecesQueLoDijo: oraciones en lista numerada o con viñetas, sin el marcador', () => {
+  const msg = '1- Omití el E2E, el cambio no tiene pantalla.\n2- Publicá R-QA-CI2 en main.';
+  assert.equal(vecesQueLoDijo('Omití el E2E, el cambio no tiene pantalla.', [msg]), 1);
+  assert.equal(vecesQueLoDijo('Publicá R-QA-CI2 en main.', [msg]), 1);
+  for (const m of ['1) Apruebo el diseño', '- Apruebo el diseño', '* Apruebo el diseño', '• Apruebo el diseño', '3 - Apruebo el diseño']) {
+    assert.equal(vecesQueLoDijo('Apruebo el diseño', [m]), 1, m);
+  }
+  assert.equal(vecesQueLoDijo('Apruebo el diseño', ['No apruebo el diseño']), 0, 'un tramo suelto sigue sin contar');
 });

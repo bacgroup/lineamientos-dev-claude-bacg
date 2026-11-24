@@ -14,8 +14,8 @@ const RE_ESTANDAR = /^(?:docs\/estandares\/|AGENTS\.md$)/;
 
 export const SIN_BASE = 'El RQ no tiene base y la rama no tiene upstream: no puedo ver qué se va a publicar';
 
-/** true si el paso nunca puede marcarse como no aplica. */
-export const pasoObligatorio = (paso) => /^(?:push|merge-prs-sync):/i.test(paso.trim());
+/** true si el paso nunca puede marcarse como no aplica (PLG-FRIC2: merge-prs-sync: sí puede, sin PR de sync abierto). */
+export const pasoObligatorio = (paso) => /^push:/i.test(paso.trim());
 
 /** Primera ruta que impide marcar el paso como no aplica, o undefined. */
 export function rutaQueImpide(paso, rutas, proyecto) {
