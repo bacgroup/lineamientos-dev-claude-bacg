@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: bounded
 clasificacion_pendiente: false
 tarea: 'Commits sin rechazos falsos: reintento ante falla de infraestructura o timeout de tests, clase del rechazo en el log, aviso si tests.unit no usa {archivos} (PLG-TEST-REL) y pregunta de canon de UI al cierre'
-etapa: 0
+etapa: 6
 autonomia:
   hasta: 4
   frase: Avanza
@@ -35,7 +35,7 @@ saltos: []
 base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T15:58:03.596Z'
+actualizado: '2026-11-24T15:58:40.927Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -127,3 +127,5 @@ e2e:
   head: 1ac0cb4078ef8f930f842fae2a89659ce2b85467
   completo: true
 revisiones_bloqueantes: 1
+pendientes:
+  - manual:actualizar-el-plugin-en-las-pc
