@@ -28,12 +28,15 @@ revision:
   fecha: '2026-11-24T15:58:03.719Z'
   nota: 'Re-revisión de 3d4d29b (nombre literal de BACG_DEV_SIN_GH en marcarNoAplica, para la derivación a dev-fullflow): calidad, tests y spec ok; aserción reforzada en a0942af. Suite y E2E en verde.'
   head: a0942af84194847806d8554ab41499760a63f123
-circuito: []
+circuito:
+  - paso: push:lineamientos-dev-claude-bacg
+    fecha: '2026-11-24T15:59:01.144Z'
+    evidencia: 'PR #24 mergeado en main (19a513c) y cierres subidos (dc23ab1)'
 saltos: []
 base: ea567f24d108bba8557ee953c3f6ba7e76072693
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T15:58:48.374Z'
+actualizado: '2026-11-24T15:59:01.249Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -132,5 +135,4 @@ e2e:
   head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
   completo: true
 pendientes:
-  - push:lineamientos-dev-claude-bacg
   - manual:actualizar-el-plugin-en-las-pc
