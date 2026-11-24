@@ -35,6 +35,7 @@ function repo({ ci = '', archivos = {}, remoto = true } = {}) {
     git(bare, 'init', '-q', '--bare');
     git(raiz, 'remote', 'add', 'origin', bare);
     git(raiz, 'push', '-q', '-u', 'origin', 'HEAD');
+    git(raiz, 'remote', 'set-head', 'origin', '-a');
   }
   return raiz;
 }
@@ -166,4 +167,28 @@ test('avisosCi: también detecta ?raw e import.meta.glob con docs/', () => {
   const wf = { '.github/workflows/ci.yml': WF("  push:\n    paths-ignore: ['docs/**']") };
   assert.match(avisosCi(repo({ archivos: { ...wf, 'src/a.test.ts': "import sql from '../docs/rq/X/m.sql?raw';\n" } })).join('\n'), /src\/a\.test\.ts lee docs\//);
   assert.match(avisosCi(repo({ archivos: { ...wf, 'src/b.test.ts': "const m = import.meta.glob('/docs/rq/**/*.sql');\n" } })).join('\n'), /src\/b\.test\.ts lee docs\//);
+});
+
+test('rama del RQ con el código ya subido a su upstream: un commit de docs no lleva [skip ci] (la punta del PR)', async () => {
+  const raiz = repo();
+  await abrir(raiz);
+  git(raiz, 'switch', '-q', '-c', 'rq/R-1');
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
+  git(raiz, 'add', 'src/a.ts');
+  git(raiz, 'commit', '-q', '-m', 'feat(R-1): a');
+  git(raiz, 'push', '-q', '-u', 'origin', 'rq/R-1');
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'nota.md'), 'x');
+  const r = await correr(raiz, ['commit', 'docs: nota', 'docs/rq/R-1/nota.md']);
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.doesNotMatch(asunto(raiz), /skip ci/, 'el PR rq/R-1 → main tiene código: su CI tiene que correr');
+});
+
+test('sin rama de destino conocida (sin origin/HEAD ni ramas declaradas): no lleva [skip ci]', async () => {
+  const raiz = repo();
+  git(raiz, 'remote', 'set-head', 'origin', '-d');
+  await abrir(raiz);
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'nota.md'), 'x');
+  await correr(raiz, ['commit', 'docs: nota', 'docs/rq/R-1/nota.md']);
+  assert.doesNotMatch(asunto(raiz), /skip ci/);
 });

@@ -8,8 +8,10 @@ mes fueron de commits de sólo docs (≈450 min).
 
 - Los commits de sólo docs de la CLI (`$RQ commit` y `cerrar`) llevan `[skip ci]` **sólo si todo lo que falta subir
   también es de docs**. GitHub decide mirando el commit de punta del push o del PR: si lleva la marca, no corre ningún
-  workflow `push` / `pull_request`, aunque debajo viajen commits de código. Por eso, con código sin subir (o sin remoto
-  para saberlo) la CLI no marca. Docs, para esto, son los textos, registros y capturas de `docs/` y los `.md` de la
+  workflow `push` / `pull_request`, aunque debajo viajen commits de código. Por eso la CLI no marca si, respecto de
+  la rama de DEV, las de PROD o la rama por defecto del remoto, el commit viaja con código (la punta de un PR es el
+  último commit de la rama: aunque el código ya se haya subido, el CI del PR se saltearía), ni si no puede resolver
+  ninguna de esas ramas. Docs, para esto, son los textos, registros y capturas de `docs/` y los `.md` de la
   raíz; un SQL o un script en `docs/`, y los `.md` de `.bacg-dev/` o del producto, no.
 - Con checks obligatorios en la rama, un commit salteado puede dejar un PR esperando: en ese caso declará
   `ci: { skip_docs: false }` en `proyecto.yml`.

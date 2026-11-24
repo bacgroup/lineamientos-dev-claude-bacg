@@ -22,22 +22,37 @@ const RE_MD_RAIZ = /^[^/]+\.md$/i;
 export const soloDocs = (rutas) => rutas.length > 0 && rutas.every((r) => RE_DOC.test(r) || RE_MD_RAIZ.test(r) || r === 'docs/rq/ACTIVO');
 
 /**
- * ¿Todo lo que falta subir (de upstream o, sin upstream, de los remotos a HEAD) es de docs? GitHub decide [skip ci]
- * mirando sólo el commit de punta del push o del PR: si debajo viaja código, la marca le sacaría el CI. Sin poder
- * saberlo (sin remoto), false.
+ * Ramas de destino del remoto (origin/<rama>) que existen en este clon: la de DEV, las de PROD y la por defecto del
+ * remoto (origin/HEAD). Son las que miran el CI de un PR y el de una promoción.
  */
-export function pendientesSoloDocs(raiz) {
-  const conUpstream = spawnSync('git', ['rev-parse', '--abbrev-ref', '@{u}'], { cwd: raiz, encoding: 'utf8' }).status === 0;
-  const rango = conUpstream ? ['@{u}..HEAD'] : ['HEAD', '--not', '--remotes'];
-  if (!conUpstream && !spawnSync('git', ['remote'], { cwd: raiz, encoding: 'utf8' }).stdout.trim()) return false;
-  const r = spawnSync('git', ['log', '--name-only', '--format=', ...rango], { cwd: raiz, encoding: 'utf8' });
-  if (r.status !== 0) return false;
-  const rutas = r.stdout.split('\n').filter(Boolean);
+function destinos(raiz, proyecto) {
+  const ramas = [proyecto?.rama_dev, proyecto?.entornos?.dev?.rama, ...lista(proyecto?.ramas_solo_pr), ...lista(proyecto?.ramas_prod)]
+    .filter((r) => typeof r === 'string' && r.trim());
+  const porDefecto = spawnSync('git', ['symbolic-ref', '-q', '--short', 'refs/remotes/origin/HEAD'], { cwd: raiz, encoding: 'utf8' });
+  const refs = [...new Set([...ramas.map((r) => `origin/${r.trim()}`), ...(porDefecto.status === 0 ? [porDefecto.stdout.trim()] : [])])];
+  return refs.filter((ref) => spawnSync('git', ['rev-parse', '-q', '--verify', `${ref}^{commit}`], { cwd: raiz }).status === 0);
+}
+
+/**
+ * ¿Todo lo que HEAD trae respecto de cada rama de destino (y de su upstream) es de docs? GitHub decide [skip ci] mirando
+ * sólo el commit de punta del push o del PR: si en ese PR o push viaja código, la marca le sacaría el CI. Sin ninguna
+ * rama de destino que se pueda resolver, false.
+ */
+export function pendientesSoloDocs(raiz, proyecto = null) {
+  const refs = destinos(raiz, proyecto);
+  if (refs.length === 0) return false;
+  const conUpstream = spawnSync('git', ['rev-parse', '-q', '--verify', '@{u}'], { cwd: raiz }).status === 0;
+  const rutas = [];
+  for (const base of [...refs, ...(conUpstream ? ['@{u}'] : [])]) {
+    const r = spawnSync('git', ['log', '--name-only', '--format=', `${base}..HEAD`], { cwd: raiz, encoding: 'utf8' });
+    if (r.status !== 0) return false;
+    rutas.push(...r.stdout.split('\n').filter(Boolean));
+  }
   return rutas.length === 0 || soloDocs(rutas);
 }
 
 /** ¿El commit que se va a hacer con estas rutas lleva [skip ci]? */
-export const conSkipParaCommit = (raiz, proyecto, rutas) => saltarCi(proyecto) && soloDocs(rutas) && pendientesSoloDocs(raiz);
+export const conSkipParaCommit = (raiz, proyecto, rutas) => saltarCi(proyecto) && soloDocs(rutas) && pendientesSoloDocs(raiz, proyecto);
 
 /** Agrega " [skip ci]" a la primera línea del mensaje, una sola vez. */
 export function conSkipCi(mensaje) {
