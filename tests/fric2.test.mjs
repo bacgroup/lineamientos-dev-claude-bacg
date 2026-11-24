@@ -148,6 +148,7 @@ test('2.6: si no se pueden consultar los PR de sync, falla cerrada', async () =>
   assert.match(r.err, /No pude consultar los PR de sync de sede-x/);
   r = await noAplicaSync(raiz, { BACG_DEV_SIN_GH: '1' });
   assert.equal(r.code, 1);
+  assert.match(r.err, /gh desactivado en este entorno/);
 });
 
 test('2.6: antes del push no se puede marcar (el PR de sync lo crea el push)', async () => {
