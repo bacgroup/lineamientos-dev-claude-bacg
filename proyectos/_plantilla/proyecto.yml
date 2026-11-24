@@ -83,7 +83,9 @@ sensible:                       # rutas cuyo cambio pide claude-security
 
 # Comandos portables (nube y cualquier PC): {raiz} = este repo, {repo:<nombre>} = otro repo del proyecto clonado en
 # la máquina; ponelos entre comillas. {archivos} = lo que está en stage; {specs} = los E2E del RQ. Corren con el shell
-# del sistema (cmd.exe en Windows) salvo `shell: bash`.
+# del sistema (cmd.exe en Windows) salvo `shell: bash`. Sin {archivos}, cada commit corre la suite unitaria entera; sin
+# {specs}, cada verificar corre la suite E2E completa (el alta y el arranque lo avisan). La completa va una sola vez, con
+# verificar --completo, antes de PROD.
 tests:
   # shell: bash
   unit: "node \"{repo:mi-docker}/qa/odoo-test.mjs\" {archivos}"
@@ -92,6 +94,8 @@ tests:
   sql: ""
   e2e: "node \"{repo:mi-docker}/qa/e2e.mjs\" {specs}"
   e2e_url: "http://localhost:8070"
+  # e2e_mapa:                                  # opcional: specs de la pantalla que toca el RQ, aunque no toque specs
+  #   "src/pantallas/cotizador/**": ["e2e/cotizador.spec.ts"]
   cobertura_cambios_min: 80
 
 # --- Otro stack (no es parte de la plantilla) ---------------------------------------------------------------------

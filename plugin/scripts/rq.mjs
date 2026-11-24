@@ -15,7 +15,7 @@ import { faltaParaEtapa, pasadasSinRepetir, PASADAS_REVISION, nombreSkill as nom
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, upsertEnArchivo, fusionarEnArchivo, columnasDe, crearConEncabezadoDe, rutaBacklog, rutaCentral, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
-import { tipoArchivo } from './lib/rutas.mjs';
+import { tipoArchivo, globARegExp } from './lib/rutas.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { rutaCanon, seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
@@ -1121,9 +1121,30 @@ function commit(repo, elegido, args, env, io) {
 }
 
 /** Specs E2E que toca el RQ (e2e/** o *.spec.* en su diff) y siguen existiendo. */
-function specsDelRq(raiz, estado) {
+function specsDelRq(raiz, estado, proyecto) {
   const esSpec = (r) => r.startsWith('e2e/') || /\.spec\.[cm]?[jt]sx?$/.test(r);
-  return (rutasDelRq(raiz, estado) ?? []).filter((r) => esSpec(r) && fs.existsSync(path.join(raiz, r)));
+  const rutas = rutasDelRq(raiz, estado) ?? [];
+  // PLG-E2E-ALC: tests.e2e_mapa ({ "<glob de código>": ["<spec>", …] }) suma los specs de la pantalla tocada.
+  const mapa = proyecto?.tests?.e2e_mapa && typeof proyecto.tests.e2e_mapa === 'object' ? proyecto.tests.e2e_mapa : {};
+  const delMapa = Object.entries(mapa)
+    .filter(([glob]) => rutas.some((r) => globARegExp(glob).test(r)))
+    .flatMap(([, specs]) => lista(specs).filter((x) => typeof x === 'string'));
+  return [...new Set([...rutas.filter(esSpec), ...delMapa])].filter((r) => fs.existsSync(path.join(raiz, r)));
+}
+
+/** PLG-E2E-ALC: aviso si la suite E2E completa se corrió más de una vez antes de PROD (null si no corresponde). */
+function avisoE2eCompletos(estado) {
+  const n = Number(estado?.e2e_completos) || 0;
+  return n > 1 && Number(estado?.etapa ?? 0) < ETAPA.PROD
+    ? `Corriste la suite E2E completa ${n} veces: va una sola, justo antes de pedir el OK de PROD; mientras tanto, los specs del RQ.`
+    : null;
+}
+
+/** Duración legible de una corrida: "850 ms", "42s", "3m 12s". */
+function duracion(ms) {
+  if (ms < 1000) return `${ms} ms`;
+  const seg = Math.round(ms / 1000);
+  return seg < 60 ? `${seg}s` : `${Math.floor(seg / 60)}m ${seg % 60}s`;
 }
 
 /** Verificación local con el rol real (M1): qué se recorrió y capturas que existan bajo docs/rq/<código>/qa/. */
@@ -1236,11 +1257,11 @@ function verificar(repo, elegido, args, env, io) {
     );
   }
   const conSpecsEnComando = base.includes('{specs}');
-  const specs = res.completo || !conSpecsEnComando ? [] : posicionales.length ? specsParaElComando(posicionales, rutasEn(base, raiz, proyecto)) : specsDelRq(raiz, estado);
+  const specs = res.completo || !conSpecsEnComando ? [] : posicionales.length ? specsParaElComando(posicionales, rutasEn(base, raiz, proyecto)) : specsDelRq(raiz, estado, proyecto);
   // Con {specs}, sin --completo y sin specs deducibles del diff (p. ej. viven fuera del repo): no se corre la suite
   // entera sin que nadie lo pida.
   if (conSpecsEnComando && !res.completo && specs.length === 0) {
-    throw new ErrorCli(`tests.e2e corre specs sueltos ({specs}) y no encontré specs E2E del RQ ${rq} en su diff (e2e/** o *.spec.*; si viven fuera del repo no los puedo deducir). Pasá la ruta: $RQ verificar <ruta del spec>… o, para la suite completa (la que exige PROD), $RQ verificar --completo.`);
+    throw new ErrorCli(`tests.e2e corre specs sueltos ({specs}) y no encontré specs E2E del RQ ${rq} en su diff (e2e/** o *.spec.*) ni en tests.e2e_mapa. Pasá el spec de la pantalla que tocaste: $RQ verificar <ruta del spec>… (o declaralo en tests.e2e_mapa: { "<glob del código>": ["<spec>"] }). La suite completa ($RQ verificar --completo) va una sola vez, justo antes de pedir el OK de PROD.`);
   }
   let cmd;
   try {
@@ -1257,10 +1278,13 @@ function verificar(repo, elegido, args, env, io) {
     throw new ErrorCli(msgE2eEnCurso(lockTomado(lock)));
   }
   let r;
+  let tardo = 0;
   const antes = qaDeOtrosRq(raiz, rq);
   try {
     const envE2e = { ...process.env, ...env, BACG_E2E_LOCK: lock, ...(url ? { E2E_URL: String(url), BASE_URL: String(url) } : {}) };
+    const t0 = Date.now();
     r = spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: envE2e });
+    tardo = Date.now() - t0;
   } finally {
     soltarLock(lock);
   }
@@ -1278,9 +1302,13 @@ function verificar(repo, elegido, args, env, io) {
   estado.e2e = { ok, fecha: ahora(), comando: cmd, head: commitHead(raiz), completo };
   // PLG-SP: un rojo del E2E (no una corrida que no pudo arrancar) hace que la revisión pida systematic-debugging.
   if (!ok && !r.error) estado.e2e_rojos = (Number(estado.e2e_rojos) || 0) + 1;
+  // PLG-E2E-ALC: las corridas completas pedidas a propósito (con {specs} en el comando) se cuentan: va una antes de PROD.
+  if (conSpecsEnComando && res.completo && !r.error) estado.e2e_completos = (Number(estado.e2e_completos) || 0) + 1;
   guardar(raiz, estado);
-  const alcance = completo ? 'suite completa' : `${specs.length} spec(s) del RQ; antes de PROD: $RQ verificar --completo`;
-  io.stdout.write(`E2E de ${rq} ${ok ? 'ok' : 'falló'} (${alcance}${url ? `, app ${url}` : ''}).\n`);
+  const alcance = !conSpecsEnComando
+    ? 'suite completa: tests.e2e no usa {specs}, así que cada verificar corre todo'
+    : completo ? 'suite completa' : `${specs.length} spec(s) del RQ; antes de PROD: $RQ verificar --completo`;
+  io.stdout.write(`E2E de ${rq} ${ok ? 'ok' : 'falló'} en ${duracion(tardo)} (${alcance}${url ? `, app ${url}` : ''}).\n`);
   return ok ? 0 : (r.status ?? 1);
 }
 
@@ -1352,6 +1380,8 @@ function entregar(repo, elegido, env, io) {
   const saltoE2e = lista(estado.saltos).some((s) => s?.compuerta === 'e2e');
   const parcial = e?.ok && e.completo === false ? ' (sólo specs del RQ: antes de PROD, $RQ verificar --completo)' : '';
   l.push(`E2E: ${e ? (e.ok ? `ok${parcial}` : 'falló') : saltoE2e ? 'salteado por el usuario' : 'sin correr ($RQ verificar)'}.`);
+  const avisoCompletos = avisoE2eCompletos(estado);
+  if (avisoCompletos) l.push(avisoCompletos);
   if (tocaUi(estado, raiz, proyectoDe(repo, env), rutasDelRq(raiz, estado)) && !verificacionLocalOk(estado)) {
     l.push('Verificación local: sin registrar ($RQ verificar --local "<qué se recorrió>" <capturas>).');
   }
@@ -1770,6 +1800,8 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   l.push(t ? `Tests: ${t.ok ? 'ok' : 'fallaron'} (${t.fecha})${rojos ? `, con ${rojos} rojos conocidos` : ''}` : 'Tests: sin registrar');
   const e = estado.e2e;
   l.push(e ? `E2E: ${e.ok ? 'ok' : 'falló'} (${e.fecha})` : 'E2E: sin correr');
+  const avisoCompletos = avisoE2eCompletos(estado);
+  if (avisoCompletos) l.push(avisoCompletos);
   if (tocaUi(estado, repo.raiz, proyectoDe(repo, env), rutasDelRq(repo.raiz, estado))) {
     const v = estado.verificacion_local;
     l.push(verificacionLocalOk(estado) ? `Verificación local: ok${v ? ` (${v.fecha}, ${lista(v.capturas).length} captura(s))` : ' (salteada por el usuario)'}` : 'Verificación local: sin registrar');

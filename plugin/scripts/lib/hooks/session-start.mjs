@@ -208,6 +208,7 @@ export async function handler(
     if (alta) partes.push(alta);
     const rel = pasos.find((p) => p.id === 'tests-rel' && p.estado === 'aviso');
     if (rel) partes.push(`Aviso: ${rel.detalle}. ${rel.como}`);
+    if (pasos.some((p) => p.id === 'tests-e2e-alcance' && p.estado === 'aviso')) partes.push('Aviso: tests.e2e corre la suite completa en cada verificar: agregá {specs} (la suite completa va una vez, con verificar --completo, antes de PROD).');
   } catch {
     // el alta sólo orienta: si falla, el arranque sigue
   }

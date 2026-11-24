@@ -304,6 +304,16 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
     como: `Sumá "e2e" y "e2e_url" en proyectos.${repo.proyectoId}.tests de ~/.claude/bacg-dev.json.`,
   });
 
+  // PLG-E2E-ALC: sin {specs}, cada verificar corre la suite E2E completa (tiempo, máquina y el lock de las otras sesiones).
+  if (e2e) {
+    const conSpecs = e2e.includes('{specs}');
+    sumar({
+      id: 'tests-e2e-alcance', titulo: 'E2E del RQ: sólo sus specs', obligatorio: false, estado: conSpecs ? 'ok' : 'aviso',
+      detalle: conSpecs ? undefined : 'cada verificar corre la suite E2E completa (tests.e2e no usa {specs})',
+      como: 'Sumá {specs} a tests.e2e (p. ej. "npx playwright test {specs}" o "node qa/e2e.mjs {specs}"); la suite completa corre una vez con verificar --completo antes de PROD. Si tu runner no acepta specs sueltos, dejalo así.',
+    });
+  }
+
   // 11. Merge a la rama de DEV en modo automático (orienta): la autonomía hasta DEV incluye mergear el PR del RQ a
   // DEV, y el modo automático de Claude Code lo niega sin una regla de permisos. La compuerta del plugin sigue
   // frenando el merge a PROD sin el OK de la etapa 5.

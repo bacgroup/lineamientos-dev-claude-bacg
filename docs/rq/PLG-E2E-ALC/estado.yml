@@ -1,0 +1,89 @@
+codigo: PLG-E2E-ALC
+tipo: rq
+clasificacion: bounded
+clasificacion_pendiente: false
+tarea: 'E2E con alcance: aviso si tests.e2e no usa {specs}, verificar dice si corrió la suite completa y cuánto tardó, --completo una sola vez antes de PROD (e2e_completos) y tests.e2e_mapa opcional'
+etapa: 0
+autonomia:
+  hasta: 4
+  frase: Apruebo el orden y las tres decisiones, avanzá
+  fecha: '2026-11-24T14:19:29.904Z'
+  via: sesion
+aprobaciones:
+  - etapa: 1
+    frase: Apruebo el orden y las tres decisiones, avanzá
+    fecha: '2026-11-24T14:19:29.904Z'
+    via: sesion
+tests:
+  ok: true
+  arbol: 204edc6b94bd0b31bde67bf8fbf0f136064526ae
+  fecha: '2026-11-24T14:23:34.556Z'
+  comandos:
+    - npm test
+revision: null
+circuito: []
+saltos: []
+base: ea567f24d108bba8557ee953c3f6ba7e76072693
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-24T14:23:34.558Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:writing-plans
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:test-driven-development
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:executing-plans
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:requesting-code-review
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:receiving-code-review
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+  - skill: superpowers:verification-before-completion
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-24T14:19:00.054Z'
+    via: sesion
+clasificacion_confirmada:
+  frase: Apruebo el orden y las tres decisiones, avanzá
+  fecha: '2026-11-24T14:19:29.904Z'
+  via: sesion
