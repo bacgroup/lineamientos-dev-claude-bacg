@@ -6,6 +6,7 @@
 // en systemMessage.
 
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { dirLineamientos, buscarRepo, nombreRepo } from '../config.mjs';
 import { guardarEstado, rqActivo, cargarEstado, etapaDerivada } from '../estado.mjs';
@@ -37,13 +38,27 @@ export function respuestaConFalla(resp, conPush = false) {
   return conPush && typeof resp.stderr === 'string' && RE_FALLA_PUSH.test(resp.stderr);
 }
 
-/** Agrega el paso (con la grafía de circuito_prod) a cada RQ activo, si es parte del circuito y no estaba. */
+const escaparRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * PLG-FRIC2 (2.2): de los RQ activos, los que nombran su código en algún commit reciente de HEAD (los que viajan en el
+ * push). Si ninguno lo hace, todos: el hook no siempre ve el rango pusheado y, ante la duda, se anota como antes.
+ */
+export function rqsDelPush(raiz, rqs) {
+  const r = spawnSync('git', ['log', '-300', '--format=%s', 'HEAD'], { cwd: raiz, encoding: 'utf8' });
+  const asuntos = r.status === 0 ? r.stdout : '';
+  const nombrados = rqs.filter((rq) => rq?.estado?.codigo && new RegExp(`(^|[^A-Za-z0-9-])${escaparRe(rq.estado.codigo)}([^A-Za-z0-9-]|$)`, 'm').test(asuntos));
+  return nombrados.length ? nombrados : rqs;
+}
+
+/** Agrega el paso (con la grafía de circuito_prod) a los RQ activos del push, si es parte del circuito y no estaba. */
 function anotar(raiz, proyecto, paso) {
   const oficial = lista(proyecto?.circuito_prod)
     .map((p) => p?.paso)
     .find((p) => typeof p === 'string' && norm(p) === norm(paso));
   if (!oficial) return;
-  for (const rq of cargarRqsDe(raiz)) {
+  const activos = cargarRqsDe(raiz).filter((rq) => rq.estado);
+  for (const rq of norm(oficial).startsWith('push:') ? rqsDelPush(raiz, activos) : activos) {
     if (!rq.estado) continue;
     const circuito = lista(rq.estado.circuito).filter((c) => !(c?.no_aplica === true && norm(c?.paso) === norm(oficial)));
     if (circuito.some((c) => norm(c?.paso) === norm(oficial))) continue;

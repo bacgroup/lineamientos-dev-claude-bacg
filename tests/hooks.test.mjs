@@ -722,3 +722,17 @@ test('PLG-DEPS: pre-tool niega editar código (Edit) si falta un plugin del núc
 
   // La escritura por Bash se prueba en escritura-bash.test.mjs: el proyecto demo sigue con reglas 4.3.
 });
+
+const lista = (x) => (Array.isArray(x) ? x : []);
+
+// PLG-FRIC2 (2.2): el push se anota en los RQ cuyos commits viajan, no en todos los de ACTIVO.
+test('post-tool git push con commits de un solo RQ → el paso queda sólo en ese RQ', () => {
+  const raiz = repoDemo();
+  abrirRq(raiz, { codigo: 'R-T2' });
+  abrirRq(raiz, { codigo: 'R-T1' });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-T2\nR-T1\n');
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-T1): algo'], { cwd: raiz });
+  postTool({ cwd: raiz, tool_name: 'Bash', tool_input: { command: 'git push origin HEAD:main' }, tool_response: { stdout: '', stderr: '' } });
+  assert.deepEqual(leerEstado(raiz, 'R-T1').circuito.map((c) => c.paso), ['push:demo-app']);
+  assert.deepEqual(lista(leerEstado(raiz, 'R-T2').circuito).map((c) => c.paso), []);
+});

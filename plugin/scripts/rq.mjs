@@ -35,7 +35,7 @@ import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
 import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 import { avisoMergeado } from './lib/rq-rama.mjs';
 import { REGLAS_ACTUALES, reglas44 } from './lib/reglas.mjs';
-import { prsDeRama, checksDe, REST } from './lib/github.mjs';
+import { prsDeRama, checksDe, REST, prsAbiertos } from './lib/github.mjs';
 import { compiladosCompartidos } from './lib/compilados.mjs';
 import { remotoGh } from './lib/config.mjs';
 import { faltasCapturas, refExigida } from './lib/diseno-ui.mjs';
@@ -365,6 +365,8 @@ function previa(repo, env, codigo, nuevo) {
   return validacionPrevia({ repo, proyecto: proyectoDe(repo, env), codigo, nuevo, env, dirLin: dirLineamientos({ env }) });
 }
 
+const PRIORIDADES = ['Alta', 'Media', 'Baja'];
+
 async function abrir(repo, args, env, io, verificacion) {
   const raiz = repo.raiz;
   const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto', 'frase'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
@@ -392,6 +394,13 @@ async function abrir(repo, args, env, io, verificacion) {
   if (!clasificacion) {
     throw new ErrorCli(`--clasificacion inválida: "${res.clasificacion}" (exploracion | acotado | arquitectonico).`);
   }
+  // PLG-FRIC2 (2.7): prioridad de la lista del backlog; se guarda en estado.yml para que el cierre complete la fila.
+  let prioridad;
+  if (res.prioridad !== undefined) {
+    prioridad = PRIORIDADES.find((p) => p.toLowerCase() === String(res.prioridad).trim().toLowerCase());
+    if (!prioridad) throw new ErrorCli(`--prioridad inválida: "${res.prioridad}" (Alta, Media o Baja).`);
+  }
+  const impacto = typeof res.impacto === 'string' && res.impacto.trim() ? res.impacto.trim() : undefined;
   const dir = path.join(raiz, 'docs', 'rq', codigo);
   let existente = null;
   try {
@@ -426,6 +435,8 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
       clasificacion,
       clasificacion_pendiente: true,
       ...(res.tarea ? { tarea: res.tarea } : {}),
+      ...(prioridad ? { prioridad } : {}),
+      ...(impacto ? { impacto } : {}),
       etapa: 0,
       autonomia: null,
       aprobaciones: [],
@@ -441,6 +452,11 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
     vinculo = heredar(raiz, repo.proyectoId, proyectoDe(repo, env), nuevo);
     guardarEstado(raiz, nuevo);
   }
+  if (existente && (prioridad || impacto)) {
+    if (prioridad) existente.prioridad = prioridad;
+    if (impacto) existente.impacto = impacto;
+    guardarEstado(raiz, existente);
+  }
   fs.mkdirSync(dir, { recursive: true });
   const otros = rqsActivos(raiz).filter((c) => c !== codigo);
   guardarActivos(raiz, [...otros, codigo]);
@@ -453,8 +469,8 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
   await alAbrirEnSesion(repo, env, codigo, io, verificacion);
   anotarBacklog(repo, env, codigo, {
     Tarea: res.tarea,
-    Prioridad: res.prioridad,
-    Impacto: res.impacto,
+    Prioridad: prioridad,
+    Impacto: impacto,
     Estado: 'En curso',
     Link: `docs/rq/${codigo}/`,
   }, io);
@@ -945,13 +961,14 @@ const pistaRelacionados = (raiz) => {
  * Corre los tests de commit sobre lo que está en stage y los registra en estado.tests. Si todo sale bien imprime una
  * línea; si falla, la cola de la salida. No guarda el estado (lo guarda quien llama). Devuelve el código de salida.
  */
-function correrTests(raiz, estado, proyecto, io, { silencioso = false, env = process.env } = {}) {
+function correrTests(raiz, estado, proyecto, io, { silencioso = false, env = process.env, archivosDeTest = null } = {}) {
   const comandos = comandosTests(proyecto);
   if (comandos.length === 0) {
     throw new ErrorCli(`El proyecto no declara comandos de tests en proyecto.yml. ${PISTA_SIN_TESTS}`);
   }
   const arbol = arbolTesteado(raiz);
-  const archivos = enStageDeProducto(raiz, proyecto);
+  // PLG-FRIC2 (2.4): un commit de sólo tests corre esos archivos, y sólo con los comandos que usan {archivos}.
+  const archivos = archivosDeTest ?? enStageDeProducto(raiz, proyecto);
   const conocidos = rojosConocidos(proyecto);
   const corridos = [];
   const rojos = [];
@@ -959,6 +976,7 @@ function correrTests(raiz, estado, proyecto, io, { silencioso = false, env = pro
   let rechazo = null;
   let codigo = 0;
   for (const base of comandos) {
+    if (archivosDeTest && !base.includes('{archivos}')) continue;
     const cmd = conArchivos(rutasEn(base, raiz, proyecto), archivos);
     if (cmd === null) continue;
     corridos.push(cmd);
@@ -1077,6 +1095,28 @@ function commit(repo, elegido, args, env, io) {
   if (rutas.length === 0) throw new ErrorUso();
   const { codigo, estado } = activo(raiz, elegido);
   const proyecto = proyectoDe(repo, env);
+  // PLG-FRIC2 (2.3): si una compuerta frena el commit, lo que agregó la CLI vuelve a salir del stage.
+  const previo = new Set(nombresEnStage(raiz));
+  try {
+    return commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, env, io);
+  } catch (e) {
+    const nuevos = nombresEnStage(raiz).filter((r) => !previo.has(r));
+    if (nuevos.length) spawnSync('git', ['reset', '-q', '--', ...nuevos], { cwd: raiz });
+    if (!(e instanceof ErrorCli) || !nuevos.length) throw e;
+    throw new ErrorCli(`${e.message} (Saqué del stage lo que había agregado: ${nuevos.join(', ')}.)`);
+  }
+}
+
+/** Archivos en stage (rutas relativas al repo). */
+function nombresEnStage(raiz) {
+  const r = spawnSync('git', ['diff', '--cached', '--name-only', '-z', '--relative'], { cwd: raiz, encoding: 'utf8' });
+  return r.status === 0 ? r.stdout.split('\0').filter(Boolean) : [];
+}
+
+// Tests unitarios (no E2E): *.test.*, *.spec.* fuera de e2e/, tests/** y __tests__/**.
+const RE_TEST_UNITARIO = /(^|\/)(tests|__tests__)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|_test\.py$/;
+
+function commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, env, io) {
   agregarRutas(raiz, rutas);
   rebasarSiNoEmpezo(raiz, codigo, estado);
   const producto = enStageDeProducto(raiz, proyecto);
@@ -1108,6 +1148,18 @@ function commit(repo, elegido, args, env, io) {
       return r;
     }
     tests = `tests ok (${estado.tests.comandos.length} comando(s))`;
+  } else {
+    const deTest = nombresEnStage(raiz).filter((r) => !r.startsWith('e2e/') && RE_TEST_UNITARIO.test(r) && fs.existsSync(path.join(raiz, r)));
+    if (deTest.length && comandosTests(proyecto).some((c) => c.includes('{archivos}'))) {
+      const r = correrTests(raiz, estado, proyecto, io, { silencioso: true, env, archivosDeTest: deTest });
+      if (r !== 0) {
+        guardar(raiz, estado);
+        return r;
+      }
+      tests = `tests ok (sólo los tests del commit: ${deTest.length} archivo(s))`;
+    } else if (deTest.length) {
+      tests = 'sólo docs y tests: sin correr tests (tests.unit no usa {archivos}, así que correrlos sería la suite entera)';
+    }
   }
   guardar(raiz, estado);
   const propios = [`docs/rq/${codigo}/estado.yml`, 'docs/rq/ACTIVO'].filter((p) => fs.existsSync(path.join(raiz, p)));
@@ -1631,17 +1683,31 @@ function registrarHecho(repo, elegido, paso, evidencia, env, io) {
 }
 
 // Marca un paso de circuito_prod que no corresponde a este RQ. Los sql:<ref> se rechazan si lo que se
-// publica trae migraciones; sync-lineamientos, si trae estándares; push: y merge-prs-sync: nunca.
+// publica trae migraciones; sync-lineamientos, si trae estándares; merge-prs-sync:, si hay un PR de sync abierto en la
+// sede; push: nunca.
 // Los pasos que no corresponden por el diff ya se deducen solos: esto queda para los demás casos.
 function marcarNoAplica(repo, elegido, paso, motivo, env, io) {
   const p = textoNoVacio(paso, 'El paso').trim();
-  if (pasoObligatorio(p)) throw new ErrorCli('Los pasos push: y merge-prs-sync: no se pueden marcar como no aplica.');
+  if (pasoObligatorio(p)) throw new ErrorCli('Un paso push: no se puede marcar como no aplica: es la publicación misma.');
   textoNoVacio(motivo, 'El motivo');
   const { codigo, estado } = activo(repo.raiz, elegido);
   const { oficial } = pasoOficial(repo, env, p, estado);
   const hechos = lista(estado.circuito);
   if (hechos.some((c) => normPaso(c?.paso) === normPaso(oficial))) {
     io.stdout.write(`El paso ${oficial} ya estaba registrado.\n`);
+    return;
+  }
+  // PLG-FRIC2 (2.6): un merge-prs-sync: no aplica si el cambio no viaja a esa sede; con un PR de sync abierto, sí aplica.
+  if (/^merge-prs-sync:/i.test(oficial)) {
+    const proyecto = proyectoDe(repo, env);
+    const sede = oficial.trim().slice('merge-prs-sync:'.length);
+    const cuenta = proyecto?.cuenta_github;
+    const prs = cuenta && env.BACG_DEV_SIN_GH !== '1' ? prsAbiertos(`${cuenta}/${sede}`, { head: proyecto?.sync?.rama || RAMA_SYNC }) : { error: 'sin consultar' };
+    if (!prs.error && lista(prs.datos).length) throw new ErrorCli(`${oficial} no puede marcarse como no aplica: hay un PR de sync abierto en ${sede}. Mergealo (o cerralo si no corresponde) y registrá el paso.`);
+    const verificado = !prs.error;
+    estado.circuito = [...hechos, { paso: oficial, fecha: ahora(), no_aplica: true, motivo, ...(verificado ? {} : { sin_verificar: true }) }];
+    guardar(repo.raiz, estado);
+    io.stdout.write(`Paso ${oficial} marcado como no aplica${verificado ? ' (sin PR de sync abierto en la sede)' : ' (no pude consultar los PR de sync de la sede: queda anotado como sin verificar)'}.\n`);
     return;
   }
   const tieneBase = typeof estado.base === 'string' && estado.base;
@@ -1900,7 +1966,7 @@ function cerrar(repo, elegido, args, env, io) {
   io.stdout.write(`RQ ${codigo} cerrado.\n`);
   if (pend.length) io.stdout.write(`Quedan pendientes (anotados en estado.yml y el backlog): ${pend.join(', ')}.\n`);
   // Sólo completa lo que la fila no tiene: no pisa Tarea, Prioridad ni Impacto vigentes.
-  const completar = { Tarea: estado.tarea, Prioridad: spec.Prioridad, Impacto: spec.Impacto };
+  const completar = { Tarea: estado.tarea, Prioridad: estado.prioridad ?? spec.Prioridad, Impacto: estado.impacto ?? spec.Impacto };
   for (const k of Object.keys(completar)) if (previa[k]) delete completar[k];
   anotarBacklog(repo, env, codigo, { ...completar, Estado: `Hecho ${hoy()}${pend.length ? ` (falta: ${pend.join(', ')})` : ''}`, Link: `docs/rq/${codigo}/` }, io);
   const vacias = ['Tarea', 'Prioridad', 'Impacto'].filter((k) => !previa[k] && !completar[k]);
