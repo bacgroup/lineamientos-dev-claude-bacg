@@ -58,13 +58,16 @@ export function mismaFrase(a, b) {
  * coma no separa: en "Dale, pero mañana" "Dale" no es una oración). Más estricto que fraseDelUsuario: un tramo
  * suelto de una oración no cuenta.
  */
+// PLG-FRIC2 (2.1): marcador de lista al principio de una oración ("1- ", "2) ", "3. ", "- ", "* ", "• ").
+const sinMarcador = (o) => String(o).replace(/^\s*(?:\d+\s*[-.)]|[-*•])\s+/, '');
+
 export function vecesQueLoDijo(frase, textosUsuario, { flexible = false } = {}) {
   if (paraComparar(frase ?? '') === '') return 0;
   // Sólo `rq.mjs ok` con reglas 4.4 (flexible): además, una oración cuenta si la frase es su tramo inicial de aprobación
   // ("Sí, dale" en "Sí, dale, el diseño está bien"); ver ok.mjs. Todo lo demás, oración entera.
   const cuenta = (o) => mismaFrase(o, frase) || (flexible && tramosDeAprobacion(o, paraComparar).some((t) => mismaFrase(t, frase)));
   return textosUsuario.reduce(
-    (n, t) => n + (mismaFrase(t, frase) ? 1 : String(t).split(/[.!?¡¿;\n]+|\s\+\s/).filter(cuenta).length),
+    (n, t) => n + (mismaFrase(t, frase) ? 1 : String(t).split(/[!?¡¿;\n]+|\.(?!\d)|\s\+\s/).map(sinMarcador).filter(cuenta).length),
     0,
   );
 }

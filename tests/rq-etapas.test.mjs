@@ -161,7 +161,7 @@ test('verificar con {specs}: corre los specs del RQ y registra que no fue comple
   let r = await correr(raiz, ['verificar'], env);
   assert.equal(r.code, 0, r.err);
   assert.equal(fs.readFileSync(path.join(raiz, 'e2e-args.txt'), 'utf8'), 'e2e/r5.spec.ts');
-  assert.match(r.out, /E2E de R-5 ok \(1 spec\(s\) del RQ; antes de PROD: \$RQ verificar --completo\)/);
+  assert.match(r.out, /E2E de R-5 ok en \S+(?: \S+)? \(1 spec\(s\) del RQ; antes de PROD: \$RQ verificar --completo\)/);
   assert.equal(cargarEstado(raiz, 'R-5').e2e.completo, false);
   r = await correr(raiz, ['verificar', '--completo'], env);
   assert.equal(r.code, 0, r.err);

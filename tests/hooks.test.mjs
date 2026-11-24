@@ -722,3 +722,60 @@ test('PLG-DEPS: pre-tool niega editar código (Edit) si falta un plugin del núc
 
   // La escritura por Bash se prueba en escritura-bash.test.mjs: el proyecto demo sigue con reglas 4.3.
 });
+
+const lista = (x) => (Array.isArray(x) ? x : []);
+
+// PLG-FRIC2 (2.2): el push se anota en los RQ cuyos commits viajan, no en todos los de ACTIVO.
+test('post-tool git push con commits de un solo RQ → el paso queda sólo en ese RQ', () => {
+  const raiz = repoDemo();
+  abrirRq(raiz, { codigo: 'R-T2' });
+  abrirRq(raiz, { codigo: 'R-T1' });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-T2\nR-T1\n');
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-T1): algo'], { cwd: raiz });
+  postTool({ cwd: raiz, tool_name: 'Bash', tool_input: { command: 'git push origin HEAD:main' }, tool_response: { stdout: '', stderr: '' } });
+  assert.deepEqual(leerEstado(raiz, 'R-T1').circuito.map((c) => c.paso), ['push:demo-app']);
+  assert.deepEqual(lista(leerEstado(raiz, 'R-T2').circuito).map((c) => c.paso), []);
+});
+
+test('post-tool git push con refspec explícito: atribuye por el rango que informa git, no por HEAD', () => {
+  const raiz = repoDemo();
+  abrirRq(raiz, { codigo: 'R-T2' });
+  abrirRq(raiz, { codigo: 'R-T1' });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-T2\nR-T1\n');
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-T2): viejo en main'], { cwd: raiz });
+  const desde = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raiz, encoding: 'utf8' }).stdout.trim();
+  spawnSync('git', ['switch', '-q', '-c', 'dev'], { cwd: raiz });
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-T1): viaja'], { cwd: raiz });
+  const hasta = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raiz, encoding: 'utf8' }).stdout.trim();
+  spawnSync('git', ['switch', '-q', '-'], { cwd: raiz });
+  const stderr = `To github.com:x/demo-app.git\n   ${desde.slice(0, 7)}..${hasta.slice(0, 7)}  dev -> main\n`;
+  postTool({ cwd: raiz, tool_name: 'Bash', tool_input: { command: 'git push origin dev:main' }, tool_response: { stdout: '', stderr } });
+  assert.deepEqual(leerEstado(raiz, 'R-T1').circuito.map((c) => c.paso), ['push:demo-app']);
+  assert.deepEqual(lista(leerEstado(raiz, 'R-T2').circuito).map((c) => c.paso), []);
+});
+
+test('post-tool: R-1 no se confunde con R-10 al atribuir el push', () => {
+  const raiz = repoDemo();
+  abrirRq(raiz, { codigo: 'R-1' });
+  abrirRq(raiz, { codigo: 'R-10' });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-1\nR-10\n');
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-10): algo'], { cwd: raiz });
+  postTool({ cwd: raiz, tool_name: 'Bash', tool_input: { command: 'git push origin HEAD:main' }, tool_response: { stdout: '', stderr: '' } });
+  assert.deepEqual(leerEstado(raiz, 'R-10').circuito.map((c) => c.paso), ['push:demo-app']);
+  assert.deepEqual(lista(leerEstado(raiz, 'R-1').circuito).map((c) => c.paso), []);
+});
+
+test('post-tool push forzado (+ a...b (forced update)): atribuye por ese rango', () => {
+  const raiz = repoDemo();
+  abrirRq(raiz, { codigo: 'R-T2' });
+  abrirRq(raiz, { codigo: 'R-T1' });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-T2\nR-T1\n');
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-T2): viejo'], { cwd: raiz });
+  const desde = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raiz, encoding: 'utf8' }).stdout.trim();
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-T1): reescrito'], { cwd: raiz });
+  const hasta = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raiz, encoding: 'utf8' }).stdout.trim();
+  const stderr = `To github.com:x/demo-app.git\n + ${desde.slice(0, 7)}...${hasta.slice(0, 7)} main -> main (forced update)\n`;
+  postTool({ cwd: raiz, tool_name: 'Bash', tool_input: { command: 'git push -f origin main' }, tool_response: { stdout: '', stderr } });
+  assert.deepEqual(leerEstado(raiz, 'R-T1').circuito.map((c) => c.paso), ['push:demo-app']);
+  assert.deepEqual(lista(leerEstado(raiz, 'R-T2').circuito).map((c) => c.paso), []);
+});

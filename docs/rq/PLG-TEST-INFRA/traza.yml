@@ -1,0 +1,33 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: Salida con todos los tests en verde y error de worker → se reintenta una vez; si vuelve a pasar, el mensaje dice
+    archivos: [plugin/scripts/lib/cli.mjs, plugin/scripts/rq.mjs]
+    test: 'tests/reintento-tests.test.mjs › infraestructura dos veces; tests/clase-falla.test.mjs › worker de vitest'
+    estado: hecho
+  - id: S-2
+    texto: Salida cuyos únicos fallos son `Test timed out` → se reintenta una vez; si pasa, el commit sigue y el test queda
+    archivos: [plugin/scripts/lib/cli.mjs, plugin/scripts/rq.mjs]
+    test: 'tests/reintento-tests.test.mjs › timeout y después verde; tests/clase-falla.test.mjs › salidas completas de vitest y jest con Test Files/Test Suites'
+    estado: hecho
+  - id: S-3
+    texto: Un test rojo de verdad → se rechaza como hoy, sin reintento.
+    archivos: [plugin/scripts/rq.mjs]
+    test: 'tests/reintento-tests.test.mjs › un test rojo de verdad no se reintenta'
+    estado: hecho
+  - id: S-4
+    texto: Cada rechazo deja su clase (rojo / timeout / infraestructura) en estado.yml y el cierre la resume en docs/log/rq.jsonl.
+    archivos: [plugin/scripts/rq.mjs]
+    test: 'tests/reintento-tests.test.mjs › cierre: la línea de docs/log/rq.jsonl lleva los rechazos'
+    estado: hecho
+  - id: S-5
+    texto: '`tests.unit` sin `{archivos}` → el alta muestra un aviso (no obligatorio) con el comando sugerido del stack.'
+    archivos: [plugin/scripts/lib/alta.mjs, plugin/scripts/lib/hooks/session-start.mjs]
+    test: 'tests/alta.test.mjs › PLG-TEST-REL (5 casos)'
+    estado: hecho
+  - id: S-6
+    texto: Al cerrar un RQ que tocó UI en un proyecto con `ui.canon`, `cerrar` no avanza hasta registrar si hay lineamiento
+    archivos: [plugin/scripts/rq.mjs, plugin/skills/ciclo-rq/SKILL.md]
+    test: 'tests/canon-cierre.test.mjs (8 casos: pregunta, canon no con frase, documentado sólo commiteado, sin ui.canon, sin UI, cambios sin commitear, disparo por ui.patrones, falla cerrada sin base)'
+    estado: hecho

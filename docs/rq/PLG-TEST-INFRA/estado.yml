@@ -1,0 +1,129 @@
+codigo: PLG-TEST-INFRA
+tipo: rq
+clasificacion: bounded
+clasificacion_pendiente: false
+tarea: 'Commits sin rechazos falsos: reintento ante falla de infraestructura o timeout de tests, clase del rechazo en el log, aviso si tests.unit no usa {archivos} (PLG-TEST-REL) y pregunta de canon de UI al cierre'
+etapa: 0
+autonomia:
+  hasta: 4
+  frase: Avanza
+  fecha: '2026-11-23T01:13:15.280Z'
+  via: ok
+  grupo: ok-2026-11-23T01:13:15.280Z
+aprobaciones:
+  - etapa: 1
+    frase: Avanza
+    fecha: '2026-11-23T01:13:15.280Z'
+    via: ok
+    grupo: ok-2026-11-23T01:13:15.280Z
+  - etapa: 5
+    frase: Doy OK de PROD, mergeá el PR y cerrá los RQ
+    fecha: '2026-11-24T15:56:55.493Z'
+tests:
+  ok: true
+  arbol: 16f0eef9cbda8781499dede68d172666e5ddea77
+  fecha: '2026-11-24T14:17:37.197Z'
+  comandos:
+    - npm test
+revision:
+  ok: true
+  fecha: '2026-11-24T15:58:03.592Z'
+  nota: 'Re-revisión de 3d4d29b (nombre literal de BACG_DEV_SIN_GH en marcarNoAplica, para la derivación a dev-fullflow): calidad, tests y spec ok; aserción reforzada en a0942af. Suite y E2E en verde.'
+  head: a0942af84194847806d8554ab41499760a63f123
+circuito: []
+saltos: []
+base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
+reglas: 44
+version_ciclo: 4
+actualizado: '2026-11-24T15:58:03.596Z'
+skills:
+  - skill: lineamientos-dev-claude-bacg:ciclo-rq
+    etapa: 0
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    fecha: '2026-11-23T01:08:22.212Z'
+    via: sesion
+  - skill: superpowers:brainstorming
+    etapa: 0
+    fecha: '2026-11-23T01:08:24.993Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:writing-plans
+    etapa: 1
+    fecha: '2026-11-23T01:13:17.368Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:test-driven-development
+    etapa: 1
+    fecha: '2026-11-23T01:13:19.625Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:executing-plans
+    etapa: 1
+    fecha: '2026-11-23T01:13:21.554Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:requesting-code-review
+    etapa: 2
+    fecha: '2026-11-23T01:22:17.077Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 2
+    fecha: '2026-11-23T01:22:34.281Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 2
+    fecha: '2026-11-23T01:22:34.296Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 2
+    fecha: '2026-11-23T01:22:34.289Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:receiving-code-review
+    etapa: 2
+    fecha: '2026-11-23T01:24:24.923Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: superpowers:verification-before-completion
+    etapa: 2
+    fecha: '2026-11-23T01:29:09.565Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 2
+    fecha: '2026-11-23T01:29:29.561Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 2
+    fecha: '2026-11-23T01:29:29.615Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 2
+    fecha: '2026-11-23T01:29:29.618Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-24T15:57:08.868Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    fecha: '2026-11-24T15:57:11.665Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    fecha: '2026-11-24T15:57:14.971Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+clasificacion_confirmada:
+  frase: Avanza
+  fecha: '2026-11-23T01:13:15.280Z'
+  via: ok
+  grupo: ok-2026-11-23T01:13:15.280Z
+ejecucion:
+  modo: inline
+  frase: Avanza
+  fecha: '2026-11-23T01:13:15.280Z'
+  via: ok
+  grupo: ok-2026-11-23T01:13:15.280Z
+e2e:
+  ok: true
+  fecha: '2026-11-24T14:18:32.561Z'
+  comando: npm run test:e2e
+  head: 1ac0cb4078ef8f930f842fae2a89659ce2b85467
+  completo: true
+revisiones_bloqueantes: 1

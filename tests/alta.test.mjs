@@ -181,3 +181,98 @@ test('PLG-DEPS: el paso mcp recomienda codebase-memory-mcp y context7 si no est�
   fs.writeFileSync(path.join(m.home, '.claude.json'), JSON.stringify({ mcpServers: { context7: {}, 'codebase-memory-mcp': {} } }));
   assert.equal(pasosAlta(opts(m)).find((x) => x.id === 'mcp').estado, 'ok');
 });
+
+// PLG-TEST-REL: tests.unit sin {archivos} corre la suite entera en cada commit.
+test('PLG-TEST-REL: tests.unit sin {archivos} → aviso no obligatorio con el comando de tests relacionados del stack', () => {
+  const m = montar({ unit: 'npm test' });
+  fs.writeFileSync(path.join(m.repo, 'package.json'), JSON.stringify({ devDependencies: { vitest: '^2.0.0' } }));
+  const pasos = pasosAlta(opts(m));
+  const p = pasos.find((x) => x.id === 'tests-rel');
+  assert.equal(p.obligatorio, false);
+  assert.equal(p.estado, 'aviso');
+  assert.match(p.detalle, /cada commit corre la suite entera/);
+  assert.match(p.como, /npx vitest related --run \{archivos\}/);
+  assert.equal(pasos.findIndex((x) => x.id === 'tests-rel'), pasos.findIndex((x) => x.id === 'tests') + 1, 'va después del paso de tests');
+});
+
+test('PLG-TEST-REL: con jest sugiere --findRelatedTests; con pytest o sin stack reconocido, sin comando', () => {
+  const m = montar({ unit: 'npm test' });
+  fs.writeFileSync(path.join(m.repo, 'package.json'), JSON.stringify({ devDependencies: { jest: '^29.0.0' } }));
+  assert.match(pasosAlta(opts(m)).find((x) => x.id === 'tests-rel').como, /npx jest --findRelatedTests \{archivos\}/);
+  const m2 = montar({ unit: 'pytest' });
+  fs.writeFileSync(path.join(m2.repo, 'pytest.ini'), '[pytest]\n');
+  // pytest con las fuentes en stage no corre sus tests (sale 5, "no tests ran"): no hay equivalente a "related".
+  assert.doesNotMatch(pasosAlta(opts(m2)).find((x) => x.id === 'tests-rel').como, /pytest \{archivos\}/);
+  const m3 = montar({ unit: 'make test' });
+  const como = pasosAlta(opts(m3)).find((x) => x.id === 'tests-rel').como;
+  assert.doesNotMatch(como, /npx|pytest/);
+  assert.match(como, /\{archivos\}/);
+});
+
+test('PLG-TEST-REL: con {archivos} el paso está ok; sin comando de tests no aparece', () => {
+  const ok = montar({ unit: 'npx vitest related --run {archivos}' });
+  assert.equal(pasosAlta(opts(ok)).find((x) => x.id === 'tests-rel').estado, 'ok');
+  assert.equal(pasosAlta(opts(montar())).some((x) => x.id === 'tests-rel'), false);
+});
+
+test('PLG-TEST-REL: con {archivos} el arranque no muestra el aviso', async () => {
+  const m = montar();
+  fs.mkdirSync(path.join(m.home, '.claude'));
+  fs.writeFileSync(path.join(m.home, '.claude', 'bacg-dev.json'), JSON.stringify({ proyectos: { pf: { tests: { unit: 'npx vitest related --run {archivos}' } } } }));
+  const r = await sessionStart({ cwd: m.repo }, { dirLin: m.lin, home: m.home, pluginRoot: null, env: { BACG_DEV_SIN_GH: '1' } });
+  assert.doesNotMatch(r?.hookSpecificOutput?.additionalContext ?? '', /cada commit corre la suite entera/);
+});
+
+test('PLG-TEST-REL: el arranque muestra el aviso aunque el alta esté completa', async () => {
+  const m = montar();
+  fs.mkdirSync(path.join(m.home, '.claude'));
+  fs.writeFileSync(path.join(m.home, '.claude', 'bacg-dev.json'), JSON.stringify({ proyectos: { pf: { tests: { unit: 'npm test' } } } }));
+  const r = await sessionStart({ cwd: m.repo }, { dirLin: m.lin, home: m.home, pluginRoot: null, env: { BACG_DEV_SIN_GH: '1' } });
+  assert.match(r.hookSpecificOutput.additionalContext, /Aviso: cada commit corre la suite entera/);
+});
+
+// PLG-E2E-ALC: tests.e2e sin {specs} corre la suite E2E completa en cada verificar.
+function conE2e(m, e2e) {
+  fs.mkdirSync(path.join(m.home, '.claude'), { recursive: true });
+  fs.writeFileSync(path.join(m.home, '.claude', 'bacg-dev.json'), JSON.stringify({ proyectos: { pf: { tests: { unit: 'npx vitest related --run {archivos}', e2e } } } }));
+}
+
+test('PLG-E2E-ALC: tests.e2e sin {specs} → aviso no obligatorio con el ejemplo; con {specs}, ok', () => {
+  const m = montar();
+  conE2e(m, 'npx playwright test');
+  let pasos = pasosAlta(opts(m));
+  const p = pasos.find((x) => x.id === 'tests-e2e-alcance');
+  assert.equal(p.obligatorio, false);
+  assert.equal(p.estado, 'aviso');
+  assert.match(p.detalle, /cada verificar corre la suite E2E completa/);
+  assert.match(p.como, /npx playwright test \{specs\}/);
+  assert.equal(pasos.findIndex((x) => x.id === 'tests-e2e-alcance'), pasos.findIndex((x) => x.id === 'e2e') + 1);
+  conE2e(m, 'npx playwright test {specs}');
+  pasos = pasosAlta(opts(m));
+  assert.equal(pasos.find((x) => x.id === 'tests-e2e-alcance').estado, 'ok');
+});
+
+test('PLG-E2E-ALC: sin tests.e2e no aparece el paso de alcance', () => {
+  const m = montar({ unit: 'npm test {archivos}' });
+  assert.equal(pasosAlta(opts(m)).some((x) => x.id === 'tests-e2e-alcance'), false);
+});
+
+test('PLG-E2E-ALC: el arranque avisa el E2E sin {specs} y calla con él', async () => {
+  const m = montar();
+  conE2e(m, 'npx playwright test');
+  const arr = (mm) => sessionStart({ cwd: mm.repo }, { dirLin: mm.lin, home: mm.home, pluginRoot: null, env: { BACG_DEV_SIN_GH: '1' } });
+  let r = await arr(m);
+  assert.match(r.hookSpecificOutput.additionalContext, /tests\.e2e corre la suite completa en cada verificar: agregá \{specs\}/);
+  conE2e(m, 'npx playwright test {specs}');
+  r = await arr(m);
+  assert.doesNotMatch(r?.hookSpecificOutput?.additionalContext ?? '', /suite completa en cada verificar/);
+});
+
+// PLG-CI-MIN: el arranque suma los avisos de los workflows.
+test('PLG-CI-MIN: el arranque avisa un workflow on: push sin filtro de docs', async () => {
+  const m = montar();
+  fs.mkdirSync(path.join(m.repo, '.github', 'workflows'), { recursive: true });
+  fs.writeFileSync(path.join(m.repo, '.github', 'workflows', 'ci.yml'), 'name: CI\non: push\njobs: {}\n');
+  const r = await sessionStart({ cwd: m.repo }, { dirLin: m.lin, home: m.home, pluginRoot: null, env: { BACG_DEV_SIN_GH: '1' } });
+  assert.match(r.hookSpecificOutput.additionalContext, /cada commit de docs del ciclo corre el workflow CI/);
+});

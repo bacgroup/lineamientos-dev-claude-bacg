@@ -13,11 +13,14 @@ export const FIN = '<!-- bacg-dev:fin -->';
 const lista = (x) => (Array.isArray(x) ? x.filter((s) => typeof s === 'string' && s.trim() !== '') : []);
 const codigo = (s) => `\`${s}\``;
 
+/** Ruta del canon de UI del proyecto en el repo (ui.canon, relativo a .bacg-dev/), o null si no lo declara. */
+export const rutaCanon = (p) => (typeof p?.ui?.canon === 'string' && p.ui.canon ? path.posix.normalize(`.bacg-dev/${p.ui.canon}`) : null);
+
 /** Texto de la sección (con sus marcas) para el proyecto dado. */
 export function seccionAgents(proyecto) {
   const p = proyecto ?? {};
   const tests = p.tests ?? {};
-  const canon = typeof p.ui?.canon === 'string' && p.ui.canon ? path.posix.normalize(`.bacg-dev/${p.ui.canon}`) : null;
+  const canon = rutaCanon(p);
   const refs = basesProd(p);
   const migs = globsMigraciones(p);
   const sensibles = lista(p.sensible?.rutas);

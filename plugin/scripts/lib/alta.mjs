@@ -257,6 +257,20 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
     como: `Declará cómo corrés los tests en tu PC, en ~/.claude/bacg-dev.json (se suma a lo que ya tenga):\n${ejemplo}\n{archivos} = lo que está en stage; {specs} = los E2E del RQ.`,
   });
 
+  // PLG-TEST-REL: sin {archivos}, cada commit corre la suite entera (más lento y más expuesto a timeouts bajo carga).
+  if (unit) {
+    const relacionados = unit.includes('{archivos}');
+    const sugerido = comandoRelacionado(repo.raiz);
+    sumar({
+      id: 'tests-rel', titulo: 'Tests del commit: sólo los relacionados con lo que está en stage', obligatorio: false,
+      estado: relacionados ? 'ok' : 'aviso',
+      detalle: relacionados ? undefined : 'cada commit corre la suite entera (tests.unit no usa {archivos})',
+      como: sugerido
+        ? `Usá en tests.unit (proyecto.yml o ~/.claude/bacg-dev.json): "${sugerido}". La suite completa sigue en CI y en el E2E completo antes de PROD.`
+        : 'Sumá {archivos} a tests.unit con la opción de tu runner que corre sólo los tests relacionados con esas rutas. La suite completa sigue en CI.',
+    });
+  }
+
   // 9. El script de los tests existe
   if (unit) {
     const script = scriptDelComando(unit);
@@ -289,6 +303,16 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
     detalle: e2e ? undefined : 'sin comando E2E: los RQ con UI no podrán registrar la verificación',
     como: `Sumá "e2e" y "e2e_url" en proyectos.${repo.proyectoId}.tests de ~/.claude/bacg-dev.json.`,
   });
+
+  // PLG-E2E-ALC: sin {specs}, cada verificar corre la suite E2E completa (tiempo, máquina y el lock de las otras sesiones).
+  if (e2e) {
+    const conSpecs = e2e.includes('{specs}');
+    sumar({
+      id: 'tests-e2e-alcance', titulo: 'E2E del RQ: sólo sus specs', obligatorio: false, estado: conSpecs ? 'ok' : 'aviso',
+      detalle: conSpecs ? undefined : 'cada verificar corre la suite E2E completa (tests.e2e no usa {specs})',
+      como: 'Sumá {specs} a tests.e2e (p. ej. "npx playwright test {specs}" o "node qa/e2e.mjs {specs}"); la suite completa corre una vez con verificar --completo antes de PROD. Si tu runner no acepta specs sueltos, dejalo así.',
+    });
+  }
 
   // 11. Merge a la rama de DEV en modo automático (orienta): la autonomía hasta DEV incluye mergear el PR del RQ a
   // DEV, y el modo automático de Claude Code lo niega sin una regla de permisos. La compuerta del plugin sigue
@@ -327,6 +351,21 @@ export function pasosAlta({ cwd = process.cwd(), env = process.env, home = os.ho
 export const bloqueante = (pasos) => pasos.find((p) => p.obligatorio && p.estado === 'falta') ?? null;
 
 const ICONO = { ok: '✅', falta: '❌', aviso: '⚠️', na: '·' };
+
+/** PLG-TEST-REL: comando de tests relacionados según el runner del repo (null si no se reconoce). */
+export function comandoRelacionado(raiz) {
+  let pkg = {};
+  try {
+    pkg = JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8'));
+  } catch {
+    // sin package.json legible: no es un proyecto de Node
+  }
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  if (deps.vitest) return 'npx vitest related --run {archivos}';
+  if (deps.jest) return 'npx jest --findRelatedTests {archivos}';
+  // pytest no tiene equivalente: con las fuentes en stage no corre sus tests (sale 5, "no tests ran").
+  return null;
+}
 
 /** Texto del stepper: lista numerada y el próximo paso con qué hacer. */
 export function formatoAlta(pasos) {

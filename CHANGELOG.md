@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.8.0: tests y CI con alcance, fricciones del ciclo y canon de UI al cierre (2026-11-24)
+
+**Origen:** RQ PLG-TEST-INFRA (análisis del 21/11: ~90 % de 42 commits rechazados en CRM fueron por tiempo, no por código), PLG-E2E-ALC, PLG-FRIC2 y PLG-CI-MIN (handoffs de CRM y PunAPP del 23/11).
+
+**Cambios:**
+- PLG-TEST-INFRA: el commit clasifica la falla de tests (`claseFalla`: rojo, timeout o infraestructura del runner; un archivo o suite que no carga y un error del producto son rojos, y los timeouts se cuentan por test distinto). Si no es un test rojo, reintenta una vez el mismo comando; si pasa, sigue y lo anota en `tests.inestables`; si no, el mensaje dice la clase ("Falla de infraestructura del runner, no de tests" o "Tests que superan su tiempo dos veces seguidas"). `tests.rechazos` cuenta los rechazos por clase y el cierre los pasa a `docs/log/rq.jsonl` (`rechazos_tests`, `tests_inestables`). `BACG_DEV_SIN_REINTENTO=1` lo apaga.
+- PLG-TEST-REL: paso `tests-rel` del alta (no obligatorio) y aviso del arranque si `tests.unit` no usa `{archivos}`, con el comando de tests relacionados del runner (vitest related, jest --findRelatedTests; pytest no tiene equivalente).
+- PLG-E2E-ALC (handoff CRM 23/11): paso `tests-e2e-alcance` del alta y aviso del arranque si `tests.e2e` no usa `{specs}`; `verificar` dice cuánto tardó y, sin placeholder, que corrió la suite completa; `estado` también avisa el placeholder faltante; `e2e_completos` cuenta las corridas con `--completo` y `estado` avisa si hay más de una antes de PROD; `tests.e2e_mapa` (glob del código → specs) suma los specs de la pantalla tocada; comentario en la plantilla.
+- PLG-FRIC2 (R-QA-CI2 de PunAPP): las frases dichas en una lista (`1- `, `2. `, `- `, `• `) se reconocen sin el marcador; el push se anota sólo en los RQ activos cuyos commits viajan (por el rango que informa git; si no lo informa, la historia de HEAD; si ninguno se nombra, en todos, como antes); si una compuerta o los tests frenan `commit`, lo que agregó la CLI sale del stage; un commit de sólo tests corre esos tests con `{archivos}` (con lo no stageado aparte); `paso no-aplica merge-prs-sync:` se acepta después del push y sin PR de sync abierto en la sede (sin poder consultarlo, se rechaza); `abrir --prioridad` valida Alta/Media/Baja y prioridad e impacto quedan en estado.yml para el cierre.
+- PLG-CI-MIN (handoffs CRM y PunAPP del 23/11): los commits de sólo docs de la CLI (`commit` y `cerrar`) llevan `[skip ci]` sólo si todo lo que falta subir también es de docs (GitHub mira el commit de punta: si debajo viaja código, no se marca; sin remoto, tampoco); no cuentan como docs un SQL o script en `docs/`, ni `.md` de `.bacg-dev/` o del producto; se apaga con `ci.skip_docs: false`; el aviso de los filtros evalúa `paths`/`paths-ignore` como GitHub; el arranque avisa los workflows que corren por docs, los que dejan afuera `.bacg-dev/` y los tests que leen `docs/` excluido; ciclo-rq pide un solo push de docs después del merge (el de `cerrar`); guía `general/ci.md` con el filtro `paths:` y `concurrency`.
+- PLG-CANON-CIERRE: `cerrar` de un RQ que tocó UI pide registrar si dejó un lineamiento nuevo para el canon: `rq.mjs canon no "<frase>"` o `rq.mjs canon documentado` (verifica que `ui.canon` cambió en commits del RQ y no quedó nada sin commitear). Si no puede saber qué tocó el RQ, pregunta igual.
+
 ## 4.7.0: calidad y seguridad como estándar (2026-11-19)
 
 **Origen:** RQ PLG-MOCK, PLG-SEG, PLG-DEPS, PLG-PRREV y PLG-SP (pedido del 18/11).

@@ -10,17 +10,18 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { buscarRepo, cargarProyecto, carpetaProyecto, dirLineamientos, nombreRepo, CARPETA_REPO } from './lib/config.mjs';
 import { rqsActivos, rqActivo, guardarActivos, cargarEstado, guardarEstado, estadoCommiteado, etapaDerivada, saltoValido, cerradosConPendientes } from './lib/estado.mjs';
-import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
+import { conRutas, comandosTests, comandoE2e, PISTA_SIN_TESTS, rojosConocidos, fallosDe, soloRojosConocidos, claseFalla, conArchivos, resumenFalla, conSpecs, shellDeTests } from './lib/cli.mjs';
 import { faltaParaEtapa, pasadasSinRepetir, PASADAS_REVISION, nombreSkill as nombreSkillDe, fueraDeSonda, MSG_EXPLORACION_FUERA, sensibleSinRevisar, skillsDe, tieneSkill, tocaUi, verificacionLocalOk } from './lib/requisitos.mjs';
 import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, rutasDesde, refPrincipal, nombraCodigo } from './lib/no-aplica.mjs';
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, upsertEnArchivo, fusionarEnArchivo, columnasDe, crearConEncabezadoDe, rutaBacklog, rutaCentral, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
-import { tipoArchivo } from './lib/rutas.mjs';
+import { tipoArchivo, globARegExp } from './lib/rutas.mjs';
+import { conSkipCi, conSkipParaCommit } from './lib/ci.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
-import { seccionAgents, escribirAgents } from './lib/agents.mjs';
+import { rutaCanon, seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
 import { espejar, heredar, reposHermanos } from './lib/multi-repo.mjs';
-import { pasosAlta, formatoAlta, bloqueante, scriptDelComando } from './lib/alta.mjs';
+import { pasosAlta, formatoAlta, bloqueante, scriptDelComando, comandoRelacionado } from './lib/alta.mjs';
 import { validacionPrevia, mensajeBloqueo } from './lib/previa.mjs';
 import { ordenDeRamas } from './lib/promocion.mjs';
 import { textoArranque } from './lib/arranque.mjs';
@@ -35,7 +36,7 @@ import { intentarLock, soltarLock, lockTomado } from './lib/lock.mjs';
 import { lockE2e, firmaE2e, msgE2eEnCurso } from './lib/e2e-lock.mjs';
 import { avisoMergeado } from './lib/rq-rama.mjs';
 import { REGLAS_ACTUALES, reglas44 } from './lib/reglas.mjs';
-import { prsDeRama, checksDe, REST } from './lib/github.mjs';
+import { prsDeRama, checksDe, REST, prsAbiertos } from './lib/github.mjs';
 import { compiladosCompartidos } from './lib/compilados.mjs';
 import { remotoGh } from './lib/config.mjs';
 import { faltasCapturas, refExigida } from './lib/diseno-ui.mjs';
@@ -91,6 +92,7 @@ const USO = `Uso: node rq.mjs <subcomando> [args] [--rq <código>]   (--rq elige
   auditar [--cerrar "<nota>"]        (commits de Lovable sin revisar; --cerrar mueve la marca y lo anota en docs/log/rq.jsonl)
   estado                             (avisa si la rama está atrasada o si el RQ ya figura cerrado en origin/main)
   arranque                           (inicio o reanudación de la sesión: proyecto, repos, lo último trabajado o dónde quedó el RQ activo; sólo lee)
+  canon no "<frase>" | documentado   (al cerrar un RQ que tocó UI: si dejó un lineamiento nuevo para el canon de UI)
   cerrar [--resumen "<1-2 frases>"] [--alcance "<texto>"] [--sin-changelog]   (con --resumen: changelog, docs/log/rq.jsonl y commit de docs; --sin-changelog: sólo el log)
 `;
 
@@ -364,6 +366,8 @@ function previa(repo, env, codigo, nuevo) {
   return validacionPrevia({ repo, proyecto: proyectoDe(repo, env), codigo, nuevo, env, dirLin: dirLineamientos({ env }) });
 }
 
+const PRIORIDADES = ['Alta', 'Media', 'Baja'];
+
 async function abrir(repo, args, env, io, verificacion) {
   const raiz = repo.raiz;
   const { res, posicionales } = opciones(args, ['tipo', 'clasificacion', 'tarea', 'prioridad', 'impacto', 'frase'], ['sin-alta', 'sin-previa', 'llevar-cambios']);
@@ -391,6 +395,13 @@ async function abrir(repo, args, env, io, verificacion) {
   if (!clasificacion) {
     throw new ErrorCli(`--clasificacion inválida: "${res.clasificacion}" (exploracion | acotado | arquitectonico).`);
   }
+  // PLG-FRIC2 (2.7): prioridad de la lista del backlog; se guarda en estado.yml para que el cierre complete la fila.
+  let prioridad;
+  if (res.prioridad !== undefined) {
+    prioridad = PRIORIDADES.find((p) => p.toLowerCase() === String(res.prioridad).trim().toLowerCase());
+    if (!prioridad) throw new ErrorCli(`--prioridad inválida: "${res.prioridad}" (Alta, Media o Baja).`);
+  }
+  const impacto = typeof res.impacto === 'string' && res.impacto.trim() ? res.impacto.trim() : undefined;
   const dir = path.join(raiz, 'docs', 'rq', codigo);
   let existente = null;
   try {
@@ -425,6 +436,8 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
       clasificacion,
       clasificacion_pendiente: true,
       ...(res.tarea ? { tarea: res.tarea } : {}),
+      ...(prioridad ? { prioridad } : {}),
+      ...(impacto ? { impacto } : {}),
       etapa: 0,
       autonomia: null,
       aprobaciones: [],
@@ -440,6 +453,11 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
     vinculo = heredar(raiz, repo.proyectoId, proyectoDe(repo, env), nuevo);
     guardarEstado(raiz, nuevo);
   }
+  if (existente && (prioridad || impacto)) {
+    if (prioridad) existente.prioridad = prioridad;
+    if (impacto) existente.impacto = impacto;
+    guardarEstado(raiz, existente);
+  }
   fs.mkdirSync(dir, { recursive: true });
   const otros = rqsActivos(raiz).filter((c) => c !== codigo);
   guardarActivos(raiz, [...otros, codigo]);
@@ -452,8 +470,8 @@ Hacelo a mano: git switch ${ramaDelRq(codigo)} (o git switch -c ${ramaDelRq(codi
   await alAbrirEnSesion(repo, env, codigo, io, verificacion);
   anotarBacklog(repo, env, codigo, {
     Tarea: res.tarea,
-    Prioridad: res.prioridad,
-    Impacto: res.impacto,
+    Prioridad: prioridad,
+    Impacto: impacto,
     Estado: 'En curso',
     Link: `docs/rq/${codigo}/`,
   }, io);
@@ -930,40 +948,85 @@ function exigirDesarrollo(estado, raiz, proyecto) {
   if (!EN_LINEA_POR_DEFECTO.includes(estado.clasificacion) && !estado.ejecucion && !hayCommitDeCodigo(raiz, estado.codigo, estado, proyecto)) throw new ErrorCli(MSG_EJECUCION);
 }
 
+// PLG-TEST-INFRA: mensajes del rechazo según la clase de la falla (claseFalla) cuando el reintento tampoco pasó.
+const MSG_CLASE = {
+  infraestructura: 'Falla de infraestructura del runner, no de tests (todos pasaron dos veces y el runner cortó con error). Bajá la carga de la PC (E2E, servidores) o corré sólo los tests relacionados.',
+  timeout: 'Tests que superan su tiempo dos veces seguidas: revisá el límite del test (testTimeout) o la carga de la PC.',
+};
+const pistaRelacionados = (raiz) => {
+  const sugerido = comandoRelacionado(raiz);
+  return `Pista: con {archivos} en tests.unit el commit corre sólo los tests relacionados con lo que está en stage${sugerido ? ` (${sugerido})` : ' (con la opción de tu runner que corre los tests de esas rutas)'}.`;
+};
+
 /**
  * Corre los tests de commit sobre lo que está en stage y los registra en estado.tests. Si todo sale bien imprime una
  * línea; si falla, la cola de la salida. No guarda el estado (lo guarda quien llama). Devuelve el código de salida.
  */
-function correrTests(raiz, estado, proyecto, io, { silencioso = false } = {}) {
+function correrTests(raiz, estado, proyecto, io, { silencioso = false, env = process.env, archivosDeTest = null } = {}) {
   const comandos = comandosTests(proyecto);
   if (comandos.length === 0) {
     throw new ErrorCli(`El proyecto no declara comandos de tests en proyecto.yml. ${PISTA_SIN_TESTS}`);
   }
   const arbol = arbolTesteado(raiz);
-  const archivos = enStageDeProducto(raiz, proyecto);
+  // PLG-FRIC2 (2.4): un commit de sólo tests corre esos archivos, y sólo con los comandos que usan {archivos}.
+  const archivos = archivosDeTest ?? enStageDeProducto(raiz, proyecto);
   const conocidos = rojosConocidos(proyecto);
   const corridos = [];
   const rojos = [];
+  const inestables = [];
+  let rechazo = null;
   let codigo = 0;
   for (const base of comandos) {
+    if (archivosDeTest && !base.includes('{archivos}')) continue;
     const cmd = conArchivos(rutasEn(base, raiz, proyecto), archivos);
     if (cmd === null) continue;
     corridos.push(cmd);
-    const r = spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const correr = () => spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    let r = correr();
     if (r.error) io.stderr.write(`No pude ejecutar "${cmd}": ${r.error.message}\n`);
     if (r.status === 0) continue;
-    const salidaTest = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
-    const fallos = fallosDe(salidaTest);
+    let salidaTest = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
+    let fallos = fallosDe(salidaTest);
     if (soloRojosConocidos(fallos, conocidos)) {
       rojos.push(...fallos);
       continue;
     }
+    // PLG-TEST-INFRA: lo que no es un test rojo (el runner cortó con todo en verde, o sólo hubo timeouts) se
+    // reintenta una vez; si pasa, queda anotado como inestable.
+    let clase = claseFalla(salidaTest);
+    if (clase !== 'rojo' && !r.error && env.BACG_DEV_SIN_REINTENTO !== '1') {
+      io.stdout.write(`Falla de ${clase === 'timeout' ? 'tiempo (timeout)' : 'infraestructura del runner'}, no de un test rojo: reintento una vez "${cmd}".\n`);
+      const primera = fallos;
+      r = correr();
+      if (r.error) io.stderr.write(`No pude ejecutar "${cmd}" (reintento): ${r.error.message}\n`);
+      const inestable = { fecha: ahora(), clase, comando: cmd, ...(primera.length ? { tests: primera } : {}) };
+      if (r.status === 0) {
+        inestables.push(inestable);
+        continue;
+      }
+      salidaTest = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
+      fallos = fallosDe(salidaTest);
+      if (soloRojosConocidos(fallos, conocidos)) {
+        inestables.push(inestable);
+        rojos.push(...fallos);
+        continue;
+      }
+      clase = claseFalla(salidaTest);
+    }
     io.stdout.write(`${resumenFalla(salidaTest, 60, { id: `tests-${estado.codigo}` })}\n`);
+    if (MSG_CLASE[clase]) io.stdout.write(`${MSG_CLASE[clase]}${/\{archivos\}/.test(base) ? '' : ` ${pistaRelacionados(raiz)}`}\n`);
+    rechazo = clase;
     codigo = r.status ?? 1;
     break;
   }
+  const previos = estado.tests ?? {};
   estado.tests = { ok: codigo === 0, arbol, fecha: ahora(), comandos: corridos };
   if (rojos.length) estado.tests.rojos_conocidos = [...new Set(rojos)];
+  const todosInestables = [...(previos.inestables ?? []), ...inestables];
+  if (todosInestables.length) estado.tests.inestables = todosInestables.slice(-20);
+  const rechazos = { ...(previos.rechazos ?? {}) };
+  if (rechazo) rechazos[rechazo] = (rechazos[rechazo] ?? 0) + 1;
+  if (Object.keys(rechazos).length) estado.tests.rechazos = rechazos;
   const extra = rojos.length ? `, ${new Set(rojos).size} rojo(s) conocido(s)` : '';
   if (silencioso && codigo === 0) return 0; // commit resume los tests en su propia línea
   if (corridos.length === 0) io.stdout.write('Sin archivos de producto en stage: no corrió ningún test.\n');
@@ -982,7 +1045,7 @@ function registrarTests(repo, elegido, env, io) {
     throw new ErrorCli('Hay cambios sin stagear en archivos trackeados: usá $RQ commit "<mensaje>" <rutas> (los deja aparte mientras corren los tests) o hacé git add antes.');
   }
   if (enStageDeProducto(raiz, proyecto).length) exigirDesarrollo(estado, raiz, proyecto);
-  const r = correrTests(raiz, estado, proyecto, io);
+  const r = correrTests(raiz, estado, proyecto, io, { env });
   guardar(raiz, estado);
   stagearPropiosDeLaCli(raiz, estado.codigo);
   return r;
@@ -1033,6 +1096,56 @@ function commit(repo, elegido, args, env, io) {
   if (rutas.length === 0) throw new ErrorUso();
   const { codigo, estado } = activo(raiz, elegido);
   const proyecto = proyectoDe(repo, env);
+  // PLG-FRIC2 (2.3): si una compuerta frena el commit, lo que agregó la CLI vuelve a salir del stage.
+  // También con los tests en rojo: el commit no se hizo, así que el stage vuelve a como estaba.
+  const previo = new Set(nombresEnStage(raiz));
+  const deshacer = () => {
+    const nuevos = nombresEnStage(raiz).filter((r) => !previo.has(r));
+    if (nuevos.length) spawnSync('git', ['reset', '-q', '--', ...nuevos], { cwd: raiz });
+    return nuevos;
+  };
+  let r;
+  try {
+    r = commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, env, io);
+  } catch (e) {
+    const nuevos = deshacer();
+    if (!(e instanceof ErrorCli) || !nuevos.length) throw e;
+    throw new ErrorCli(`${e.message} (Saqué del stage lo que había agregado: ${nuevos.join(', ')}.)`);
+  }
+  if (r !== 0) {
+    const nuevos = deshacer();
+    if (nuevos.length) io.stdout.write(`Saqué del stage lo que había agregado (${nuevos.join(', ')}): corregí y volvé a correr $RQ commit con las mismas rutas.\n`);
+  }
+  return r;
+}
+
+/** Corre `fn` con los cambios sin stagear guardados aparte (git stash --keep-index), y los devuelve al terminar. */
+function conLoNoStageadoAparte(raiz, codigo, io, fn) {
+  const aparte = hayCambiosSinStage(raiz);
+  if (aparte) {
+    const st = spawnSync('git', ['stash', 'push', '-q', '--keep-index', '-m', `rq.mjs commit ${codigo}`], { cwd: raiz, encoding: 'utf8' });
+    if (st.status !== 0) throw new ErrorCli(`No pude guardar aparte los cambios sin stagear (git stash): ${String(st.stderr).trim()}`);
+  }
+  try {
+    return fn();
+  } finally {
+    if (aparte) {
+      const pop = spawnSync('git', ['stash', 'pop', '-q', '--index'], { cwd: raiz, encoding: 'utf8' });
+      if (pop.status !== 0) io.stderr.write(`Aviso: los cambios sin stagear quedaron en git stash (git stash pop): ${String(pop.stderr).trim()}\n`);
+    }
+  }
+}
+
+/** Archivos en stage (rutas relativas al repo). */
+function nombresEnStage(raiz) {
+  const r = spawnSync('git', ['diff', '--cached', '--name-only', '-z', '--relative'], { cwd: raiz, encoding: 'utf8' });
+  return r.status === 0 ? r.stdout.split('\0').filter(Boolean) : [];
+}
+
+// Tests unitarios (no E2E): *.test.*, *.spec.* fuera de e2e/, tests/** y __tests__/**.
+const RE_TEST_UNITARIO = /(^|\/)(tests|__tests__)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|_test\.py$/;
+
+function commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, env, io) {
   agregarRutas(raiz, rutas);
   rebasarSiNoEmpezo(raiz, codigo, estado);
   const producto = enStageDeProducto(raiz, proyecto);
@@ -1045,30 +1158,31 @@ function commit(repo, elegido, args, env, io) {
   if (producto.length && saltoValido(estado, 'commit')) tests = 'tests salteados (saltar commit)';
   else if (producto.length) {
     exigirDesarrollo(estado, raiz, proyecto);
-    const aparte = hayCambiosSinStage(raiz);
-    if (aparte) {
-      const st = spawnSync('git', ['stash', 'push', '-q', '--keep-index', '-m', `rq.mjs commit ${codigo}`], { cwd: raiz, encoding: 'utf8' });
-      if (st.status !== 0) throw new ErrorCli(`No pude guardar aparte los cambios sin stagear (git stash): ${String(st.stderr).trim()}`);
-    }
-    let r;
-    try {
-      r = correrTests(raiz, estado, proyecto, io, { silencioso: true });
-    } finally {
-      if (aparte) {
-        const pop = spawnSync('git', ['stash', 'pop', '-q', '--index'], { cwd: raiz, encoding: 'utf8' });
-        if (pop.status !== 0) io.stderr.write(`Aviso: los cambios sin stagear quedaron en git stash (git stash pop): ${String(pop.stderr).trim()}\n`);
-      }
-    }
+    const r = conLoNoStageadoAparte(raiz, codigo, io, () => correrTests(raiz, estado, proyecto, io, { silencioso: true, env }));
     if (r !== 0) {
       guardar(raiz, estado);
       return r;
     }
     tests = `tests ok (${estado.tests.comandos.length} comando(s))`;
+  } else {
+    const deTest = nombresEnStage(raiz).filter((r) => !r.startsWith('e2e/') && RE_TEST_UNITARIO.test(r) && fs.existsSync(path.join(raiz, r)));
+    if (deTest.length && comandosTests(proyecto).some((c) => c.includes('{archivos}'))) {
+      const r = conLoNoStageadoAparte(raiz, codigo, io, () => correrTests(raiz, estado, proyecto, io, { silencioso: true, env, archivosDeTest: deTest }));
+      if (r !== 0) {
+        guardar(raiz, estado);
+        return r;
+      }
+      tests = `tests ok (sólo los tests del commit: ${deTest.length} archivo(s))`;
+    } else if (deTest.length) {
+      tests = 'sólo docs y tests: sin correr tests (tests.unit no usa {archivos}, así que correrlos sería la suite entera)';
+    }
   }
   guardar(raiz, estado);
   const propios = [`docs/rq/${codigo}/estado.yml`, 'docs/rq/ACTIVO'].filter((p) => fs.existsSync(path.join(raiz, p)));
   spawnSync('git', ['add', '--', ...propios], { cwd: raiz });
-  const msg = conCodigo(mensaje, codigo);
+  const conCod = conCodigo(mensaje, codigo);
+  // PLG-CI-MIN: un commit de sólo docs no corre el CI (salvo ci.skip_docs: false).
+  const msg = conSkipParaCommit(raiz, proyecto, nombresEnStage(raiz)) ? conSkipCi(conCod) : conCod;
   const c = spawnSync('git', ['commit', '-q', '-m', msg], { cwd: raiz, encoding: 'utf8' });
   if (c.status !== 0) throw new ErrorCli(`git commit falló: ${String(c.stderr || c.stdout).trim()}`);
   const hash = salida(raiz, ['rev-parse', '--short', 'HEAD']);
@@ -1077,9 +1191,30 @@ function commit(repo, elegido, args, env, io) {
 }
 
 /** Specs E2E que toca el RQ (e2e/** o *.spec.* en su diff) y siguen existiendo. */
-function specsDelRq(raiz, estado) {
+function specsDelRq(raiz, estado, proyecto) {
   const esSpec = (r) => r.startsWith('e2e/') || /\.spec\.[cm]?[jt]sx?$/.test(r);
-  return (rutasDelRq(raiz, estado) ?? []).filter((r) => esSpec(r) && fs.existsSync(path.join(raiz, r)));
+  const rutas = rutasDelRq(raiz, estado) ?? [];
+  // PLG-E2E-ALC: tests.e2e_mapa ({ "<glob de código>": ["<spec>", …] }) suma los specs de la pantalla tocada.
+  const mapa = proyecto?.tests?.e2e_mapa && typeof proyecto.tests.e2e_mapa === 'object' ? proyecto.tests.e2e_mapa : {};
+  const delMapa = Object.entries(mapa)
+    .filter(([glob]) => rutas.some((r) => globARegExp(glob).test(r)))
+    .flatMap(([, specs]) => (typeof specs === 'string' ? [specs] : lista(specs)).filter((x) => typeof x === 'string'));
+  return [...new Set([...rutas.filter(esSpec), ...delMapa])].filter((r) => fs.existsSync(path.join(raiz, r)));
+}
+
+/** PLG-E2E-ALC: aviso si la suite E2E completa se corrió más de una vez antes de PROD (null si no corresponde). */
+function avisoE2eCompletos(estado) {
+  const n = Number(estado?.e2e_completos) || 0;
+  return n > 1 && Number(estado?.etapa ?? 0) < ETAPA.PROD
+    ? `Corriste la suite E2E completa ${n} veces: va una sola, justo antes de pedir el OK de PROD; mientras tanto, los specs del RQ.`
+    : null;
+}
+
+/** Duración legible de una corrida: "850 ms", "42s", "3m 12s". */
+function duracion(ms) {
+  if (ms < 1000) return `${ms} ms`;
+  const seg = Math.round(ms / 1000);
+  return seg < 60 ? `${seg}s` : `${Math.floor(seg / 60)}m ${seg % 60}s`;
 }
 
 /** Verificación local con el rol real (M1): qué se recorrió y capturas que existan bajo docs/rq/<código>/qa/. */
@@ -1192,11 +1327,11 @@ function verificar(repo, elegido, args, env, io) {
     );
   }
   const conSpecsEnComando = base.includes('{specs}');
-  const specs = res.completo || !conSpecsEnComando ? [] : posicionales.length ? specsParaElComando(posicionales, rutasEn(base, raiz, proyecto)) : specsDelRq(raiz, estado);
+  const specs = res.completo || !conSpecsEnComando ? [] : posicionales.length ? specsParaElComando(posicionales, rutasEn(base, raiz, proyecto)) : specsDelRq(raiz, estado, proyecto);
   // Con {specs}, sin --completo y sin specs deducibles del diff (p. ej. viven fuera del repo): no se corre la suite
   // entera sin que nadie lo pida.
   if (conSpecsEnComando && !res.completo && specs.length === 0) {
-    throw new ErrorCli(`tests.e2e corre specs sueltos ({specs}) y no encontré specs E2E del RQ ${rq} en su diff (e2e/** o *.spec.*; si viven fuera del repo no los puedo deducir). Pasá la ruta: $RQ verificar <ruta del spec>… o, para la suite completa (la que exige PROD), $RQ verificar --completo.`);
+    throw new ErrorCli(`tests.e2e corre specs sueltos ({specs}) y no encontré specs E2E del RQ ${rq} en su diff (e2e/** o *.spec.*) ni en tests.e2e_mapa. Pasá el spec de la pantalla que tocaste: $RQ verificar <ruta del spec>… (o declaralo en tests.e2e_mapa: { "<glob del código>": ["<spec>"] }). La suite completa ($RQ verificar --completo) va una sola vez, justo antes de pedir el OK de PROD.`);
   }
   let cmd;
   try {
@@ -1213,10 +1348,13 @@ function verificar(repo, elegido, args, env, io) {
     throw new ErrorCli(msgE2eEnCurso(lockTomado(lock)));
   }
   let r;
+  let tardo = 0;
   const antes = qaDeOtrosRq(raiz, rq);
   try {
     const envE2e = { ...process.env, ...env, BACG_E2E_LOCK: lock, ...(url ? { E2E_URL: String(url), BASE_URL: String(url) } : {}) };
+    const t0 = Date.now();
     r = spawnSync(cmd, { shell: shellDeTests(proyecto), cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: envE2e });
+    tardo = Date.now() - t0;
   } finally {
     soltarLock(lock);
   }
@@ -1234,9 +1372,13 @@ function verificar(repo, elegido, args, env, io) {
   estado.e2e = { ok, fecha: ahora(), comando: cmd, head: commitHead(raiz), completo };
   // PLG-SP: un rojo del E2E (no una corrida que no pudo arrancar) hace que la revisión pida systematic-debugging.
   if (!ok && !r.error) estado.e2e_rojos = (Number(estado.e2e_rojos) || 0) + 1;
+  // PLG-E2E-ALC: las corridas completas pedidas a propósito (con {specs} en el comando) se cuentan: va una antes de PROD.
+  if (conSpecsEnComando && res.completo && !r.error) estado.e2e_completos = (Number(estado.e2e_completos) || 0) + 1;
   guardar(raiz, estado);
-  const alcance = completo ? 'suite completa' : `${specs.length} spec(s) del RQ; antes de PROD: $RQ verificar --completo`;
-  io.stdout.write(`E2E de ${rq} ${ok ? 'ok' : 'falló'} (${alcance}${url ? `, app ${url}` : ''}).\n`);
+  const alcance = !conSpecsEnComando
+    ? 'suite completa: tests.e2e no usa {specs}, así que cada verificar corre todo'
+    : completo ? 'suite completa' : `${specs.length} spec(s) del RQ; antes de PROD: $RQ verificar --completo`;
+  io.stdout.write(`E2E de ${rq} ${ok ? 'ok' : 'falló'} en ${duracion(tardo)} (${alcance}${url ? `, app ${url}` : ''}).\n`);
   return ok ? 0 : (r.status ?? 1);
 }
 
@@ -1308,6 +1450,8 @@ function entregar(repo, elegido, env, io) {
   const saltoE2e = lista(estado.saltos).some((s) => s?.compuerta === 'e2e');
   const parcial = e?.ok && e.completo === false ? ' (sólo specs del RQ: antes de PROD, $RQ verificar --completo)' : '';
   l.push(`E2E: ${e ? (e.ok ? `ok${parcial}` : 'falló') : saltoE2e ? 'salteado por el usuario' : 'sin correr ($RQ verificar)'}.`);
+  const avisoCompletos = avisoE2eCompletos(estado);
+  if (avisoCompletos) l.push(avisoCompletos);
   if (tocaUi(estado, raiz, proyectoDe(repo, env), rutasDelRq(raiz, estado)) && !verificacionLocalOk(estado)) {
     l.push('Verificación local: sin registrar ($RQ verificar --local "<qué se recorrió>" <capturas>).');
   }
@@ -1423,20 +1567,26 @@ function registrarCierre(repo, codigo, estado, proyecto, { resumen, alcance, sin
     fecha, codigo, tipo: estado.tipo, titulo, resumen, repo: nombreRepo(raiz), donde,
     commits: commits.slice(0, 50), e2e: estado.e2e ? estado.e2e.ok === true : null, pendientes: pend,
   };
+  // PLG-TEST-INFRA (G5): la clase de cada rechazo de tests y lo que pasó sólo al reintentar, para medir sin releer salidas.
+  if (estado.tests?.rechazos && Object.keys(estado.tests.rechazos).length) linea.rechazos_tests = estado.tests.rechazos;
+  if (estado.tests?.inestables?.length) linea.tests_inestables = estado.tests.inestables;
   fs.appendFileSync(log, `${JSON.stringify(linea)}\n`);
 
   // ACTIVO puede haber desaparecido (era el último RQ activo): un archivo trackeado que se borró también va al commit.
   const trackeado = (p) => spawnSync('git', ['ls-files', '--error-unmatch', '--', p], { cwd: raiz, stdio: 'ignore' }).status === 0;
   const rutas = [`docs/rq/${codigo}`, 'docs/rq/ACTIVO', 'docs/log', 'docs/backlog.md']
     .filter((p) => fs.existsSync(path.join(raiz, p)) || trackeado(p));
+  // PLG-CI-MIN: el cierre sólo trae docs: no corre el CI (salvo ci.skip_docs: false).
   const add = spawnSync('git', ['add', '-A', '--', ...rutas], { cwd: raiz, encoding: 'utf8' });
+  const delCierre = spawnSync('git', ['diff', '--cached', '--name-only', '--', ...rutas], { cwd: raiz, encoding: 'utf8' }).stdout?.split('\n').filter(Boolean) ?? [];
+  const mensajeCierre = conSkipParaCommit(raiz, proyecto, delCierre) ? conSkipCi(`docs(${codigo}): cierre`) : `docs(${codigo}): cierre`;
   const commit = add.status === 0
-    ? spawnSync('git', ['commit', '-q', '-m', `docs(${codigo}): cierre`, '--', ...rutas], { cwd: raiz, encoding: 'utf8' })
+    ? spawnSync('git', ['commit', '-q', '-m', mensajeCierre, '--', ...rutas], { cwd: raiz, encoding: 'utf8' })
     : add;
   io.stdout.write(`Changelog: ${avisoChangelog}. Log: docs/log/rq.jsonl.\n`);
   io.stdout.write(
     commit.status === 0
-      ? `Commit de cierre: docs(${codigo}): cierre. Falta el push (sólo docs: no necesita RQ).\n`
+      ? `Commit de cierre: ${mensajeCierre}. Falta el push (sólo docs: no necesita RQ; si hay otros commits de docs sin subir, viajan en este mismo push).\n`
       : `Aviso: no pude commitear los docs del cierre (${String(commit.stderr || commit.stdout).trim()}). Commitealos a mano.\n`,
   );
 }
@@ -1554,17 +1704,39 @@ function registrarHecho(repo, elegido, paso, evidencia, env, io) {
 }
 
 // Marca un paso de circuito_prod que no corresponde a este RQ. Los sql:<ref> se rechazan si lo que se
-// publica trae migraciones; sync-lineamientos, si trae estándares; push: y merge-prs-sync: nunca.
+// publica trae migraciones; sync-lineamientos, si trae estándares; merge-prs-sync:, si hay un PR de sync abierto en la
+// sede; push: nunca.
 // Los pasos que no corresponden por el diff ya se deducen solos: esto queda para los demás casos.
 function marcarNoAplica(repo, elegido, paso, motivo, env, io) {
   const p = textoNoVacio(paso, 'El paso').trim();
-  if (pasoObligatorio(p)) throw new ErrorCli('Los pasos push: y merge-prs-sync: no se pueden marcar como no aplica.');
+  if (pasoObligatorio(p)) throw new ErrorCli('Un paso push: no se puede marcar como no aplica: es la publicación misma.');
   textoNoVacio(motivo, 'El motivo');
   const { codigo, estado } = activo(repo.raiz, elegido);
   const { oficial } = pasoOficial(repo, env, p, estado);
   const hechos = lista(estado.circuito);
   if (hechos.some((c) => normPaso(c?.paso) === normPaso(oficial))) {
     io.stdout.write(`El paso ${oficial} ya estaba registrado.\n`);
+    return;
+  }
+  // PLG-FRIC2 (2.6): un merge-prs-sync: no aplica si el cambio no viaja a esa sede; con un PR de sync abierto, sí aplica.
+  if (/^merge-prs-sync:/i.test(oficial)) {
+    // El PR de sync lo abre el push a PROD: antes de ese push, que no haya PR no prueba nada.
+    if (!hechos.some((c) => /^push:/i.test(String(c?.paso ?? '')) && c?.no_aplica !== true)) {
+      throw new ErrorCli(`${oficial}: primero el push a PROD (el PR de sync se abre con él); después, si no hay PR de sync en la sede, marcalo como no aplica.`);
+    }
+    const proyecto = proyectoDe(repo, env);
+    const sede = oficial.trim().slice('merge-prs-sync:'.length);
+    const cuenta = proyecto?.cuenta_github;
+    const sinGh = env.BACG_DEV_SIN_GH === '1';
+    const prs = !cuenta ? { error: 'el proyecto no declara cuenta_github' }
+      : sinGh ? { error: 'gh desactivado en este entorno' }
+        : prsAbiertos(`${cuenta}/${sede}`, { head: proyecto?.sync?.rama || RAMA_SYNC }, { env: { ...process.env, ...env } });
+    // Falla cerrada: sin poder ver los PR de la sede no se da por resuelto.
+    if (prs.error) throw new ErrorCli(`No pude consultar los PR de sync de ${sede} (${prs.error}): no lo marco como no aplica sin verificarlo. Si ya lo comprobaste a mano: $RQ paso hecho ${oficial} "<evidencia>".`);
+    if (lista(prs.datos).length) throw new ErrorCli(`${oficial} no puede marcarse como no aplica: hay un PR de sync abierto en ${sede}. Mergealo (o cerralo si no corresponde) y registrá el paso.`);
+    estado.circuito = [...hechos, { paso: oficial, fecha: ahora(), no_aplica: true, motivo }];
+    guardar(repo.raiz, estado);
+    io.stdout.write(`Paso ${oficial} marcado como no aplica (sin PR de sync abierto en la sede).\n`);
     return;
   }
   const tieneBase = typeof estado.base === 'string' && estado.base;
@@ -1723,6 +1895,16 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   l.push(t ? `Tests: ${t.ok ? 'ok' : 'fallaron'} (${t.fecha})${rojos ? `, con ${rojos} rojos conocidos` : ''}` : 'Tests: sin registrar');
   const e = estado.e2e;
   l.push(e ? `E2E: ${e.ok ? 'ok' : 'falló'} (${e.fecha})` : 'E2E: sin correr');
+  const avisoCompletos = avisoE2eCompletos(estado);
+  if (avisoCompletos) l.push(avisoCompletos);
+  // PLG-E2E-ALC: como en el arranque, el placeholder que falta.
+  let e2eBase = null;
+  try {
+    e2eBase = comandoE2e(proyectoDe(repo, env));
+  } catch {
+    // sin proyecto legible, estado sigue sin el aviso
+  }
+  if (e2eBase && !e2eBase.includes('{specs}')) l.push('Aviso: tests.e2e corre la suite completa en cada verificar: agregá {specs} (la suite completa va una vez, con verificar --completo, antes de PROD).');
   if (tocaUi(estado, repo.raiz, proyectoDe(repo, env), rutasDelRq(repo.raiz, estado))) {
     const v = estado.verificacion_local;
     l.push(verificacionLocalOk(estado) ? `Verificación local: ok${v ? ` (${v.fecha}, ${lista(v.capturas).length} captura(s))` : ' (salteada por el usuario)'}` : 'Verificación local: sin registrar');
@@ -1797,6 +1979,17 @@ function cerrar(repo, elegido, args, env, io) {
   } catch (e) {
     io.stderr.write(`Aviso: ${e.message} Sin proyecto no se calculan los pendientes del circuito.\n`);
   }
+  // PLG-CANON-CIERRE: un RQ que tocó UI no cierra sin registrar si dejó un lineamiento nuevo para el canon.
+  // Falla cerrada: si no se pueden leer las rutas del RQ o el proyecto, se pregunta igual.
+  const rutasCierre = rutasDelRq(raiz, estado);
+  if (!estado.canon && (rutasCierre === null || !proyecto || tocaUi(estado, raiz, proyecto, rutasCierre))) {
+    const ruta = rutaCanon(proyecto);
+    throw new ErrorCli(
+      `Antes de cerrar, preguntale al usuario: ¿este RQ decidió un lineamiento de UI nuevo que debe ir al canon${ruta ? ` (${ruta})` : ''}? ` +
+      `Si dice que sí, escribilo${ruta ? '' : ' (el proyecto no declara ui.canon: creá .bacg-dev/canon-ui.md y declaralo en ui.canon)'}, commitealo y registrá $RQ canon documentado. ` +
+      'Si dice que no: $RQ canon no "<frase del usuario>".',
+    );
+  }
   const pend = pendientesDel(repo, estado, proyecto, env);
   // Un RQ abierto con una versión vieja no tiene estado.tarea: el título sale de la fila del backlog o del spec.
   const previa = filaDelBacklog(repo, env, codigo);
@@ -1810,7 +2003,7 @@ function cerrar(repo, elegido, args, env, io) {
   io.stdout.write(`RQ ${codigo} cerrado.\n`);
   if (pend.length) io.stdout.write(`Quedan pendientes (anotados en estado.yml y el backlog): ${pend.join(', ')}.\n`);
   // Sólo completa lo que la fila no tiene: no pisa Tarea, Prioridad ni Impacto vigentes.
-  const completar = { Tarea: estado.tarea, Prioridad: spec.Prioridad, Impacto: spec.Impacto };
+  const completar = { Tarea: estado.tarea, Prioridad: estado.prioridad ?? spec.Prioridad, Impacto: estado.impacto ?? spec.Impacto };
   for (const k of Object.keys(completar)) if (previa[k]) delete completar[k];
   anotarBacklog(repo, env, codigo, { ...completar, Estado: `Hecho ${hoy()}${pend.length ? ` (falta: ${pend.join(', ')})` : ''}`, Link: `docs/rq/${codigo}/` }, io);
   const vacias = ['Tarea', 'Prioridad', 'Impacto'].filter((k) => !previa[k] && !completar[k]);
@@ -1900,7 +2093,7 @@ export async function main(
       io.stdout.write(`Listo: ${SKILLS_ODOO.join(', ')} en ${dirSkills()} (${x.archivos} archivos, commit ${String(x.commit ?? '?').slice(0, 10)}). Reiniciá la sesión de Claude Code para que las tome.\n`);
       return 0;
     }
-    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar', 'backlog', 'revisor-pr'];
+    const SUBS = ['alta', 'odoo-skills', 'previa', 'abrir', 'clasificacion', 'ejecucion', 'etapa', 'aprobar', 'autonomia', 'lote', 'skills', 'activo', 'saltar', 'commit', 'registrar-tests', 'verificar', 'revision', 'paso', 'desplegar', 'entregar', 'agents', 'auditar', 'estado', 'arranque', 'cerrar', 'ok', 'reglas', 'devolucion', 'trazar', 'backlog', 'revisor-pr', 'canon'];
     if (!SUBS.includes(sub)) sub = null;
     uso(sub !== null);
     const aridad = { etapa: 1, aprobar: 2, autonomia: 2, ejecucion: 2, saltar: 3, revision: 2, paso: 1, 'registrar-tests': 0, entregar: 0, agents: 0, estado: 0, arranque: 0 };
@@ -1921,6 +2114,7 @@ export async function main(
     else if (sub === 'lote') uso(args[0] === 'aprobar' && n >= 3);
     else if (sub === 'skills') uso(args[0] === 'importar' && n === 1);
     else if (sub === 'activo') uso(args[0] === 'reparar' && n === 1);
+    else if (sub === 'canon') uso((args[0] === 'no' && n === 2) || (args[0] === 'documentado' && n === 1));
     else if (!['abrir', 'cerrar', 'verificar'].includes(sub)) uso(n === aridad[sub]);
 
     const repo = buscarRepo(cwd, { dirLin: dirLineamientos({ env }) });
@@ -2211,6 +2405,29 @@ export async function main(
         }
         for (const a of avisosActivo(raiz)) io.stdout.write(`${a}\n`);
         for (const c of cerrados) io.stdout.write(`Cerrado con pendientes: ${c.codigo} (falta: ${c.pendientes.join(', ')}; al hacerlos, $RQ paso … --rq ${c.codigo}).\n`);
+        break;
+      }
+      case 'canon': {
+        // PLG-CANON-CIERRE: la respuesta del usuario a "¿este RQ dejó un lineamiento de UI nuevo para el canon?".
+        const [decision, frase] = args;
+        const { estado } = activo(raiz, elegido);
+        if (decision === 'no') {
+          textoNoVacio(frase, 'La frase');
+          await verificarFrase(frase, verificacion, estado);
+          cambiarVinculado(repo, env, elegido, io, (s) => { s.canon = { decision: 'no', frase, fecha: ahora() }; return 'Canon: sin lineamiento de UI nuevo (registrado).'; });
+        } else if (decision === 'documentado') {
+          const ruta = rutaCanon(proyectoDe(repo, env));
+          if (!ruta) throw new ErrorCli('El proyecto no declara ui.canon: declará ui.canon en .bacg-dev/proyecto.yml (p. ej. canon-ui.md), escribí ahí el lineamiento y commitealo.');
+          // Sólo cuenta lo commiteado en la rama del RQ: un cambio sin commitear no queda en el canon de nadie.
+          const sinCommit = spawnSync('git', ['status', '--porcelain', '--', ruta], { cwd: raiz, encoding: 'utf8' });
+          if (sinCommit.status !== 0 || sinCommit.stdout.trim()) throw new ErrorCli(`${ruta} tiene cambios sin commitear: commitealos antes de registrar el canon.`);
+          const base = typeof estado.base === 'string' && estado.base ? estado.base : null;
+          const cambio = base ? spawnSync('git', ['diff', '--name-only', `${base}..HEAD`, '--', ruta], { cwd: raiz, encoding: 'utf8' }) : null;
+          if (!cambio || cambio.status !== 0 || !cambio.stdout.trim()) throw new ErrorCli(`${ruta} no cambió en este RQ: escribí el lineamiento nuevo y commitealo antes de registrarlo.`);
+          cambiarVinculado(repo, env, elegido, io, (s) => { s.canon = { decision: 'documentado', ruta, fecha: ahora() }; return `Canon: lineamiento documentado en ${ruta}.`; });
+        } else {
+          throw new ErrorCli('Uso: canon no "<frase del usuario>" | canon documentado');
+        }
         break;
       }
       case 'cerrar':

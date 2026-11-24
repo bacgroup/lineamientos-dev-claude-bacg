@@ -12,6 +12,7 @@ import { cuentaActual } from '../github.mjs';
 import { spawnSync } from 'node:child_process';
 import { dirLineamientos, buscarRepo, carpetaProyecto } from '../config.mjs';
 import { pasosAlta, lineaAlta } from '../alta.mjs';
+import { avisosCi } from '../ci.mjs';
 import { cargarRqsDe, proyectoRegistrado } from '../contexto.mjs';
 import { contexto } from '../salida.mjs';
 import { rutaCli } from '../cli.mjs';
@@ -203,8 +204,13 @@ export async function handler(
   }
   partes.push(`CLI del RQ: node "${rutaCli(pluginRoot)}" (usá esta ruta exacta donde la skill ciclo-rq o una compuerta dicen $RQ).`);
   try {
-    const alta = lineaAlta(pasosAlta({ cwd: repo.raiz, env, home, dirLin, sinGh: true }));
+    const pasos = pasosAlta({ cwd: repo.raiz, env, home, dirLin, sinGh: true });
+    const alta = lineaAlta(pasos);
     if (alta) partes.push(alta);
+    const rel = pasos.find((p) => p.id === 'tests-rel' && p.estado === 'aviso');
+    if (rel) partes.push(`Aviso: ${rel.detalle}. ${rel.como}`);
+    for (const a of avisosCi(repo.raiz)) partes.push(a);
+    if (pasos.some((p) => p.id === 'tests-e2e-alcance' && p.estado === 'aviso')) partes.push('Aviso: tests.e2e corre la suite completa en cada verificar: agregá {specs} (la suite completa va una vez, con verificar --completo, antes de PROD).');
   } catch {
     // el alta sólo orienta: si falla, el arranque sigue
   }
