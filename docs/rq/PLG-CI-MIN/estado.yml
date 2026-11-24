@@ -30,7 +30,7 @@ saltos: []
 base: 7614f02fc43e7825d074e0188d52de5b57be3981
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:49:53.332Z'
+actualizado: '2026-11-24T14:50:15.180Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -98,6 +98,18 @@ skills:
   - skill: pr-review-toolkit:pr-test-analyzer
     etapa: 2
     fecha: '2026-11-24T14:36:07.043Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:pr-test-analyzer
+    etapa: 2
+    fecha: '2026-11-24T14:50:15.108Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    etapa: 2
+    fecha: '2026-11-24T14:50:15.143Z'
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:code-reviewer
+    etapa: 2
+    fecha: '2026-11-24T14:50:15.126Z'
     sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
 clasificacion_confirmada:
   frase: Apruebo el orden y las tres decisiones, avanzá
