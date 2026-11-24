@@ -9,25 +9,25 @@ items:
   - id: S-2
     texto: (2.2) Con dos RQ en ACTIVO, un push cuyos commits nombran sólo a uno anota el paso sólo en ése; si ningún commit
     archivos: [plugin/scripts/lib/hooks/post-tool.mjs]
-    test: 'tests/hooks.test.mjs › post-tool git push con commits de un solo RQ; PowerShell git push → todos los RQ activos (respaldo)'
+    test: 'tests/hooks.test.mjs › push con commits de un solo RQ; push con refspec explícito (rango que informa git); R-1 no se confunde con R-10; PowerShell → todos (respaldo)'
     estado: hecho
   - id: S-3
-    texto: (2.3) Si una compuerta frena `$RQ commit`, lo que la CLI agregó al stage vuelve a como estaba.
+    texto: (2.3) Si una compuerta o los tests frenan `$RQ commit`, lo que la CLI agregó al stage vuelve a como estaba.
     archivos: [plugin/scripts/rq.mjs]
-    test: 'tests/fric2.test.mjs › 2.3 (sale del stage; lo previo se queda)'
+    test: 'tests/fric2.test.mjs › 2.3 (compuerta: sale del stage; lo previo se queda; con los tests en rojo también)'
     estado: hecho
   - id: S-4
     texto: (2.4/2.5) Un commit de sólo tests corre esos tests cuando `tests.unit` usa `{archivos}`; sin el placeholder, lo dice.
     archivos: [plugin/scripts/rq.mjs]
-    test: 'tests/fric2.test.mjs › 2.4 (corre esos tests; sin {archivos} lo dice; e2e/ no cuenta)'
+    test: 'tests/fric2.test.mjs › 2.4 (corre esos tests; deja aparte lo no stageado; segundo comando sin {archivos} no corre; sin {archivos} lo dice; e2e/ no cuenta)'
     estado: hecho
   - id: S-5
-    texto: (2.6) `paso no-aplica merge-prs-sync:<sede> "<motivo>"` se acepta salvo que haya un PR de sync abierto en esa sede.
+    texto: (2.6) `paso no-aplica merge-prs-sync:<sede> "<motivo>"` se acepta después del push y sin PR de sync abierto en esa sede; sin poder consultar los PR, se rechaza (falla cerrada). `push:` sigue sin poder marcarse.
     archivos: [plugin/scripts/rq.mjs, plugin/scripts/lib/no-aplica.mjs]
-    test: 'tests/fric2.test.mjs › 2.6; tests/rq-cli.test.mjs › paso no-aplica: push: se rechaza'
+    test: 'tests/fric2.test.mjs › 2.6 (sin PR abierto, con gh falso; PR abierto → rechazo; sin poder consultar → falla cerrada; antes del push → rechazo; push: nunca)'
     estado: hecho
   - id: S-6
     texto: (2.7) `abrir --prioridad Alta|Media|Baja --impacto "<texto>"` los guarda y completa la fila del backlog.
     archivos: [plugin/scripts/rq.mjs]
-    test: 'tests/fric2.test.mjs › 2.7 (fila y estado; prioridad inválida)'
+    test: 'tests/fric2.test.mjs › 2.7 (fila y estado; prioridad inválida; cerrar completa desde estado.yml; abrir sobre un RQ existente)'
     estado: hecho

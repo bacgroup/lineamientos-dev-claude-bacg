@@ -2,14 +2,14 @@
 # Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
 items:
   - id: S-1
-    texto: El commit de `cerrar` y el de `$RQ commit` con sólo docs (`docs/**`, `**/*.md`) llevan `[skip ci]`; con
+    texto: El commit de `cerrar` y el de `$RQ commit` con sólo docs llevan `[skip ci]` si todo lo que falta subir también es de docs; con código sin subir, sin remoto o con `ci.skip_docs: false`, no. Un SQL en `docs/` o un `.md` de `.bacg-dev/` no son docs.
     archivos: [plugin/scripts/lib/ci.mjs, plugin/scripts/rq.mjs]
-    test: 'tests/ci-min.test.mjs › cerrar con [skip ci] y con skip_docs false; commit de sólo docs vs. tests'
+    test: 'tests/ci-min.test.mjs › soloDocs; cerrar con [skip ci] y con skip_docs false; commit de sólo docs vs. tests; con código sin subir debajo; sin upstream ni remoto; commit con skip_docs false'
     estado: hecho
   - id: S-2
     texto: 'El arranque avisa cada workflow `on: push` / `pull_request` sin filtro que deje afuera `docs/**`: "cada commit de'
     archivos: [plugin/scripts/lib/ci.mjs, plugin/scripts/lib/hooks/session-start.mjs]
-    test: 'tests/ci-min.test.mjs › avisosCi (sin filtro, .bacg-dev excluido, tests que leen docs, sin workflows)'
+    test: 'tests/ci-min.test.mjs › avisosCi (sin filtro, on: texto y lista, filtros como GitHub, .bacg-dev excluido, readFileSync/?raw/import.meta.glob, sin workflows); tests/alta.test.mjs › el arranque avisa un workflow on: push sin filtro'
     estado: hecho
   - id: S-3
     texto: 'ciclo-rq (secciones 6 y 7): los registros de docs posteriores al merge se commitean y viajan en un solo push, el de'

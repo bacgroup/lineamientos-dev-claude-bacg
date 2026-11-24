@@ -7,9 +7,9 @@ items:
     test: 'tests/alta.test.mjs › PLG-E2E-ALC: tests.e2e sin {specs} → aviso…; sin tests.e2e no aparece'
     estado: hecho
   - id: S-2
-    texto: 'El arranque muestra "tests.e2e corre la suite completa en cada verificar: agregá {specs}" cuando falta.'
-    archivos: [plugin/scripts/lib/hooks/session-start.mjs]
-    test: 'tests/alta.test.mjs › PLG-E2E-ALC: el arranque avisa el E2E sin {specs} y calla con él'
+    texto: El arranque y `estado` muestran "tests.e2e corre la suite completa en cada verificar: agregá {specs}" cuando falta.
+    archivos: [plugin/scripts/lib/hooks/session-start.mjs, plugin/scripts/rq.mjs]
+    test: 'tests/alta.test.mjs › el arranque avisa el E2E sin {specs} y calla con él; tests/e2e-alcance.test.mjs › estado avisa que tests.e2e corre la suite completa…'
     estado: hecho
   - id: S-3
     texto: '`verificar` sin `{specs}` dice que corrió la suite completa por falta del placeholder y cuánto tardó (toda corrida dice su duración).'
@@ -19,12 +19,12 @@ items:
   - id: S-4
     texto: Cada `verificar --completo` suma `e2e_completos`; `estado` avisa si hay más de uno antes de la etapa 5.
     archivos: [plugin/scripts/rq.mjs]
-    test: 'tests/e2e-alcance.test.mjs › verificar --completo suma e2e_completos y estado avisa; sin {specs} no cuenta'
+    test: 'tests/e2e-alcance.test.mjs › verificar --completo suma e2e_completos y estado avisa; sin {specs} no cuenta; el aviso no sale desde la etapa 5'
     estado: hecho
   - id: S-5
     texto: '`tests.e2e_mapa` (glob de código → specs) suma specs a los del diff; sin specs, el error sugiere elegir los de la'
     archivos: [plugin/scripts/rq.mjs]
-    test: 'tests/e2e-alcance.test.mjs › tests.e2e_mapa suma specs; sin specs ni mapa el error sugiere el spec o el mapa'
+    test: 'tests/e2e-alcance.test.mjs › tests.e2e_mapa suma specs; acepta un spec como texto; sin specs ni mapa el error sugiere el spec o el mapa'
     estado: hecho
   - id: S-6
     texto: La plantilla `proyectos/_plantilla/proyecto.yml` dice que sin placeholder se corre la suite completa siempre.
