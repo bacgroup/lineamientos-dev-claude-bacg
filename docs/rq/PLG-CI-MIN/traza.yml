@@ -1,0 +1,23 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: El commit de `cerrar` y el de `$RQ commit` con sólo docs (`docs/**`, `**/*.md`) llevan `[skip ci]`; con
+    archivos: [plugin/scripts/lib/ci.mjs, plugin/scripts/rq.mjs]
+    test: 'tests/ci-min.test.mjs › cerrar con [skip ci] y con skip_docs false; commit de sólo docs vs. tests'
+    estado: hecho
+  - id: S-2
+    texto: 'El arranque avisa cada workflow `on: push` / `pull_request` sin filtro que deje afuera `docs/**`: "cada commit de'
+    archivos: [plugin/scripts/lib/ci.mjs, plugin/scripts/lib/hooks/session-start.mjs]
+    test: 'tests/ci-min.test.mjs › avisosCi (sin filtro, .bacg-dev excluido, tests que leen docs, sin workflows)'
+    estado: hecho
+  - id: S-3
+    texto: 'ciclo-rq (secciones 6 y 7): los registros de docs posteriores al merge se commitean y viajan en un solo push, el de'
+    archivos: [plugin/skills/ciclo-rq/SKILL.md]
+    test: 'tests/skills.test.mjs (subcomandos de la skill existen); el texto se revisa en la revisión'
+    estado: hecho
+  - id: S-4
+    texto: '`plugin/general/ci.md`: el filtro recomendado (`paths:` con `''**''`, exclusiones `!docs/**`, `!**/*.md` y re-inclusión'
+    archivos: [plugin/general/ci.md]
+    test: 'tests/lineamientos.test.mjs › ningún archivo de general/ nombra un proyecto puntual'
+    estado: hecho

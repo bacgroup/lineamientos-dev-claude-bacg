@@ -1,0 +1,33 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: '`tests.e2e` sin `{specs}` → paso del alta `tests-e2e-alcance` en aviso (no obligatorio) con el ejemplo; con `{specs}`, ok.'
+    archivos: [plugin/scripts/lib/alta.mjs]
+    test: 'tests/alta.test.mjs › PLG-E2E-ALC: tests.e2e sin {specs} → aviso…; sin tests.e2e no aparece'
+    estado: hecho
+  - id: S-2
+    texto: 'El arranque muestra "tests.e2e corre la suite completa en cada verificar: agregá {specs}" cuando falta.'
+    archivos: [plugin/scripts/lib/hooks/session-start.mjs]
+    test: 'tests/alta.test.mjs › PLG-E2E-ALC: el arranque avisa el E2E sin {specs} y calla con él'
+    estado: hecho
+  - id: S-3
+    texto: '`verificar` sin `{specs}` dice que corrió la suite completa por falta del placeholder y cuánto tardó (toda corrida dice su duración).'
+    archivos: [plugin/scripts/rq.mjs]
+    test: 'tests/e2e-alcance.test.mjs › verificar sin {specs} / con {specs}: duración'
+    estado: hecho
+  - id: S-4
+    texto: Cada `verificar --completo` suma `e2e_completos`; `estado` avisa si hay más de uno antes de la etapa 5.
+    archivos: [plugin/scripts/rq.mjs]
+    test: 'tests/e2e-alcance.test.mjs › verificar --completo suma e2e_completos y estado avisa; sin {specs} no cuenta'
+    estado: hecho
+  - id: S-5
+    texto: '`tests.e2e_mapa` (glob de código → specs) suma specs a los del diff; sin specs, el error sugiere elegir los de la'
+    archivos: [plugin/scripts/rq.mjs]
+    test: 'tests/e2e-alcance.test.mjs › tests.e2e_mapa suma specs; sin specs ni mapa el error sugiere el spec o el mapa'
+    estado: hecho
+  - id: S-6
+    texto: La plantilla `proyectos/_plantilla/proyecto.yml` dice que sin placeholder se corre la suite completa siempre.
+    archivos: [proyectos/_plantilla/proyecto.yml]
+    test: 'tests/lineamientos.test.mjs › _plantilla/proyecto.yml parsea (el comentario es texto; revisado a mano)'
+    estado: hecho

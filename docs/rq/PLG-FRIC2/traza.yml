@@ -1,0 +1,33 @@
+# Traza del spec al código y a los tests (rq.mjs trazar). estado: hecho | parcial | fuera (con motivo).
+# Un "hecho" lleva el test que prueba el comportamiento, no sólo que aparece un texto.
+items:
+  - id: S-1
+    texto: (2.1) Una frase dicha en una lista ("1- Omití el E2E…", "2. …", "- …", "* …", "• …") se reconoce sin el marcador.
+    archivos: [plugin/scripts/lib/transcript.mjs]
+    test: 'tests/transcript.test.mjs › vecesQueLoDijo: oraciones en lista numerada o con viñetas'
+    estado: hecho
+  - id: S-2
+    texto: (2.2) Con dos RQ en ACTIVO, un push cuyos commits nombran sólo a uno anota el paso sólo en ése; si ningún commit
+    archivos: [plugin/scripts/lib/hooks/post-tool.mjs]
+    test: 'tests/hooks.test.mjs › post-tool git push con commits de un solo RQ; PowerShell git push → todos los RQ activos (respaldo)'
+    estado: hecho
+  - id: S-3
+    texto: (2.3) Si una compuerta frena `$RQ commit`, lo que la CLI agregó al stage vuelve a como estaba.
+    archivos: [plugin/scripts/rq.mjs]
+    test: 'tests/fric2.test.mjs › 2.3 (sale del stage; lo previo se queda)'
+    estado: hecho
+  - id: S-4
+    texto: (2.4/2.5) Un commit de sólo tests corre esos tests cuando `tests.unit` usa `{archivos}`; sin el placeholder, lo dice.
+    archivos: [plugin/scripts/rq.mjs]
+    test: 'tests/fric2.test.mjs › 2.4 (corre esos tests; sin {archivos} lo dice; e2e/ no cuenta)'
+    estado: hecho
+  - id: S-5
+    texto: (2.6) `paso no-aplica merge-prs-sync:<sede> "<motivo>"` se acepta salvo que haya un PR de sync abierto en esa sede.
+    archivos: [plugin/scripts/rq.mjs, plugin/scripts/lib/no-aplica.mjs]
+    test: 'tests/fric2.test.mjs › 2.6; tests/rq-cli.test.mjs › paso no-aplica: push: se rechaza'
+    estado: hecho
+  - id: S-6
+    texto: (2.7) `abrir --prioridad Alta|Media|Baja --impacto "<texto>"` los guarda y completa la fila del backlog.
+    archivos: [plugin/scripts/rq.mjs]
+    test: 'tests/fric2.test.mjs › 2.7 (fila y estado; prioridad inválida)'
+    estado: hecho
