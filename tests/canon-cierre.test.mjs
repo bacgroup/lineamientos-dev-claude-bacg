@@ -121,3 +121,11 @@ test('canon: si no se puede saber qué tocó el RQ (sin base ni upstream), pregu
   assert.equal(r.code, 1);
   assert.match(r.err + r.out, /lineamiento de UI nuevo/);
 });
+
+test('canon: si no se puede leer el proyecto, pregunta igual (falla cerrada)', async () => {
+  const raiz = await rqDe({ ui: false });
+  fs.rmSync(path.join(raiz, '.bacg-dev', 'proyecto.yml'));
+  const r = await correr(raiz, ['cerrar']);
+  assert.equal(r.code, 1);
+  assert.match(r.err + r.out, /lineamiento de UI nuevo/);
+});

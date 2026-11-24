@@ -229,3 +229,12 @@ test('reintento: desde el commit de la CLI, timeout y después verde → el comm
   const commiteado = execFileSync('git', ['show', 'HEAD:docs/rq/R-1/estado.yml'], { cwd: raiz, encoding: 'utf8' });
   assert.match(commiteado, /inestables:/);
 });
+
+test('reintento: la pista del rechazo trae el comando de tests relacionados del runner del repo', async () => {
+  const { env } = proyectoCon('infra');
+  const raiz = await rqAbierto(env);
+  fs.writeFileSync(path.join(raiz, 'package.json'), JSON.stringify({ devDependencies: { vitest: '^2.0.0' } }));
+  const r = await correr(raiz, ['registrar-tests'], env);
+  assert.equal(r.code, 1);
+  assert.match(r.out, /npx vitest related --run \{archivos\}/);
+});

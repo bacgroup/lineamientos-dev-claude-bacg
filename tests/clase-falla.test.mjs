@@ -163,3 +163,13 @@ test('claseFalla: un archivo que no carga junto a timeouts → rojo', () => {
   ].join('\n');
   assert.equal(claseFalla(jest), 'rojo');
 });
+
+test('claseFalla: worker de vitest caído junto a un error atribuido a un archivo de test, todo en verde → rojo', () => {
+  const s = '      Tests  10 passed (10)\nError: [vitest-worker]: Timeout calling "onTaskUpdate"\nThis error originated in "src/a.test.ts" test file.';
+  assert.equal(claseFalla(s), 'rojo');
+});
+
+test('claseFalla: Unhandled Rejection del producto sin atribución ni worker, todo en verde → rojo', () => {
+  const s = '      Tests  10 passed (10)\n⎯⎯ Unhandled Rejection ⎯⎯\nTypeError: x is undefined\n ❯ src/api/leads.ts:42:7';
+  assert.equal(claseFalla(s), 'rojo');
+});
