@@ -192,3 +192,21 @@ test('sin rama de destino conocida (sin origin/HEAD ni ramas declaradas): no lle
   await correr(raiz, ['commit', 'docs: nota', 'docs/rq/R-1/nota.md']);
   assert.doesNotMatch(asunto(raiz), /skip ci/);
 });
+
+test('rama nueva sin upstream con código sin subir: un commit de docs no lleva [skip ci]', async () => {
+  const raiz = repo();
+  await abrir(raiz);
+  git(raiz, 'switch', '-q', '-c', 'feat');
+  fs.mkdirSync(path.join(raiz, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'a.ts'), 'x');
+  git(raiz, 'add', 'src/a.ts');
+  git(raiz, 'commit', '-q', '-m', 'feat(R-1): a');
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'R-1', 'nota.md'), 'x');
+  await correr(raiz, ['commit', 'docs: nota', 'docs/rq/R-1/nota.md']);
+  assert.doesNotMatch(asunto(raiz), /skip ci/);
+});
+
+test('avisosCi: un filtro que deja afuera sólo docs/rq/ igual avisa (el backlog dispara el CI)', () => {
+  const raiz = repo({ archivos: { '.github/workflows/ci.yml': WF("  push:\n    paths-ignore: ['docs/rq/**']") } });
+  assert.match(avisosCi(raiz).join('\n'), /cada commit de docs del ciclo corre el workflow CI/);
+});

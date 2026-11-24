@@ -101,9 +101,13 @@ test('2.4: un spec E2E (e2e/) no cuenta como test unitario', async () => {
 /** `gh` falso en el PATH: responde `salida` (JSON) a cualquier `gh api …`, o sale 1 con `error`. */
 function ghEnPath({ salida = '[]', error = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-falso-'));
+  const log = path.join(dir, 'llamadas.txt');
+  const anotar = `require('fs').appendFileSync(${JSON.stringify(log)}, process.argv.slice(2).join(' ') + '\\n');`;
   const cuerpo = error ? `process.stderr.write(${JSON.stringify(error)}); process.exit(1);` : `process.stdout.write(${JSON.stringify(salida)});`;
-  fs.writeFileSync(path.join(dir, 'gh'), `#!/usr/bin/env node\n${cuerpo}\n`, { mode: 0o755 });
-  return { PATH: `${dir}${path.delimiter}${process.env.PATH}`, BACG_DEV_SIN_GH: '' };
+  fs.writeFileSync(path.join(dir, 'gh'), `#!/usr/bin/env node\n${anotar}\n${cuerpo}\n`, { mode: 0o755 });
+  const env = { PATH: `${dir}${path.delimiter}${process.env.PATH}`, BACG_DEV_SIN_GH: '' };
+  Object.defineProperty(env, 'llamadas', { enumerable: false, value: () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '') });
+  return env;
 }
 
 const CIRCUITO_SYNC = 'circuito_prod:\n  - { paso: "push:demo" }\n  - { paso: "merge-prs-sync:sede-x" }\n';
@@ -118,10 +122,12 @@ test('2.6: merge-prs-sync: no aplica, con el push hecho y sin PR de sync abierto
   const { raiz } = repo({ extra: CIRCUITO_SYNC });
   await abrir(raiz);
   conPushHecho(raiz);
-  const r = await noAplicaSync(raiz, ghEnPath({ salida: '[]' }));
+  const gh = ghEnPath({ salida: '[]' });
+  const r = await noAplicaSync(raiz, gh);
   assert.equal(r.code, 0, r.out + r.err);
   const marca = cargarEstado(raiz, 'R-1').circuito.find((c) => c.paso === 'merge-prs-sync:sede-x');
   assert.equal(marca.no_aplica, true);
+  assert.match(gh.llamadas(), /api repos\/orgx\/sede-x\/pulls\?state=open.*head=orgx%3A/, 'consulta los PR abiertos de la sede, desde la rama de sync');
 });
 
 test('2.6: con un PR de sync abierto en la sede, no se puede marcar', async () => {

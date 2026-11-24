@@ -764,3 +764,18 @@ test('post-tool: R-1 no se confunde con R-10 al atribuir el push', () => {
   assert.deepEqual(leerEstado(raiz, 'R-10').circuito.map((c) => c.paso), ['push:demo-app']);
   assert.deepEqual(lista(leerEstado(raiz, 'R-1').circuito).map((c) => c.paso), []);
 });
+
+test('post-tool push forzado (+ a...b (forced update)): atribuye por ese rango', () => {
+  const raiz = repoDemo();
+  abrirRq(raiz, { codigo: 'R-T2' });
+  abrirRq(raiz, { codigo: 'R-T1' });
+  fs.writeFileSync(path.join(raiz, 'docs', 'rq', 'ACTIVO'), 'R-T2\nR-T1\n');
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-T2): viejo'], { cwd: raiz });
+  const desde = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raiz, encoding: 'utf8' }).stdout.trim();
+  spawnSync('git', ['commit', '-q', '--allow-empty', '-m', 'feat(R-T1): reescrito'], { cwd: raiz });
+  const hasta = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: raiz, encoding: 'utf8' }).stdout.trim();
+  const stderr = `To github.com:x/demo-app.git\n + ${desde.slice(0, 7)}...${hasta.slice(0, 7)} main -> main (forced update)\n`;
+  postTool({ cwd: raiz, tool_name: 'Bash', tool_input: { command: 'git push -f origin main' }, tool_response: { stdout: '', stderr } });
+  assert.deepEqual(leerEstado(raiz, 'R-T1').circuito.map((c) => c.paso), ['push:demo-app']);
+  assert.deepEqual(lista(leerEstado(raiz, 'R-T2').circuito).map((c) => c.paso), []);
+});
