@@ -14,11 +14,11 @@ Dentro: 2.1 a 2.7. Fuera: el detalle de qué archivos viajan a sedes (lo decide 
 1. (2.1) Una frase dicha en una lista ("1- Omití el E2E…", "2. …", "- …", "* …", "• …") se reconoce sin el marcador.
 2. (2.2) Con dos RQ en ACTIVO, un push cuyos commits nombran sólo a uno anota el paso sólo en ése; si ningún commit
    nombra a un RQ activo, sigue anotándose en todos (como hoy).
-3. (2.3) Si una compuerta frena `$RQ commit`, lo que la CLI agregó al stage vuelve a como estaba.
+3. (2.3) Si una compuerta o los tests frenan `$RQ commit`, lo que la CLI agregó al stage vuelve a como estaba.
 4. (2.4/2.5) Un commit de sólo tests corre esos tests cuando `tests.unit` usa `{archivos}`; sin el placeholder, lo dice.
    La revisión vence como con cualquier commit (ya es así): queda alineado.
-5. (2.6) `paso no-aplica merge-prs-sync:<sede> "<motivo>"` se acepta salvo que haya un PR de sync abierto en esa sede.
-   `push:` sigue sin poder marcarse.
+5. (2.6) `paso no-aplica merge-prs-sync:<sede> "<motivo>"` se acepta después del push y sin PR de sync abierto en esa
+   sede; si no se pueden consultar los PR, se rechaza (falla cerrada). `push:` sigue sin poder marcarse.
 6. (2.7) `abrir --prioridad Alta|Media|Baja --impacto "<texto>"` los guarda y completa la fila del backlog.
 → tests de la CLI y del hook (`tests/fric2.test.mjs`, en `npm run test:e2e`) y de `tests/transcript*.test.mjs`.
 
@@ -34,8 +34,9 @@ Dentro: 2.1 a 2.7. Fuera: el detalle de qué archivos viajan a sedes (lo decide 
 ### Partes
 - **2.1 `lib/transcript.mjs` `vecesQueLoDijo`:** a cada oración se le quita el marcador de lista inicial
   (`^\s*(?:\d+\s*[-.)]|[-*•])\s+`) antes de comparar.
-- **2.2 `lib/hooks/post-tool.mjs` `anotar`:** candidatos = RQ activos cuyo código aparece como palabra en los asuntos de
-  `git log -300 HEAD`; si hay alguno, sólo ésos; si no, todos los activos.
+- **2.2 `lib/hooks/post-tool.mjs` `anotar`:** candidatos = RQ activos cuyo código aparece como palabra en los asuntos del
+  rango que informa git en la salida del push (`abc..def  dev -> main`) o, si no lo informa, de `git log -300 HEAD`; si
+  hay alguno, sólo ésos; si no, todos los activos.
 - **2.3 `rq.mjs` `commit`:** se guarda la lista en stage antes de `agregarRutas`; si algo lanza antes del `git commit`,
   `git reset -q -- <rutas que agregó la CLI>`, y el mensaje lo dice.
 - **2.4 `rq.mjs` `commit` y `correrTests`:** sin archivos de producto y con archivos de test en stage (`*.test.*`,
@@ -43,7 +44,8 @@ Dentro: 2.1 a 2.7. Fuera: el detalle de qué archivos viajan a sedes (lo decide 
   `{archivos}`; si no, "sólo docs y tests: sin correr tests (tests.unit no usa {archivos})". No exige el desarrollo
   (un commit de sólo tests sigue siendo libre).
 - **2.6 `rq.mjs` `marcarNoAplica`:** `merge-prs-sync:` deja de ser obligatorio para no-aplica; antes consulta los PR de
-  sync abiertos de la sede (`prsAbiertos`): si hay uno, rechaza; si no pudo consultar, lo anota con `sin_verificar: true`.
+  sync abiertos de la sede (`prsAbiertos`), sólo con un `push:` ya registrado: si hay uno abierto o no pudo consultar, rechaza
+  (revisión integral: antes quedaba `sin_verificar` y fallaba abierto).
 - **2.7 `rq.mjs` `abrir`:** opciones `--prioridad` (Alta, Media o Baja) e `--impacto`; van a `estado.prioridad` /
   `estado.impacto` y a la fila del backlog (sólo si la fila no los tiene).
 

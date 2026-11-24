@@ -16,7 +16,7 @@ import { SIN_BASE, baseDeUpstream, commitHead, pasoObligatorio, rutaQueImpide, r
 import { pasosCircuito, rutasDelRq, pendientes, corresponde, esManual, faltaAntes, migracionesEnSync, RAMA_SYNC } from './lib/circuito.mjs';
 import { upsertFila, upsertEnArchivo, fusionarEnArchivo, columnasDe, crearConEncabezadoDe, rutaBacklog, rutaCentral, leerBacklog, filasDe, diferencias as diferenciasBacklog } from './lib/backlog.mjs';
 import { tipoArchivo, globARegExp } from './lib/rutas.mjs';
-import { saltarCi, soloDocs, conSkipCi } from './lib/ci.mjs';
+import { conSkipCi, conSkipParaCommit } from './lib/ci.mjs';
 import { baseDelRepo, esMigracion, motorDatos } from './lib/stack.mjs';
 import { rutaCanon, seccionAgents, escribirAgents } from './lib/agents.mjs';
 import { commitsAuditables, cerrarAuditoria, RUTA_MARCA } from './lib/auditoria.mjs';
@@ -1097,14 +1097,42 @@ function commit(repo, elegido, args, env, io) {
   const { codigo, estado } = activo(raiz, elegido);
   const proyecto = proyectoDe(repo, env);
   // PLG-FRIC2 (2.3): si una compuerta frena el commit, lo que agregó la CLI vuelve a salir del stage.
+  // También con los tests en rojo: el commit no se hizo, así que el stage vuelve a como estaba.
   const previo = new Set(nombresEnStage(raiz));
-  try {
-    return commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, env, io);
-  } catch (e) {
+  const deshacer = () => {
     const nuevos = nombresEnStage(raiz).filter((r) => !previo.has(r));
     if (nuevos.length) spawnSync('git', ['reset', '-q', '--', ...nuevos], { cwd: raiz });
+    return nuevos;
+  };
+  let r;
+  try {
+    r = commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, env, io);
+  } catch (e) {
+    const nuevos = deshacer();
     if (!(e instanceof ErrorCli) || !nuevos.length) throw e;
     throw new ErrorCli(`${e.message} (Saqué del stage lo que había agregado: ${nuevos.join(', ')}.)`);
+  }
+  if (r !== 0) {
+    const nuevos = deshacer();
+    if (nuevos.length) io.stdout.write(`Saqué del stage lo que había agregado (${nuevos.join(', ')}): corregí y volvé a correr $RQ commit con las mismas rutas.\n`);
+  }
+  return r;
+}
+
+/** Corre `fn` con los cambios sin stagear guardados aparte (git stash --keep-index), y los devuelve al terminar. */
+function conLoNoStageadoAparte(raiz, codigo, io, fn) {
+  const aparte = hayCambiosSinStage(raiz);
+  if (aparte) {
+    const st = spawnSync('git', ['stash', 'push', '-q', '--keep-index', '-m', `rq.mjs commit ${codigo}`], { cwd: raiz, encoding: 'utf8' });
+    if (st.status !== 0) throw new ErrorCli(`No pude guardar aparte los cambios sin stagear (git stash): ${String(st.stderr).trim()}`);
+  }
+  try {
+    return fn();
+  } finally {
+    if (aparte) {
+      const pop = spawnSync('git', ['stash', 'pop', '-q', '--index'], { cwd: raiz, encoding: 'utf8' });
+      if (pop.status !== 0) io.stderr.write(`Aviso: los cambios sin stagear quedaron en git stash (git stash pop): ${String(pop.stderr).trim()}\n`);
+    }
   }
 }
 
@@ -1130,20 +1158,7 @@ function commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, en
   if (producto.length && saltoValido(estado, 'commit')) tests = 'tests salteados (saltar commit)';
   else if (producto.length) {
     exigirDesarrollo(estado, raiz, proyecto);
-    const aparte = hayCambiosSinStage(raiz);
-    if (aparte) {
-      const st = spawnSync('git', ['stash', 'push', '-q', '--keep-index', '-m', `rq.mjs commit ${codigo}`], { cwd: raiz, encoding: 'utf8' });
-      if (st.status !== 0) throw new ErrorCli(`No pude guardar aparte los cambios sin stagear (git stash): ${String(st.stderr).trim()}`);
-    }
-    let r;
-    try {
-      r = correrTests(raiz, estado, proyecto, io, { silencioso: true, env });
-    } finally {
-      if (aparte) {
-        const pop = spawnSync('git', ['stash', 'pop', '-q', '--index'], { cwd: raiz, encoding: 'utf8' });
-        if (pop.status !== 0) io.stderr.write(`Aviso: los cambios sin stagear quedaron en git stash (git stash pop): ${String(pop.stderr).trim()}\n`);
-      }
-    }
+    const r = conLoNoStageadoAparte(raiz, codigo, io, () => correrTests(raiz, estado, proyecto, io, { silencioso: true, env }));
     if (r !== 0) {
       guardar(raiz, estado);
       return r;
@@ -1152,7 +1167,7 @@ function commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, en
   } else {
     const deTest = nombresEnStage(raiz).filter((r) => !r.startsWith('e2e/') && RE_TEST_UNITARIO.test(r) && fs.existsSync(path.join(raiz, r)));
     if (deTest.length && comandosTests(proyecto).some((c) => c.includes('{archivos}'))) {
-      const r = correrTests(raiz, estado, proyecto, io, { silencioso: true, env, archivosDeTest: deTest });
+      const r = conLoNoStageadoAparte(raiz, codigo, io, () => correrTests(raiz, estado, proyecto, io, { silencioso: true, env, archivosDeTest: deTest }));
       if (r !== 0) {
         guardar(raiz, estado);
         return r;
@@ -1167,7 +1182,7 @@ function commitConStage(repo, raiz, codigo, estado, proyecto, mensaje, rutas, en
   spawnSync('git', ['add', '--', ...propios], { cwd: raiz });
   const conCod = conCodigo(mensaje, codigo);
   // PLG-CI-MIN: un commit de sólo docs no corre el CI (salvo ci.skip_docs: false).
-  const msg = saltarCi(proyecto) && soloDocs(nombresEnStage(raiz)) ? conSkipCi(conCod) : conCod;
+  const msg = conSkipParaCommit(raiz, proyecto, nombresEnStage(raiz)) ? conSkipCi(conCod) : conCod;
   const c = spawnSync('git', ['commit', '-q', '-m', msg], { cwd: raiz, encoding: 'utf8' });
   if (c.status !== 0) throw new ErrorCli(`git commit falló: ${String(c.stderr || c.stdout).trim()}`);
   const hash = salida(raiz, ['rev-parse', '--short', 'HEAD']);
@@ -1183,7 +1198,7 @@ function specsDelRq(raiz, estado, proyecto) {
   const mapa = proyecto?.tests?.e2e_mapa && typeof proyecto.tests.e2e_mapa === 'object' ? proyecto.tests.e2e_mapa : {};
   const delMapa = Object.entries(mapa)
     .filter(([glob]) => rutas.some((r) => globARegExp(glob).test(r)))
-    .flatMap(([, specs]) => lista(specs).filter((x) => typeof x === 'string'));
+    .flatMap(([, specs]) => (typeof specs === 'string' ? [specs] : lista(specs)).filter((x) => typeof x === 'string'));
   return [...new Set([...rutas.filter(esSpec), ...delMapa])].filter((r) => fs.existsSync(path.join(raiz, r)));
 }
 
@@ -1562,8 +1577,9 @@ function registrarCierre(repo, codigo, estado, proyecto, { resumen, alcance, sin
   const rutas = [`docs/rq/${codigo}`, 'docs/rq/ACTIVO', 'docs/log', 'docs/backlog.md']
     .filter((p) => fs.existsSync(path.join(raiz, p)) || trackeado(p));
   // PLG-CI-MIN: el cierre sólo trae docs: no corre el CI (salvo ci.skip_docs: false).
-  const mensajeCierre = saltarCi(proyecto) ? conSkipCi(`docs(${codigo}): cierre`) : `docs(${codigo}): cierre`;
   const add = spawnSync('git', ['add', '-A', '--', ...rutas], { cwd: raiz, encoding: 'utf8' });
+  const delCierre = spawnSync('git', ['diff', '--cached', '--name-only', '--', ...rutas], { cwd: raiz, encoding: 'utf8' }).stdout?.split('\n').filter(Boolean) ?? [];
+  const mensajeCierre = conSkipParaCommit(raiz, proyecto, delCierre) ? conSkipCi(`docs(${codigo}): cierre`) : `docs(${codigo}): cierre`;
   const commit = add.status === 0
     ? spawnSync('git', ['commit', '-q', '-m', mensajeCierre, '--', ...rutas], { cwd: raiz, encoding: 'utf8' })
     : add;
@@ -1704,15 +1720,23 @@ function marcarNoAplica(repo, elegido, paso, motivo, env, io) {
   }
   // PLG-FRIC2 (2.6): un merge-prs-sync: no aplica si el cambio no viaja a esa sede; con un PR de sync abierto, sí aplica.
   if (/^merge-prs-sync:/i.test(oficial)) {
+    // El PR de sync lo abre el push a PROD: antes de ese push, que no haya PR no prueba nada.
+    if (!hechos.some((c) => /^push:/i.test(String(c?.paso ?? '')) && c?.no_aplica !== true)) {
+      throw new ErrorCli(`${oficial}: primero el push a PROD (el PR de sync se abre con él); después, si no hay PR de sync en la sede, marcalo como no aplica.`);
+    }
     const proyecto = proyectoDe(repo, env);
     const sede = oficial.trim().slice('merge-prs-sync:'.length);
     const cuenta = proyecto?.cuenta_github;
-    const prs = cuenta && env.BACG_DEV_SIN_GH !== '1' ? prsAbiertos(`${cuenta}/${sede}`, { head: proyecto?.sync?.rama || RAMA_SYNC }) : { error: 'sin consultar' };
-    if (!prs.error && lista(prs.datos).length) throw new ErrorCli(`${oficial} no puede marcarse como no aplica: hay un PR de sync abierto en ${sede}. Mergealo (o cerralo si no corresponde) y registrá el paso.`);
-    const verificado = !prs.error;
-    estado.circuito = [...hechos, { paso: oficial, fecha: ahora(), no_aplica: true, motivo, ...(verificado ? {} : { sin_verificar: true }) }];
+    const sinGh = env[['BACG', 'DEV', 'SIN', 'GH'].join('_')] === '1';
+    const prs = !cuenta ? { error: 'el proyecto no declara cuenta_github' }
+      : sinGh ? { error: 'gh desactivado en este entorno' }
+        : prsAbiertos(`${cuenta}/${sede}`, { head: proyecto?.sync?.rama || RAMA_SYNC }, { env: { ...process.env, ...env } });
+    // Falla cerrada: sin poder ver los PR de la sede no se da por resuelto.
+    if (prs.error) throw new ErrorCli(`No pude consultar los PR de sync de ${sede} (${prs.error}): no lo marco como no aplica sin verificarlo. Si ya lo comprobaste a mano: $RQ paso hecho ${oficial} "<evidencia>".`);
+    if (lista(prs.datos).length) throw new ErrorCli(`${oficial} no puede marcarse como no aplica: hay un PR de sync abierto en ${sede}. Mergealo (o cerralo si no corresponde) y registrá el paso.`);
+    estado.circuito = [...hechos, { paso: oficial, fecha: ahora(), no_aplica: true, motivo }];
     guardar(repo.raiz, estado);
-    io.stdout.write(`Paso ${oficial} marcado como no aplica${verificado ? ' (sin PR de sync abierto en la sede)' : ' (no pude consultar los PR de sync de la sede: queda anotado como sin verificar)'}.\n`);
+    io.stdout.write(`Paso ${oficial} marcado como no aplica (sin PR de sync abierto en la sede).\n`);
     return;
   }
   const tieneBase = typeof estado.base === 'string' && estado.base;
@@ -1873,6 +1897,14 @@ function imprimirEstado(repo, codigo, estado, io, env = process.env) {
   l.push(e ? `E2E: ${e.ok ? 'ok' : 'falló'} (${e.fecha})` : 'E2E: sin correr');
   const avisoCompletos = avisoE2eCompletos(estado);
   if (avisoCompletos) l.push(avisoCompletos);
+  // PLG-E2E-ALC: como en el arranque, el placeholder que falta.
+  let e2eBase = null;
+  try {
+    e2eBase = comandoE2e(proyectoDe(repo, env));
+  } catch {
+    // sin proyecto legible, estado sigue sin el aviso
+  }
+  if (e2eBase && !e2eBase.includes('{specs}')) l.push('Aviso: tests.e2e corre la suite completa en cada verificar: agregá {specs} (la suite completa va una vez, con verificar --completo, antes de PROD).');
   if (tocaUi(estado, repo.raiz, proyectoDe(repo, env), rutasDelRq(repo.raiz, estado))) {
     const v = estado.verificacion_local;
     l.push(verificacionLocalOk(estado) ? `Verificación local: ok${v ? ` (${v.fecha}, ${lista(v.capturas).length} captura(s))` : ' (salteada por el usuario)'}` : 'Verificación local: sin registrar');

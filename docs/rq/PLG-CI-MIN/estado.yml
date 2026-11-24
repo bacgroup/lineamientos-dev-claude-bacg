@@ -16,17 +16,21 @@ aprobaciones:
     via: sesion
 tests:
   ok: true
-  arbol: fabe6cd8f763f2c9b7a0a4d681f4feb4ad7b7188
-  fecha: '2026-11-24T14:35:42.144Z'
+  arbol: c59572692f9f8e6e852b4f05f197eeecce7b294d
+  fecha: '2026-11-24T14:49:53.330Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: false
+  fecha: '2026-11-24T14:42:59.211Z'
+  nota: '[skip ci] en la punta del push saltea el CI de código que viaja; docs que lee la suite marcados; .md fuera de docs/ marcados'
+  head: f018fa437c0cb7a26c1a614705a0d5d05e0cf0a5
 circuito: []
 saltos: []
 base: 7614f02fc43e7825d074e0188d52de5b57be3981
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:36:07.047Z'
+actualizado: '2026-11-24T14:49:53.332Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -99,3 +103,4 @@ clasificacion_confirmada:
   frase: Apruebo el orden y las tres decisiones, avanzá
   fecha: '2026-11-24T14:31:00.444Z'
   via: sesion
+revisiones_bloqueantes: 1

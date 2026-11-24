@@ -6,9 +6,13 @@ mes fueron de commits de sólo docs (≈450 min).
 
 ## Lo que ya hace el plugin
 
-- Los commits de sólo docs de la CLI (`$RQ commit` con sólo `docs/**` o `*.md`, y el de `cerrar`) llevan `[skip ci]`.
-  GitHub no corre `push` ni `pull_request` para ese commit. Con checks obligatorios en la rama, un commit salteado
-  puede dejar un PR esperando: en ese caso declará `ci: { skip_docs: false }` en `proyecto.yml`.
+- Los commits de sólo docs de la CLI (`$RQ commit` y `cerrar`) llevan `[skip ci]` **sólo si todo lo que falta subir
+  también es de docs**. GitHub decide mirando el commit de punta del push o del PR: si lleva la marca, no corre ningún
+  workflow `push` / `pull_request`, aunque debajo viajen commits de código. Por eso, con código sin subir (o sin remoto
+  para saberlo) la CLI no marca. Docs, para esto, son los textos, registros y capturas de `docs/` y los `.md` de la
+  raíz; un SQL o un script en `docs/`, y los `.md` de `.bacg-dev/` o del producto, no.
+- Con checks obligatorios en la rama, un commit salteado puede dejar un PR esperando: en ese caso declará
+  `ci: { skip_docs: false }` en `proyecto.yml`.
 - El arranque avisa los workflows `on: push` / `pull_request` que corren con commits de docs, los que dejan afuera
   `.bacg-dev/` y los tests que leen archivos de `docs/` que el filtro deja afuera.
 - La skill `ciclo-rq` pide un solo push de docs después del merge: el de `cerrar`.

@@ -14,7 +14,7 @@ Dentro: puntos 1 a 6 del handoff. Fuera: cambiar la compuerta de PROD (sigue exi
 ## ARQ: no aplica — cambio interno de la CLI, el alta y la skill.
 ## Criterio de aceptación → flujo E2E que lo prueba
 1. `tests.e2e` sin `{specs}` → paso del alta `tests-e2e-alcance` en aviso (no obligatorio) con el ejemplo; con `{specs}`, ok.
-2. El arranque muestra "tests.e2e corre la suite completa en cada verificar: agregá {specs}" cuando falta.
+2. El arranque y `estado` muestran "tests.e2e corre la suite completa en cada verificar: agregá {specs}" cuando falta.
 3. `verificar` sin `{specs}` dice que corrió la suite completa por falta del placeholder y cuánto tardó (toda corrida dice su duración).
 4. Cada `verificar --completo` suma `e2e_completos`; `estado` avisa si hay más de uno antes de la etapa 5.
 5. `tests.e2e_mapa` (glob de código → specs) suma specs a los del diff; sin specs, el error sugiere elegir los de la

@@ -14,8 +14,9 @@ Dentro: puntos 1, 2 y 4 del handoff de CRM; 1.1 a 1.3 de PunAPP como guía y avi
 ## Toca: UI [ ] · sensible [ ] · migraciones [ ] · varias sedes [ ]
 ## ARQ: no aplica — mensajes de commit de la CLI, un aviso del arranque y documentación.
 ## Criterio de aceptación → flujo E2E que lo prueba
-1. El commit de `cerrar` y el de `$RQ commit` con sólo docs (`docs/**`, `**/*.md`) llevan `[skip ci]`; con
-   `ci.skip_docs: false` en proyecto.yml, no. Un commit con tests o código nunca lo lleva.
+1. El commit de `cerrar` y el de `$RQ commit` con sólo docs llevan `[skip ci]` si todo lo que falta subir también es de
+   docs (revisión integral: GitHub mira el commit de punta); con código sin subir, sin remoto o con `ci.skip_docs: false`,
+   no. Docs = textos, registros y capturas de `docs/` y `.md` de la raíz; un SQL en `docs/` o un `.md` de `.bacg-dev/`, no.
 2. El arranque avisa cada workflow `on: push` / `pull_request` sin filtro que deje afuera `docs/**`: "cada commit de
    docs del ciclo corre <workflow>". También avisa si el filtro deja afuera `.bacg-dev/**` (ahí están `rojos_conocidos`
    y los comandos de tests) y si un test lee archivos de una ruta excluida (`readFileSync`/`?raw`/`import.meta.glob`

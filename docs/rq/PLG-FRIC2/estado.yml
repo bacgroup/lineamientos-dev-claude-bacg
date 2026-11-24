@@ -20,13 +20,17 @@ tests:
   fecha: '2026-11-24T14:30:32.462Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: false
+  fecha: '2026-11-24T14:42:59.287Z'
+  nota: no-aplica de merge-prs-sync falla abierto y sin test del rechazo; commit de sólo tests sin stash; stage no se restaura con tests rojos; push con refspec explícito mal atribuido
+  head: f018fa437c0cb7a26c1a614705a0d5d05e0cf0a5
 circuito: []
 saltos: []
 base: 06fe671b0cc4352c16dec10e2269ff43501d806f
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:30:32.465Z'
+actualizado: '2026-11-24T14:42:59.289Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -87,3 +91,4 @@ clasificacion_confirmada:
   frase: Apruebo el orden y las tres decisiones, avanzá
   fecha: '2026-11-24T14:23:43.786Z'
   via: sesion
+revisiones_bloqueantes: 1

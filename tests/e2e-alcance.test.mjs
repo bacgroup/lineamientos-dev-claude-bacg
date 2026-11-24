@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { main } from '../plugin/scripts/rq.mjs';
-import { cargarEstado } from '../plugin/scripts/lib/estado.mjs';
+import { cargarEstado, guardarEstado } from '../plugin/scripts/lib/estado.mjs';
 import { crearRepoTemporal, sesionDePrueba } from './helpers.mjs';
 
 const SESION = sesionDePrueba();
@@ -109,4 +109,39 @@ test('sin specs del RQ ni mapa: el error sugiere el spec de la pantalla o el map
   assert.equal(r.code, 1);
   assert.match(r.err, /spec de la pantalla que tocaste/);
   assert.match(r.err, /tests\.e2e_mapa/);
+});
+
+// Revisión integral.
+test('estado avisa que tests.e2e corre la suite completa en cada verificar cuando falta {specs}', async () => {
+  const { env } = proyecto({ conSpecs: false });
+  const raiz = await rqAbierto(env);
+  let r = await correr(raiz, ['estado'], env);
+  assert.match(r.out, /tests\.e2e corre la suite completa en cada verificar: agregá \{specs\}/);
+  const con = proyecto();
+  const raiz2 = await rqAbierto(con.env);
+  r = await correr(raiz2, ['estado'], con.env);
+  assert.doesNotMatch(r.out, /suite completa en cada verificar/);
+});
+
+test('el aviso de más de una corrida completa no sale desde la etapa 5', async () => {
+  const { env } = proyecto();
+  const raiz = await rqAbierto(env);
+  const e = cargarEstado(raiz, 'R-1');
+  e.e2e_completos = 3;
+  e.etapa = 5;
+  guardarEstado(raiz, e);
+  const r = await correr(raiz, ['estado'], env);
+  assert.doesNotMatch(r.out, /suite E2E completa 3 veces/);
+});
+
+test('tests.e2e_mapa acepta un spec como texto, no sólo como lista', async () => {
+  const { env, recibidos } = proyecto({ mapa: { 'src/pantallas/**': 'e2e/lista.spec.ts' } });
+  const raiz = await rqAbierto(env, { 'e2e/lista.spec.ts': 'x' });
+  fs.mkdirSync(path.join(raiz, 'src', 'pantallas'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'src', 'pantallas', 'Lista.tsx'), 'x');
+  git(raiz, 'add', 'src/pantallas/Lista.tsx');
+  git(raiz, 'commit', '-q', '-m', 'feat(R-1): lista');
+  const r = await correr(raiz, ['verificar'], env);
+  assert.equal(r.code, 0, r.out + r.err);
+  assert.deepEqual(recibidos(), ['e2e/lista.spec.ts']);
 });

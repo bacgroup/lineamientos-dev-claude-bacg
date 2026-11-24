@@ -20,13 +20,17 @@ tests:
   fecha: '2026-11-24T14:23:34.556Z'
   comandos:
     - npm test
-revision: null
+revision:
+  ok: false
+  fecha: '2026-11-24T14:42:59.373Z'
+  nota: falta el aviso de {specs} en estado; e2e_mapa con string se ignora; etapa 5 sin test
+  head: f018fa437c0cb7a26c1a614705a0d5d05e0cf0a5
 circuito: []
 saltos: []
 base: ea567f24d108bba8557ee953c3f6ba7e76072693
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T14:23:34.558Z'
+actualizado: '2026-11-24T14:42:59.375Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -87,3 +91,4 @@ clasificacion_confirmada:
   frase: Apruebo el orden y las tres decisiones, avanzá
   fecha: '2026-11-24T14:19:29.904Z'
   via: sesion
+revisiones_bloqueantes: 1

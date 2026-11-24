@@ -86,6 +86,10 @@ sensible:                       # rutas cuyo cambio pide claude-security
 # del sistema (cmd.exe en Windows) salvo `shell: bash`. Sin {archivos}, cada commit corre la suite unitaria entera; sin
 # {specs}, cada verificar corre la suite E2E completa (el alta y el arranque lo avisan). La completa va una sola vez, con
 # verificar --completo, antes de PROD.
+# Commits de sólo docs del ciclo con [skip ci] (por defecto). Con checks obligatorios en la rama, apagalo:
+# ci:
+#   skip_docs: false
+
 tests:
   # shell: bash
   unit: "node \"{repo:mi-docker}/qa/odoo-test.mjs\" {archivos}"

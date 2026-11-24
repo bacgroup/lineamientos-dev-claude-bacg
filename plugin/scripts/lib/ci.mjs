@@ -6,14 +6,38 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import yaml from '../vendor/js-yaml.mjs';
+import { globARegExp } from './rutas.mjs';
 
 const lista = (x) => (Array.isArray(x) ? x.filter((s) => typeof s === 'string') : typeof x === 'string' ? [x] : []);
 
 /** ¿Los commits de sólo docs llevan [skip ci]? Por defecto sí; `ci.skip_docs: false` lo apaga (p. ej. checks obligatorios). */
 export const saltarCi = (proyecto) => proyecto?.ci?.skip_docs !== false;
 
-/** ¿Son todas rutas de documentación (docs/** o *.md)? Tests, código y .bacg-dev/ no: los lee el CI. */
-export const soloDocs = (rutas) => rutas.length > 0 && rutas.every((r) => /^docs\//.test(r) || /\.md$/i.test(r));
+// Docs que ningún CI necesita: texto, registros y capturas en docs/, y los .md de la raíz (README, CHANGELOG). Un SQL o
+// un script en docs/ lo puede leer la suite; un .md de .bacg-dev/ o de una skill es parte del producto.
+const RE_DOC = /^docs\/.+\.(md|ya?ml|jsonl|txt|png|jpe?g|gif|svg|webp|html|csv)$/i;
+const RE_MD_RAIZ = /^[^/]+\.md$/i;
+
+/** ¿Son todas rutas de documentación que el CI no lee? Tests, código, .bacg-dev/ y SQL en docs/ no. */
+export const soloDocs = (rutas) => rutas.length > 0 && rutas.every((r) => RE_DOC.test(r) || RE_MD_RAIZ.test(r) || r === 'docs/rq/ACTIVO');
+
+/**
+ * ¿Todo lo que falta subir (de upstream o, sin upstream, de los remotos a HEAD) es de docs? GitHub decide [skip ci]
+ * mirando sólo el commit de punta del push o del PR: si debajo viaja código, la marca le sacaría el CI. Sin poder
+ * saberlo (sin remoto), false.
+ */
+export function pendientesSoloDocs(raiz) {
+  const conUpstream = spawnSync('git', ['rev-parse', '--abbrev-ref', '@{u}'], { cwd: raiz, encoding: 'utf8' }).status === 0;
+  const rango = conUpstream ? ['@{u}..HEAD'] : ['HEAD', '--not', '--remotes'];
+  if (!conUpstream && !spawnSync('git', ['remote'], { cwd: raiz, encoding: 'utf8' }).stdout.trim()) return false;
+  const r = spawnSync('git', ['log', '--name-only', '--format=', ...rango], { cwd: raiz, encoding: 'utf8' });
+  if (r.status !== 0) return false;
+  const rutas = r.stdout.split('\n').filter(Boolean);
+  return rutas.length === 0 || soloDocs(rutas);
+}
+
+/** ¿El commit que se va a hacer con estas rutas lleva [skip ci]? */
+export const conSkipParaCommit = (raiz, proyecto, rutas) => saltarCi(proyecto) && soloDocs(rutas) && pendientesSoloDocs(raiz);
 
 /** Agrega " [skip ci]" a la primera línea del mensaje, una sola vez. */
 export function conSkipCi(mensaje) {
@@ -23,10 +47,24 @@ export function conSkipCi(mensaje) {
 }
 
 const EVENTOS = ['push', 'pull_request', 'pull_request_target'];
-const excluyeDocs = (f) => lista(f['paths-ignore']).some((p) => /^docs\//.test(p))
-  || lista(f.paths).some((p) => /^!docs\//.test(p))
-  || (lista(f.paths).length > 0 && !lista(f.paths).some((p) => p === '**' || p === '**/*' || /^docs\//.test(p)));
-const excluyeConfig = (f) => lista(f['paths-ignore']).some((p) => /^\.bacg-dev\b/.test(p)) || lista(f.paths).some((p) => /^!\.bacg-dev\b/.test(p));
+/**
+ * ¿El filtro del evento deja afuera la ruta? Como GitHub: con `paths-ignore`, si algún patrón coincide; con `paths`, se
+ * recorren los patrones en orden y gana el último que coincide (`!` excluye). Sin filtro, no deja afuera nada.
+ */
+function dejaAfuera(f, ruta) {
+  const ignora = lista(f['paths-ignore']);
+  if (ignora.length) return ignora.some((p) => globARegExp(p).test(ruta));
+  const paths = lista(f.paths);
+  if (!paths.length) return false;
+  let entra = false;
+  for (const p of paths) {
+    const neg = p.startsWith('!');
+    if (globARegExp(neg ? p.slice(1) : p).test(ruta)) entra = !neg;
+  }
+  return !entra;
+}
+const excluyeDocs = (f) => dejaAfuera(f, 'docs/rq/R-1/estado.yml') && dejaAfuera(f, 'docs/backlog.md');
+const excluyeConfig = (f) => dejaAfuera(f, '.bacg-dev/proyecto.yml');
 
 /** Eventos del workflow que corren con un push o un PR, con su configuración ({} si no tiene). */
 function eventosDe(doc) {

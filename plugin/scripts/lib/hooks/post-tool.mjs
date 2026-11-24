@@ -44,21 +44,25 @@ const escaparRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * PLG-FRIC2 (2.2): de los RQ activos, los que nombran su código en algún commit reciente de HEAD (los que viajan en el
  * push). Si ninguno lo hace, todos: el hook no siempre ve el rango pusheado y, ante la duda, se anota como antes.
  */
-export function rqsDelPush(raiz, rqs) {
-  const r = spawnSync('git', ['log', '-300', '--format=%s', 'HEAD'], { cwd: raiz, encoding: 'utf8' });
+export function rqsDelPush(raiz, rqs, salidaPush = '') {
+  // Lo que informa git ("   abc1234..def5678  dev -> main") es el rango exacto que viajó; sin eso, la historia de HEAD.
+  const rangos = [...String(salidaPush).matchAll(/\b([0-9a-f]{7,40})\.\.\.?([0-9a-f]{7,40})\s+\S+\s+->\s+\S+/g)].map((m) => `${m[1]}..${m[2]}`);
+  const r = rangos.length
+    ? spawnSync('git', ['log', '--format=%s', ...rangos], { cwd: raiz, encoding: 'utf8' })
+    : spawnSync('git', ['log', '-300', '--format=%s', 'HEAD'], { cwd: raiz, encoding: 'utf8' });
   const asuntos = r.status === 0 ? r.stdout : '';
   const nombrados = rqs.filter((rq) => rq?.estado?.codigo && new RegExp(`(^|[^A-Za-z0-9-])${escaparRe(rq.estado.codigo)}([^A-Za-z0-9-]|$)`, 'm').test(asuntos));
   return nombrados.length ? nombrados : rqs;
 }
 
 /** Agrega el paso (con la grafía de circuito_prod) a los RQ activos del push, si es parte del circuito y no estaba. */
-function anotar(raiz, proyecto, paso) {
+function anotar(raiz, proyecto, paso, salidaPush = '') {
   const oficial = lista(proyecto?.circuito_prod)
     .map((p) => p?.paso)
     .find((p) => typeof p === 'string' && norm(p) === norm(paso));
   if (!oficial) return;
   const activos = cargarRqsDe(raiz).filter((rq) => rq.estado);
-  for (const rq of norm(oficial).startsWith('push:') ? rqsDelPush(raiz, activos) : activos) {
+  for (const rq of norm(oficial).startsWith('push:') ? rqsDelPush(raiz, activos, salidaPush) : activos) {
     if (!rq.estado) continue;
     const circuito = lista(rq.estado.circuito).filter((c) => !(c?.no_aplica === true && norm(c?.paso) === norm(oficial)));
     if (circuito.some((c) => norm(c?.paso) === norm(oficial))) continue;
@@ -157,7 +161,8 @@ function registrarBash(comando, cwd, resp, dirLin) {
     // Con ramas_prod, un push o merge a una rama que no es de PROD (la de DEV) no es un paso del circuito.
     if (entradaRepo && !publicaEnProd(op, repo.raiz, proyecto, entradaRepo)) continue;
     const prefijo = op.op === 'push' ? 'push' : 'merge-prs-sync';
-    anotar(repo.raiz, proyecto, `${prefijo}:${entradaRepo ? entradaRepo.nombre : nombre}`);
+    const salidaPush = op.op === 'push' && resp && typeof resp === 'object' ? `${resp.stdout ?? ''}\n${resp.stderr ?? ''}` : '';
+    anotar(repo.raiz, proyecto, `${prefijo}:${entradaRepo ? entradaRepo.nombre : nombre}`, salidaPush);
   }
 }
 

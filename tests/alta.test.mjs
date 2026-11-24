@@ -267,3 +267,12 @@ test('PLG-E2E-ALC: el arranque avisa el E2E sin {specs} y calla con él', async 
   r = await arr(m);
   assert.doesNotMatch(r?.hookSpecificOutput?.additionalContext ?? '', /suite completa en cada verificar/);
 });
+
+// PLG-CI-MIN: el arranque suma los avisos de los workflows.
+test('PLG-CI-MIN: el arranque avisa un workflow on: push sin filtro de docs', async () => {
+  const m = montar();
+  fs.mkdirSync(path.join(m.repo, '.github', 'workflows'), { recursive: true });
+  fs.writeFileSync(path.join(m.repo, '.github', 'workflows', 'ci.yml'), 'name: CI\non: push\njobs: {}\n');
+  const r = await sessionStart({ cwd: m.repo }, { dirLin: m.lin, home: m.home, pluginRoot: null, env: { BACG_DEV_SIN_GH: '1' } });
+  assert.match(r.hookSpecificOutput.additionalContext, /cada commit de docs del ciclo corre el workflow CI/);
+});
