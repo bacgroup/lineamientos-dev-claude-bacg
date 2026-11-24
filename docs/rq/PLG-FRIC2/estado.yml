@@ -25,15 +25,15 @@ tests:
     - npm test
 revision:
   ok: true
-  fecha: '2026-11-24T14:56:41.368Z'
-  nota: 'Revisión integral (3 pasadas) + re-revisión acotada (3 pasadas): bloqueantes corregidos en 213ceeb y badcd31 ([skip ci] contra ramas de destino, con tests en rojo antes del arreglo), huecos de tests cubiertos en 499d4c3 con mutantes verificados; trazas alineadas. Suite en verde y E2E completo ok. Diferidos: stage parcial (git add -p) no se restaura; RE_TEST duplicado en ci.mjs/auditoria/rq.mjs; nombre de variable armado con join en marcarNoAplica.'
-  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
+  fecha: '2026-11-24T15:58:10.373Z'
+  nota: 'Re-revisión de 3d4d29b (nombre literal de BACG_DEV_SIN_GH en marcarNoAplica, para la derivación a dev-fullflow): calidad, tests y spec ok; aserción reforzada en a0942af. Suite y E2E en verde.'
+  head: a0942af84194847806d8554ab41499760a63f123
 circuito: []
 saltos: []
 base: 06fe671b0cc4352c16dec10e2269ff43501d806f
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T15:57:56.881Z'
+actualizado: '2026-11-24T15:58:10.376Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -103,6 +103,21 @@ skills:
   - skill: lineamientos-dev-claude-bacg:revisor-rq
     fecha: '2026-11-24T14:50:14.617Z'
     etapa: 2
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-24T15:57:08.868Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    fecha: '2026-11-24T15:57:11.665Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    fecha: '2026-11-24T15:57:14.971Z'
+    etapa: 5
     sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
     via: sesion
 clasificacion_confirmada:

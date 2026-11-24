@@ -27,15 +27,15 @@ tests:
     - npm test
 revision:
   ok: true
-  fecha: '2026-11-24T14:18:37.879Z'
-  nota: 'Segunda vuelta: revisor-rq ok sin bloqueantes; code-reviewer marcó un crítico (Test Files/Suites fallados anulaban la clase timeout) corregido en 1d82f90 con fixtures completas de vitest y jest en rojo antes del arreglo; pr-test-analyzer: huecos cubiertos en 1ac0cb4, verificados con mutantes. Suite 805/805 y E2E completo ok sobre 1ac0cb4.'
-  head: 1ac0cb4078ef8f930f842fae2a89659ce2b85467
+  fecha: '2026-11-24T15:58:03.592Z'
+  nota: 'Re-revisión de 3d4d29b (nombre literal de BACG_DEV_SIN_GH en marcarNoAplica, para la derivación a dev-fullflow): calidad, tests y spec ok; aserción reforzada en a0942af. Suite y E2E en verde.'
+  head: a0942af84194847806d8554ab41499760a63f123
 circuito: []
 saltos: []
 base: a29eb21e0203ec1ef3bff59e319d009fb2940a47
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T15:56:55.496Z'
+actualizado: '2026-11-24T15:58:03.596Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -94,6 +94,21 @@ skills:
     etapa: 2
     fecha: '2026-11-23T01:29:29.618Z'
     sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+  - skill: pr-review-toolkit:code-reviewer
+    fecha: '2026-11-24T15:57:08.868Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: pr-review-toolkit:pr-test-analyzer
+    fecha: '2026-11-24T15:57:11.665Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
+  - skill: lineamientos-dev-claude-bacg:revisor-rq
+    fecha: '2026-11-24T15:57:14.971Z'
+    etapa: 5
+    sesion: 801cd0e5-4eab-5356-8b5c-e8741ce638a1
+    via: sesion
 clasificacion_confirmada:
   frase: Avanza
   fecha: '2026-11-23T01:13:15.280Z'

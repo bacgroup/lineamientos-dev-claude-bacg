@@ -25,15 +25,15 @@ tests:
     - npm test
 revision:
   ok: true
-  fecha: '2026-11-24T14:56:41.504Z'
-  nota: 'Revisión integral (3 pasadas) + re-revisión acotada (3 pasadas): bloqueantes corregidos en 213ceeb y badcd31 ([skip ci] contra ramas de destino, con tests en rojo antes del arreglo), huecos de tests cubiertos en 499d4c3 con mutantes verificados; trazas alineadas. Suite en verde y E2E completo ok. Diferidos: stage parcial (git add -p) no se restaura; RE_TEST duplicado en ci.mjs/auditoria/rq.mjs; nombre de variable armado con join en marcarNoAplica.'
-  head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
+  fecha: '2026-11-24T15:58:03.935Z'
+  nota: 'Re-revisión de 3d4d29b (nombre literal de BACG_DEV_SIN_GH en marcarNoAplica, para la derivación a dev-fullflow): calidad, tests y spec ok; aserción reforzada en a0942af. Suite y E2E en verde.'
+  head: a0942af84194847806d8554ab41499760a63f123
 circuito: []
 saltos: []
 base: 7614f02fc43e7825d074e0188d52de5b57be3981
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T15:57:15.536Z'
+actualizado: '2026-11-24T15:58:03.938Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
