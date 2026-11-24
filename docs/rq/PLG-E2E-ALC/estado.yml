@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: bounded
 clasificacion_pendiente: false
 tarea: 'E2E con alcance: aviso si tests.e2e no usa {specs}, verificar dice si corrió la suite completa y cuánto tardó, --completo una sola vez antes de PROD (e2e_completos) y tests.e2e_mapa opcional'
-etapa: 0
+etapa: 6
 autonomia:
   hasta: 4
   frase: Apruebo el orden y las tres decisiones, avanzá
@@ -33,7 +33,7 @@ saltos: []
 base: ea567f24d108bba8557ee953c3f6ba7e76072693
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T15:58:03.723Z'
+actualizado: '2026-11-24T15:58:48.374Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -131,3 +131,6 @@ e2e:
   comando: npm run test:e2e
   head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
   completo: true
+pendientes:
+  - push:lineamientos-dev-claude-bacg
+  - manual:actualizar-el-plugin-en-las-pc
