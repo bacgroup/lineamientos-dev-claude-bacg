@@ -1727,7 +1727,7 @@ function marcarNoAplica(repo, elegido, paso, motivo, env, io) {
     const proyecto = proyectoDe(repo, env);
     const sede = oficial.trim().slice('merge-prs-sync:'.length);
     const cuenta = proyecto?.cuenta_github;
-    const sinGh = env[['BACG', 'DEV', 'SIN', 'GH'].join('_')] === '1';
+    const sinGh = env.BACG_DEV_SIN_GH === '1';
     const prs = !cuenta ? { error: 'el proyecto no declara cuenta_github' }
       : sinGh ? { error: 'gh desactivado en este entorno' }
         : prsAbiertos(`${cuenta}/${sede}`, { head: proyecto?.sync?.rama || RAMA_SYNC }, { env: { ...process.env, ...env } });
