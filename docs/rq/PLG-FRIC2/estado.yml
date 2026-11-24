@@ -3,7 +3,7 @@ tipo: rq
 clasificacion: bounded
 clasificacion_pendiente: false
 tarea: 'Fricciones de R-QA-CI2: frases en lista numerada, push anotado en otros RQ, stage armado al frenar el commit, commit de sólo tests corre esos tests, no-aplica en merge-prs-sync, abrir con prioridad e impacto'
-etapa: 0
+etapa: 6
 autonomia:
   hasta: 4
   frase: Apruebo el orden y las tres decisiones, avanzá
@@ -33,7 +33,7 @@ saltos: []
 base: 06fe671b0cc4352c16dec10e2269ff43501d806f
 reglas: 44
 version_ciclo: 4
-actualizado: '2026-11-24T15:58:10.376Z'
+actualizado: '2026-11-24T15:58:48.655Z'
 skills:
   - skill: lineamientos-dev-claude-bacg:ciclo-rq
     etapa: 0
@@ -131,3 +131,6 @@ e2e:
   comando: npm run test:e2e
   head: 499d4c3eb1be54c68a66fd4ba058804125a17d81
   completo: true
+pendientes:
+  - push:lineamientos-dev-claude-bacg
+  - manual:actualizar-el-plugin-en-las-pc
